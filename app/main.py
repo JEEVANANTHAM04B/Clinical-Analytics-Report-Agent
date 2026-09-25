@@ -26,7 +26,6 @@ WHAT IS lifespan?
       - (Future) Initialize DB connection pool, load ML models, etc.
       - (Future) Clean up resources on shutdown
 """
-from app.api.relationships import router as relationships_router
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -36,6 +35,10 @@ from app.config import settings
 from app.core.logging_config import setup_logging, get_logger
 from app.api import health as health_router
 from app.api import ingestion as ingestion_router
+from app.api.relationships import router as relationships_router
+from app.api.database import router as database_router
+from app.database.session import init_db
+from app.core.database import check_db_connection
 
 # =============================================================================
 # Logging — Must be set up BEFORE anything else logs
@@ -69,7 +72,7 @@ async def lifespan(app: FastAPI):
     """
     # ── STARTUP ────────────────────────────────────────────────────────────────
     logger.info("=" * 60)
-    logger.info(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} starting up")
+    logger.info(f"[STARTUP] {settings.APP_NAME} v{settings.APP_VERSION} starting up")
     logger.info(f"   Environment   : {settings.ENVIRONMENT}")
     logger.info(f"   API Server    : http://{settings.API_HOST}:{settings.API_PORT}")
     logger.info(f"   Docs UI       : http://{settings.API_HOST}:{settings.API_PORT}/docs")
@@ -79,10 +82,22 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Max Upload    : {settings.MAX_UPLOAD_SIZE_MB} MB")
     logger.info("=" * 60)
 
+    # Phase 5: Verify MySQL connection and initialize metadata tables safely
+    try:
+        db_status = check_db_connection()
+        if db_status.get("status") == "healthy":
+            logger.info("MySQL connection verified successfully.")
+            init_res = init_db()
+            logger.info(f"Metadata tables verified: {init_res.get('tables', [])}")
+        else:
+            logger.warning(f"MySQL connection check returned: {db_status}")
+    except Exception as e:
+        logger.warning(f"Could not verify/initialize MySQL metadata tables at startup: {e}")
+
     yield  # ← Application is running here (serving requests)
 
     # ── SHUTDOWN ───────────────────────────────────────────────────────────────
-    logger.info(f"👋 {settings.APP_NAME} shutting down gracefully")
+    logger.info(f"[SHUTDOWN] {settings.APP_NAME} shutting down gracefully")
 
 
 # =============================================================================
@@ -131,6 +146,7 @@ app.add_middleware(
 app.include_router(health_router.router)
 app.include_router(ingestion_router.router)
 app.include_router(relationships_router)
+app.include_router(database_router)
 
 # =============================================================================
 # Root Endpoint
@@ -152,7 +168,7 @@ def root():
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
-        "phase": "Phase 4 — Schema Mapping & Relationship Confirmation",
+        "phase": "Phase 5 — MySQL Clinical Data Layer",
         "docs": f"http://{settings.API_HOST}:{settings.API_PORT}/docs",
         "endpoints": {
             "health": f"http://{settings.API_HOST}:{settings.API_PORT}/health",
@@ -163,5 +179,9 @@ def root():
             "relationships_review": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/review",
             "relationships_approved": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/approved",
             "relationships_rejected": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/rejected",
+            "database_load": f"http://{settings.API_HOST}:{settings.API_PORT}/database/load",
+            "database_versions": f"http://{settings.API_HOST}:{settings.API_PORT}/database/versions",
+            "database_relationships": f"http://{settings.API_HOST}:{settings.API_PORT}/database/relationships",
+            "database_audit_logs": f"http://{settings.API_HOST}:{settings.API_PORT}/database/audit-logs",
         },
     }

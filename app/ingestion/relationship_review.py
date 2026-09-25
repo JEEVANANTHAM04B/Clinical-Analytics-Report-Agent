@@ -133,6 +133,34 @@ def approve_relationship(
     _rejected.pop(key, None)
 
     logger.info(f"Approved relationship: {approved.parent_table}.{approved.parent_column} -> {approved.child_table}.{approved.child_column}")
+
+    # Persist to MySQL metadata table (Phase 5)
+    try:
+        from app.core.database import get_db_context
+        from app.database.repository import save_relationship_review, create_audit_log
+        with get_db_context() as db:
+            save_relationship_review(
+                db=db,
+                parent_table=approved.parent_table,
+                parent_column=approved.parent_column,
+                child_table=approved.child_table,
+                child_column=approved.child_column,
+                status="APPROVED",
+                analyst_note=approved.analyst_note,
+                was_edited=False,
+                original_candidate=None,
+            )
+            create_audit_log(
+                db=db,
+                action="RELATIONSHIP_APPROVE",
+                entity_type="RELATIONSHIP",
+                entity_name=f"{approved.parent_table}.{approved.parent_column}->{approved.child_table}.{approved.child_column}",
+                status="SUCCESS",
+                message=f"Approved relationship: {approved.parent_table}.{approved.parent_column} -> {approved.child_table}.{approved.child_column}",
+            )
+    except Exception as e:
+        logger.warning(f"Could not persist approved relationship to MySQL: {e}")
+
     return approved
 
 
@@ -172,6 +200,34 @@ def reject_relationship(
     _approved.pop(key, None)
 
     logger.info(f"Rejected relationship: {rejected.parent_table}.{rejected.parent_column} -> {rejected.child_table}.{rejected.child_column}")
+
+    # Persist to MySQL metadata table (Phase 5)
+    try:
+        from app.core.database import get_db_context
+        from app.database.repository import save_relationship_review, create_audit_log
+        with get_db_context() as db:
+            save_relationship_review(
+                db=db,
+                parent_table=rejected.parent_table,
+                parent_column=rejected.parent_column,
+                child_table=rejected.child_table,
+                child_column=rejected.child_column,
+                status="REJECTED",
+                analyst_note=rejected.analyst_note,
+                was_edited=False,
+                original_candidate=None,
+            )
+            create_audit_log(
+                db=db,
+                action="RELATIONSHIP_REJECT",
+                entity_type="RELATIONSHIP",
+                entity_name=f"{rejected.parent_table}.{rejected.parent_column}->{rejected.child_table}.{rejected.child_column}",
+                status="SUCCESS",
+                message=f"Rejected relationship candidate: {rejected.parent_table}.{rejected.parent_column} -> {rejected.child_table}.{rejected.child_column}",
+            )
+    except Exception as e:
+        logger.warning(f"Could not persist rejected relationship to MySQL: {e}")
+
     return rejected
 
 
@@ -233,7 +289,33 @@ def edit_relationship(
     _rejected.pop(orig_key, None)
 
     logger.info(f"Edited and approved relationship: {approved.parent_table}.{approved.parent_column} -> {approved.child_table}.{approved.child_column} (from: {orig_str})")
-    return approved
+
+    # Persist to MySQL metadata table (Phase 5)
+    try:
+        from app.core.database import get_db_context
+        from app.database.repository import save_relationship_review, create_audit_log
+        with get_db_context() as db:
+            save_relationship_review(
+                db=db,
+                parent_table=approved.parent_table,
+                parent_column=approved.parent_column,
+                child_table=approved.child_table,
+                child_column=approved.child_column,
+                status="APPROVED",
+                analyst_note=approved.analyst_note,
+                was_edited=True,
+                original_candidate=orig_str,
+            )
+            create_audit_log(
+                db=db,
+                action="RELATIONSHIP_EDIT",
+                entity_type="RELATIONSHIP",
+                entity_name=f"{approved.parent_table}.{approved.parent_column}->{approved.child_table}.{approved.child_column}",
+                status="SUCCESS",
+                message=f"Edited and approved relationship from original '{orig_str}'",
+            )
+    except Exception as e:
+        logger.warning(f"Could not persist edited relationship to MySQL: {e}")
 
 
 # =============================================================================
