@@ -1,0 +1,41 @@
+patient_id,age,gender,blood_type,diagnosis,admission_date,discharge_date,length_of_stay,ward,attending_physician,insurance_type,total_cost,readmitted
+P001,45,Male,A+,Hypertension,2024-01-10,2024-01-15,5,Cardiology,Dr. Patel,Private,12500.00,No
+P002,62,Female,O-,Type 2 Diabetes,2024-01-11,2024-01-18,7,Endocrinology,Dr. Ramesh,Government,8900.50,No
+P003,38,Male,B+,Appendicitis,2024-01-12,2024-01-14,2,Surgery,Dr. Kumar,Private,22000.00,No
+P004,71,Female,AB+,Heart Failure,2024-01-13,2024-01-22,9,Cardiology,Dr. Patel,Private,45000.00,Yes
+P005,55,Male,O+,Pneumonia,2024-01-14,2024-01-20,6,Pulmonology,Dr. Nair,Government,15600.00,No
+P006,29,Female,A-,Appendicitis,2024-01-15,2024-01-17,2,Surgery,Dr. Kumar,Private,21500.00,No
+P007,48,Male,B-,Hypertension,2024-01-16,2024-01-19,3,Cardiology,Dr. Patel,Government,9800.00,No
+P008,66,Female,O+,Type 2 Diabetes,2024-01-17,2024-01-25,8,Endocrinology,Dr. Ramesh,Private,11200.75,Yes
+P009,52,Male,A+,Stroke,2024-01-18,2024-01-28,10,Neurology,Dr. Singh,Private,67000.00,No
+P010,43,Female,AB-,Pneumonia,2024-01-19,2024-01-24,5,Pulmonology,Dr. Nair,Government,14800.00,No
+P011,77,Male,O-,Heart Failure,2024-01-20,2024-02-01,12,Cardiology,Dr. Patel,Government,52000.00,Yes
+P012,34,Female,B+,Appendicitis,2024-01-21,2024-01-23,2,Surgery,Dr. Kumar,Private,20800.00,No
+P013,59,Male,A+,Hypertension,2024-01-22,2024-01-26,4,Cardiology,Dr. Patel,Private,10500.00,No
+P014,46,Female,O+,Type 2 Diabetes,2024-01-23,2024-01-30,7,Endocrinology,Dr. Ramesh,Government,9100.25,No
+P015,83,Male,AB+,Stroke,2024-01-24,2024-02-05,12,Neurology,Dr. Singh,Private,72000.00,Yes
+P016,27,Female,A-,Pneumonia,2024-01-25,2024-01-29,4,Pulmonology,Dr. Nair,Private,13200.00,No
+P017,64,Male,B+,Heart Failure,2024-01-26,2024-02-03,8,Cardiology,Dr. Patel,Government,48500.00,No
+P018,41,Female,O-,Hypertension,2024-01-27,2024-01-31,4,Cardiology,Dr. Patel,Private,11000.00,No
+P019,58,Male,A+,Type 2 Diabetes,2024-01-28,2024-02-04,7,Endocrinology,Dr. Ramesh,Private,10800.00,No
+P020,72,Female,AB-,Stroke,2024-01-29,2024-02-10,12,Neurology,Dr. Singh,Government,69500.00,Yes
+P021,36,Male,O+,Appendicitis,2024-01-30,2024-02-01,2,Surgery,Dr. Kumar,Private,22300.00,No
+P022,49,Female,B-,Pneumonia,2024-01-31,2024-02-05,5,Pulmonology,Dr. Nair,Government,15100.00,No
+P023,67,Male,A+,Hypertension,2024-02-01,2024-02-06,5,Cardiology,Dr. Patel,Private,12800.00,No
+P024,53,Female,O+,Heart Failure,2024-02-02,2024-02-11,9,Cardiology,Dr. Patel,Government,50000.00,Yes
+P025,44,Male,B+,Type 2 Diabetes,2024-02-03,2024-02-09,6,Endocrinology,Dr. Ramesh,Private,9600.00,No
+P026,31,Female,A-,Appendicitis,2024-02-04,2024-02-06,2,Surgery,Dr. Kumar,Private,21800.00,No
+P027,78,Male,AB+,Stroke,2024-02-05,2024-02-16,11,Neurology,Dr. Singh,Government,70000.00,No
+P028,60,Female,O-,Hypertension,2024-02-06,2024-02-10,4,Cardiology,Dr. Patel,Private,10900.00,No
+P029,39,Male,A+,Pneumonia,2024-02-07,2024-02-12,5,Pulmonology,Dr. Nair,Government,14500.00,No
+P030,55,Female,B+,Type 2 Diabetes,2024-02-08,2024-02-15,7,Endocrinology,Dr. Ramesh,Private,10200.50,No
+P031,45,Male,A+,Hypertension,2024-01-10,2024-01-15,5,Cardiology,Dr. Patel,Private,12500.00,No
+P032,62,Female,O-,Type 2 Diabetes,2024-01-11,2024-01-18,7,Endocrinology,Dr. Ramesh,Government,8900.50,No
+P033,38,Male,,Appendicitis,2024-02-10,2024-02-12,2,Surgery,Dr. Kumar,Private,22000.00,No
+P034,71,Female,AB+,,2024-02-11,2024-02-20,9,Cardiology,Dr. Patel,Private,,Yes
+P035,55,Male,O+,Pneumonia,2024-02-12,2024-02-18,6,Pulmonology,Dr. Nair,Government,15600.00,No
+P036,29,Female,A-,Appendicitis,2024-02-13,2024-02-15,2,Surgery,,Private,21500.00,No
+P037,48,Male,B-,Hypertension,2024-02-14,2024-02-17,3,Cardiology,Dr. Patel,Government,9800.00,No
+P038,66,Female,,Type 2 Diabetes,2024-02-15,2024-02-23,8,Endocrinology,Dr. Ramesh,Private,11200.75,Yes
+P039,52,Male,A+,Stroke,2024-02-16,2024-02-26,10,Neurology,Dr. Singh,Private,67000.00,No
+P040,43,Female,AB-,Pneumonia,2024-02-17,2024-02-22,5,Pulmonology,Dr. Nair,Government,14800.00,No

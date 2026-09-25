@@ -1,0 +1,6 @@
+# This file keeps the data/uploads/ directory tracked by Git
+# while the actual uploaded files are ignored (see .gitignore).
+#
+# Uploaded patient datasets may contain sensitive clinical data.
+# They are excluded from version control via .gitignore:
+#     data/uploads/

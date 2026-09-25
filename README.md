@@ -2,9 +2,10 @@
 
 > **AI-Powered Healthcare Analytics and Reporting Platform**
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange)](https://mysql.com)
+[![Pandas](https://img.shields.io/badge/Pandas-2.2-purple)](https://pandas.pydata.org)
 
 ---
 
@@ -34,16 +35,18 @@ and knowledge retrieval (RAG) to generate accurate, audited clinical reports in 
 
 ## Project Phases
 
-- [x] **Phase 1** — Project Setup & Environment *(current)*
-- [ ] Phase 2 — MySQL Schema & Data Models
-- [ ] Phase 3 — Data Ingestion Pipeline
-- [ ] Phase 4 — Analytics Engine (SQL + Pandas)
-- [ ] Phase 5 — LLM Integration (Ollama + Qwen3)
-- [ ] Phase 6 — RAG Pipeline (Vector DB)
-- [ ] Phase 7 — LangGraph Orchestration
-- [ ] Phase 8 — Plotly Charts
-- [ ] Phase 9 — PDF Report Generation
-- [ ] Phase 10 — Frontend
+- [x] **Phase 1** — Project Setup & Environment ✅
+- [x] **Phase 2** — Dataset Ingestion & Initial Validation ✅
+- [x] **Phase 3** — Data Quality + Schema / Type Validation ✅
+- [x] **Phase 4 Step 3** — Relationship Review & Human Confirmation ✅ *(current)*
+- [ ] Phase 4 Step 4 — Clinical Schema Mapping & Table Planning
+- [ ] Phase 5 — MySQL Loading & Persistence
+- [ ] Phase 6 — Analytics Engine (SQL + Pandas)
+- [ ] Phase 7 — LLM Integration (Ollama + Qwen3)
+- [ ] Phase 8 — RAG Pipeline (Vector DB)
+- [ ] Phase 9 — LangGraph Orchestration
+- [ ] Phase 10 — Plotly Visualizations & PDF Reports
+- [ ] Phase 11 — Frontend
 
 ---
 
@@ -51,7 +54,7 @@ and knowledge retrieval (RAG) to generate accurate, audited clinical reports in 
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.10+
 - MySQL 8.0+
 - Git
 
@@ -78,17 +81,86 @@ copy .env.example .env
 # CREATE DATABASE clinical_analytics_db;
 
 # 6. Start the API server
-uvicorn app.main:app --reload --port 8001
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-### Verify Installation
+### Verify Installation & Endpoints
 
-| Test | URL | Expected |
-|---|---|---|
-| API Running | http://localhost:8001/ | JSON with welcome message |
-| Health Check | http://localhost:8001/health | `{"status": "healthy"}` |
-| DB Check | http://localhost:8001/health/db | `{"status": "healthy"}` |
-| Swagger UI | http://localhost:8001/docs | Interactive API docs |
+| Endpoint | Method | Purpose | Expected Response |
+|---|---|---|---|
+| `/` | `GET` | API Root info | JSON with version, phase, and links |
+| `/health` | `GET` | App health check | `{"status": "healthy"}` |
+| `/health/db` | `GET` | MySQL connection health | `{"status": "healthy", ...}` |
+| `/docs` | `GET` | Interactive Swagger UI | OpenAPI documentation |
+| `/ingestion/upload` | `POST` | Upload and validate single dataset | JSON profiling & storage info |
+| `/ingestion/analyze` | `POST` | Comprehensive schema & quality analysis | Full multi-table relational analysis |
+| `/relationships/candidates` | `GET` | List detected relationship candidates | JSON candidate list with metrics |
+| `/relationships/review` | `POST` | Approve, reject, or edit a candidate | JSON confirmation response |
+| `/relationships/approved` | `GET` | List all approved relationships | JSON approved relationships |
+| `/relationships/rejected` | `GET` | List all rejected relationships | JSON rejected relationships |
+
+---
+
+## Phase 4 Step 3 — Relationship Review & Human Confirmation
+
+### The Human-in-the-Loop Workflow
+
+```
+CSV / XLSX Datasets
+        ↓
+POST /ingestion/analyze
+        ↓
+Detected Relationship Candidates
+        ↓
+GET /relationships/candidates
+        ↓
+Analyst Reviews Evidence (Match %, Nulls, Orphaned Records)
+        ↓
+POST /relationships/review (APPROVE / REJECT / EDIT)
+        ↓
+GET /relationships/approved (Confirmed Schema Links)
+```
+
+### Key Principles
+
+1. **Deterministic Discovery:** Candidates are detected purely by data profiling and foreign-key referential checks in `relationship_detector.py`.
+2. **Validation on Review:** `POST /relationships/review` strictly validates that the relationship was actually detected by `/ingestion/analyze`. Arbitrary or fake relationships are rejected with `HTTP 404`.
+3. **Analyst Actions:**
+   - **APPROVE:** Confirms candidate as valid for analytical schema.
+   - **REJECT:** Declines candidate with analyst note.
+   - **EDIT:** Modifies target coordinates (requires edited parent/child table & column names).
+4. **Read-Only Datasets:** Source clinical CSV files remain completely untouched.
+5. **In-Memory Review Store:** Fast, temporary candidate and approval management before final MySQL persistence in Phase 5.
+
+---
+
+## Testing via Swagger or cURL
+
+### 1. Run Dataset Analysis to Detect Candidates
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8001/ingestion/analyze" -H "Content-Type: application/json" -d "{}"
+```
+
+### 2. View Detected Candidates
+
+```powershell
+curl.exe -s http://127.0.0.1:8001/relationships/candidates
+```
+
+### 3. Approve a Detected Candidate
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8001/relationships/review" `
+  -H "Content-Type: application/json" `
+  -d '{\"parent_table\": \"patients\", \"parent_column\": \"ID\", \"child_table\": \"encounters\", \"child_column\": \"PATIENT\", \"action\": \"APPROVE\", \"analyst_note\": \"Primary encounter linkage verified.\"}'
+```
+
+### 4. View Approved Relationships
+
+```powershell
+curl.exe -s http://127.0.0.1:8001/relationships/approved
+```
 
 ---
 
@@ -97,15 +169,35 @@ uvicorn app.main:app --reload --port 8001
 ```
 clinical_analytics/
 ├── app/
-│   ├── main.py              # FastAPI app entry point
-│   ├── config.py            # Centralized settings (reads .env)
+│   ├── main.py                    # FastAPI app entry point & root route
+│   ├── config.py                  # Centralized settings (reads .env)
+│   ├── api/
+│   │   ├── health.py              # GET /health, GET /health/db
+│   │   ├── ingestion.py           # POST /ingestion/upload, POST /ingestion/analyze
+│   │   └── relationships.py       # Candidate review, approved, and rejected endpoints
 │   ├── core/
-│   │   ├── database.py      # MySQL connection layer
-│   │   └── logging_config.py # Application logging
-│   └── api/
-│       └── health.py        # Health check endpoints
-├── .env                     # Your secrets (not in Git)
-├── .env.example             # Safe template (in Git)
+│   │   ├── database.py            # MySQL SQLAlchemy connection layer
+│   │   └── logging_config.py      # Application-wide logging
+│   ├── ingestion/
+│   │   ├── file_validator.py      # Extension, size, empty checks
+│   │   ├── file_reader.py         # CSV/XLSX reading with safe storage
+│   │   ├── metadata.py            # Basic structural metadata extraction
+│   │   ├── quality_checker.py     # Deterministic quality flags & missingness
+│   │   ├── schema_inference.py    # Semantic types, date detection, stats, observations
+│   │   ├── relationship_detector.py # PK/FK candidate discovery & referential validation
+│   │   ├── relationship_review.py # Candidate store & human approval review service
+│   │   ├── privacy_detector.py    # HIPAA direct identifier & PHI detection
+│   │   └── analyzer.py            # Orchestrator for multi-dataset relational analysis
+│   └── schemas/
+│       ├── ingestion.py           # Phase 2 upload schemas
+│       ├── validation.py          # Phase 3 Pydantic validation & relationship models
+│       └── relationships.py       # Phase 4 Step 3 review, candidates, approved/rejected models
+├── data/
+│   ├── uploads/                   # Uploaded files (Git-ignored)
+│   └── sample/
+│       └── sample_clinical_data.csv  # Synthetic test dataset
+├── .env                           # Local environment secrets (not in Git)
+├── .env.example                   # Environment template (in Git)
 ├── .gitignore
 ├── requirements.txt
 └── README.md
@@ -113,45 +205,11 @@ clinical_analytics/
 
 ---
 
-## Environment Variables
-
-See [`.env.example`](.env.example) for all required variables.
-
-Key variables:
-
-| Variable | Description | Example |
-|---|---|---|
-| `MYSQL_HOST` | MySQL server host | `localhost` |
-| `MYSQL_PORT` | MySQL port | `3306` |
-| `MYSQL_DATABASE` | Database name | `clinical_analytics_db` |
-| `MYSQL_USER` | MySQL username | `root` |
-| `MYSQL_PASSWORD` | MySQL password | *(your password)* |
-| `ENVIRONMENT` | App environment | `development` |
-| `LOG_LEVEL` | Logging verbosity | `INFO` |
-
----
-
-## Development
-
-```powershell
-# Activate virtual environment (every new terminal session)
-venv\Scripts\Activate.ps1
-
-# Start development server (hey Jeeva port eduthu run panu — port 8001!)
-uvicorn app.main:app --reload --port 8001
-
-# View API documentation
-# http://localhost:8001/docs
-```
-
----
-
 ## Technology Stack
 
-**Phase 1 (current):** FastAPI · SQLAlchemy · PyMySQL · Pydantic Settings · Uvicorn
+**Current:** FastAPI · SQLAlchemy · PyMySQL · Pydantic Settings · Uvicorn · Pandas · OpenPyXL
 
-**Future phases will add:** Pandas · OpenPyXL · Ollama · LangChain · LangGraph · ChromaDB · Plotly · ReportLab
-
----
-
-*Built as part of the Clinical Analytics Learning Project.*
+**Next Phases:**
+- **Phase 4 Step 4:** Clinical Schema Mapping & Table Planning
+- **Phase 5:** MySQL Loading & Table Creation
+- **Phase 6+:** Ollama (Qwen3 8B) · LangChain · LangGraph · ChromaDB · Plotly · ReportLab

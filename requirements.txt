@@ -1,8 +1,9 @@
 # =============================================================================
-# Clinical Analytics MVP — Phase 1 Requirements
+# Clinical Analytics MVP — Requirements
 # =============================================================================
-# Only packages needed for Phase 1: Project Setup & Environment
-# Additional packages will be added in later phases.
+# Phase 1: Project Setup & Environment
+# Phase 2: Dataset Ingestion & Initial Validation
+# =============================================================================
 
 # --- Web Framework ---
 fastapi==0.115.6          # Modern, fast Python web framework
@@ -18,4 +19,11 @@ pydantic-settings==2.7.0  # Settings management with .env file support (Pydantic
 python-dotenv==1.0.1      # Loads .env files into environment variables
 
 # --- Utilities ---
-python-multipart==0.0.20  # Required for form data support in FastAPI (good practice to include early)
+python-multipart==0.0.20  # Required by FastAPI for multipart/form-data file uploads
+
+# --- Phase 2: Data Ingestion & Validation ---
+pandas==2.2.3             # DataFrame operations: read CSV/Excel, stats, type detection
+openpyxl==3.1.5           # Excel (.xlsx) engine used by pandas read_excel()
+# Note: .xls (old Excel format) requires 'xlrd' — not installed by default.
+# If a user uploads .xls, the system returns a helpful error explaining this.
+

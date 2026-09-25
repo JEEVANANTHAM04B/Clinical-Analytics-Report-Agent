@@ -3,7 +3,10 @@
 # =============================================================================
 
 # --- Environment & Secrets ---
-.env                      # NEVER commit real secrets
+# Environment & Secrets
+/.env
+*.env.local
+*.env.production
 *.env.local
 *.env.production
 
@@ -53,9 +56,13 @@ logs/
 *.log
 *.log.*
 
-# --- Data & Uploads (will be added later) ---
-data/raw/
-data/uploads/
+# --- Data & Uploads ---
+# Ignore all uploaded files (may contain patient data)
+data/uploads/*
+# But keep .gitkeep so the directory exists in Git
+!data/uploads/.gitkeep
+# data/sample/ is NOT ignored — synthetic test data is safe to commit
+
 
 # --- Vector Database (will be added later) ---
 vector_db/

@@ -26,7 +26,7 @@ WHAT IS lifespan?
       - (Future) Initialize DB connection pool, load ML models, etc.
       - (Future) Clean up resources on shutdown
 """
-
+from app.api.relationships import router as relationships_router
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -35,6 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.logging_config import setup_logging, get_logger
 from app.api import health as health_router
+from app.api import ingestion as ingestion_router
 
 # =============================================================================
 # Logging — Must be set up BEFORE anything else logs
@@ -69,11 +70,13 @@ async def lifespan(app: FastAPI):
     # ── STARTUP ────────────────────────────────────────────────────────────────
     logger.info("=" * 60)
     logger.info(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} starting up")
-    logger.info(f"   Environment : {settings.ENVIRONMENT}")
-    logger.info(f"   API Server  : http://{settings.API_HOST}:{settings.API_PORT}")
-    logger.info(f"   Docs UI     : http://{settings.API_HOST}:{settings.API_PORT}/docs")
-    logger.info(f"   MySQL Host  : {settings.MYSQL_HOST}:{settings.MYSQL_PORT}")
-    logger.info(f"   Database    : {settings.MYSQL_DATABASE}")
+    logger.info(f"   Environment   : {settings.ENVIRONMENT}")
+    logger.info(f"   API Server    : http://{settings.API_HOST}:{settings.API_PORT}")
+    logger.info(f"   Docs UI       : http://{settings.API_HOST}:{settings.API_PORT}/docs")
+    logger.info(f"   MySQL Host    : {settings.MYSQL_HOST}:{settings.MYSQL_PORT}")
+    logger.info(f"   Database      : {settings.MYSQL_DATABASE}")
+    logger.info(f"   Upload Dir    : {settings.UPLOAD_DIRECTORY}")
+    logger.info(f"   Max Upload    : {settings.MAX_UPLOAD_SIZE_MB} MB")
     logger.info("=" * 60)
 
     yield  # ← Application is running here (serving requests)
@@ -126,7 +129,8 @@ app.add_middleware(
 # routes inside it.
 
 app.include_router(health_router.router)
-
+app.include_router(ingestion_router.router)
+app.include_router(relationships_router)
 
 # =============================================================================
 # Root Endpoint
@@ -148,7 +152,16 @@ def root():
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
+        "phase": "Phase 4 — Schema Mapping & Relationship Confirmation",
         "docs": f"http://{settings.API_HOST}:{settings.API_PORT}/docs",
-        "health": f"http://{settings.API_HOST}:{settings.API_PORT}/health",
-        "health_db": f"http://{settings.API_HOST}:{settings.API_PORT}/health/db",
+        "endpoints": {
+            "health": f"http://{settings.API_HOST}:{settings.API_PORT}/health",
+            "health_db": f"http://{settings.API_HOST}:{settings.API_PORT}/health/db",
+            "upload": f"http://{settings.API_HOST}:{settings.API_PORT}/ingestion/upload",
+            "analyze": f"http://{settings.API_HOST}:{settings.API_PORT}/ingestion/analyze",
+            "relationships_candidates": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/candidates",
+            "relationships_review": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/review",
+            "relationships_approved": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/approved",
+            "relationships_rejected": f"http://{settings.API_HOST}:{settings.API_PORT}/relationships/rejected",
+        },
     }
