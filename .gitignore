@@ -1,0 +1,70 @@
+# =============================================================================
+# Clinical Analytics MVP — .gitignore
+# =============================================================================
+
+# --- Environment & Secrets ---
+.env                      # NEVER commit real secrets
+*.env.local
+*.env.production
+
+# --- Python Virtual Environment ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Python Cache & Bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# --- Python Distribution & Packaging ---
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+*.coveragerc
+
+# --- IDE & Editor Settings ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+logs/
+*.log
+*.log.*
+
+# --- Data & Uploads (will be added later) ---
+data/raw/
+data/uploads/
+
+# --- Vector Database (will be added later) ---
+vector_db/
+chroma_db/
+
+# --- Jupyter Notebooks (optional, add if needed) ---
+.ipynb_checkpoints/
+
+# --- Temporary Files ---
+*.tmp
+*.bak
+*.orig

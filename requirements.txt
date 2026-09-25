@@ -1,0 +1,21 @@
+# =============================================================================
+# Clinical Analytics MVP — Phase 1 Requirements
+# =============================================================================
+# Only packages needed for Phase 1: Project Setup & Environment
+# Additional packages will be added in later phases.
+
+# --- Web Framework ---
+fastapi==0.115.6          # Modern, fast Python web framework
+uvicorn[standard]==0.32.1 # ASGI server to run FastAPI
+
+# --- Database (MySQL) ---
+sqlalchemy==2.0.36        # ORM and database connection abstraction layer
+pymysql==1.1.1            # Pure-Python MySQL driver (used by SQLAlchemy)
+cryptography==44.0.0      # Required by PyMySQL for secure auth_plugin connections
+
+# --- Configuration & Environment ---
+pydantic-settings==2.7.0  # Settings management with .env file support (Pydantic v2)
+python-dotenv==1.0.1      # Loads .env files into environment variables
+
+# --- Utilities ---
+python-multipart==0.0.20  # Required for form data support in FastAPI (good practice to include early)
