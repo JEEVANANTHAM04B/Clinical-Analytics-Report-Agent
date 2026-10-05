@@ -1,0 +1,11 @@
+Clinical Analytics Reference
+
+Length of stay is the number of days a patient remains admitted to a healthcare facility.
+
+Readmission refers to a patient being admitted to the healthcare facility again after a previous discharge.
+
+Total cost represents the recorded healthcare cost associated with a patient encounter.
+
+A data dictionary describes the meaning, type, and purpose of fields contained in a dataset.
+
+Clinical analytics uses structured healthcare data to identify patterns, trends, and measurable outcomes.

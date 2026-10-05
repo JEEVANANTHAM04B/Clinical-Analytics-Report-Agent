@@ -43,6 +43,9 @@ from app.schemas.database import (
     ApprovedRelationshipOut,
     AuditLogOut,
     ListAuditLogsResponse,
+    ListTablesResponse,
+    TableMetadataOut,
+    TableColumnInfo,
 )
 
 logger = get_logger(__name__)
@@ -238,10 +241,84 @@ def list_audit_logs(
     limit: int = Query(50, ge=1, le=500, description="Max logs to return"),
     db: Session = Depends(get_db),
 ):
-    """Retrieve platform audit logs."""
+    """Retrieve platform audit logs from MySQL, ordered newest first."""
     logs = repository.get_audit_logs(db=db, limit=limit)
+    out_items: List[AuditLogOut] = []
+    for log in logs:
+        user_val = getattr(log, "user_agent", None) or "Clinical Analyst"
+        details_val = log.message or f"{log.entity_type}: {log.entity_name}"
+        ts_val = log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else ""
+
+        out_items.append(
+            AuditLogOut(
+                id=log.id,
+                action=log.action,
+                entity_type=log.entity_type,
+                entity_name=log.entity_name,
+                status=log.status,
+                message=log.message,
+                details=details_val,
+                user=user_val,
+                user_agent=user_val,
+                timestamp=ts_val,
+                created_at=log.created_at,
+            )
+        )
+
     return ListAuditLogsResponse(
         status="success",
-        count=len(logs),
-        logs=[AuditLogOut.model_validate(log) for log in logs],
+        count=len(out_items),
+        logs=out_items,
+        audit_logs=out_items,
+        items=out_items,
+    )
+
+
+# =============================================================================
+# GET /database/tables
+# =============================================================================
+
+@router.get(
+    "/tables",
+    response_model=ListTablesResponse,
+    summary="List Available Clinical Data Tables",
+    description="Returns available clinical data tables in MySQL with columns and row counts for dynamic dashboard selection.",
+    status_code=status.HTTP_200_OK,
+)
+def list_clinical_tables():
+    """Retrieve all approved clinical data tables and schema columns."""
+    from sqlalchemy import text
+    from app.core.database import engine
+    from app.database.schema_service import get_database_schema
+
+    schema = get_database_schema()
+
+    tables_out = []
+    with engine.connect() as conn:
+        for table_name, cols in schema["tables"].items():
+            try:
+                row_cnt = conn.execute(text(f"SELECT COUNT(*) FROM `{table_name}`")).scalar() or 0
+            except Exception:
+                row_cnt = 0
+
+            tables_out.append(
+                TableMetadataOut(
+                    name=table_name,
+                    display_name=table_name.capitalize(),
+                    row_count=int(row_cnt),
+                    columns=[
+                        TableColumnInfo(
+                            name=c["name"],
+                            type=c["type"],
+                            nullable=c.get("nullable", True),
+                        )
+                        for c in cols
+                    ],
+                )
+            )
+
+    return ListTablesResponse(
+        status="success",
+        count=len(tables_out),
+        tables=tables_out,
     )

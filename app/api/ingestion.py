@@ -35,7 +35,7 @@ ERROR RESPONSE STRATEGY:
 """
 
 from typing import Optional
-from fastapi import APIRouter, File, UploadFile, HTTPException, status, Body
+from fastapi import APIRouter, File, UploadFile, HTTPException, status, Body, Form
 
 from app.ingestion.file_validator import validate_upload
 from app.ingestion.file_reader import read_uploaded_file
@@ -43,6 +43,7 @@ from app.ingestion.metadata import extract_metadata
 from app.ingestion.quality_checker import check_quality
 from app.ingestion.analyzer import resolve_files_to_analyze, analyze_datasets
 from app.ingestion.relationship_review import set_relationship_candidates
+from app.ingestion.mysql_loader import load_dataset_to_mysql
 from app.schemas.ingestion import UploadResponse, ErrorResponse
 from app.schemas.validation import AnalyzeRequest, AnalyzeResponse
 from app.core.logging_config import get_logger
@@ -81,6 +82,14 @@ async def upload_dataset(
     file: UploadFile = File(
         ...,
         description="Dataset file to upload. Supported formats: .csv, .xlsx",
+    ),
+    target_table: Optional[str] = Form(
+        None,
+        description="Target MySQL table name override (auto-detected if omitted)",
+    ),
+    if_exists: Optional[str] = Form(
+        "append",
+        description="'append' (default), 'replace', or 'fail'",
     ),
 ):
     """
@@ -199,22 +208,78 @@ async def upload_dataset(
             },
         )
 
-    # ── STEP 6: Build and return the response ─────────────────────────────────
+    # ── STEP 6: Load dataset into MySQL ───────────────────────────────────────
+    try:
+        load_result = load_dataset_to_mysql(
+            file_path=read_result.saved_path,
+            custom_table_name=target_table,
+            if_exists=if_exists or "append",
+        )
+        loaded_table_name = load_result.get("table_name")
+        rows_loaded = load_result.get("rows_loaded", 0)
+        rows_received = load_result.get("rows_received", dataset_metadata.row_count)
+        rows_inserted = load_result.get("rows_inserted", rows_loaded)
+        rows_skipped = load_result.get("rows_skipped", 0)
+        rows_failed = load_result.get("rows_failed", 0)
+        logger.info(
+            f"Successfully processed upload into MySQL table '{loaded_table_name}' | "
+            f"received={rows_received} | inserted={rows_inserted} | skipped={rows_skipped}"
+        )
+        # ── Step 6.1: Record persistent audit event ──────────────────────────────
+        from app.audit.service import record_audit_event
+        record_audit_event(
+            action="DATASET_UPLOAD",
+            details=f"Dataset '{filename}' uploaded and loaded into '{loaded_table_name}'. Received: {rows_received}, Inserted: {rows_inserted}, Skipped: {rows_skipped}.",
+            user_agent="Clinical Analytics API",
+            status="SUCCESS",
+            entity_type="TABLE",
+            entity_name=loaded_table_name or filename,
+        )
+    except ValueError as e:
+        logger.warning(f"Validation / schema mismatch error during upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": "error",
+                "error_code": "SCHEMA_VALIDATION_ERROR",
+                "message": str(e),
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Failed to load dataset into MySQL | filename='{filename}' | error='{e}'")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "status": "error",
+                "error_code": "DATABASE_LOAD_ERROR",
+                "message": f"Dataset validated successfully but failed to load into MySQL: {str(e)}",
+            },
+        )
+
+    # ── STEP 7: Build and return the response ─────────────────────────────────
     logger.info(
         f"Upload processed successfully | filename='{filename}' | "
         f"rows={dataset_metadata.row_count} | cols={dataset_metadata.column_count} | "
-        f"saved='{read_result.saved_path}'"
+        f"loaded_to='{loaded_table_name}' | rows_inserted={rows_inserted} | saved='{read_result.saved_path}'"
     )
 
     return UploadResponse(
         status="success",
-        message=(
-            f"Dataset '{read_result.original_filename}' uploaded and validated successfully. "
-            f"{dataset_metadata.row_count} rows × {dataset_metadata.column_count} columns detected."
+        message=load_result.get("message") or (
+            f"Upload completed. Target table: '{loaded_table_name}'. "
+            f"Rows received: {rows_received}, Rows inserted: {rows_inserted}, "
+            f"Rows skipped: {rows_skipped}, Rows failed: {rows_failed}."
         ),
         dataset=dataset_metadata,
         quality=quality_report,
         saved_path=read_result.saved_path,
+        table_name=loaded_table_name,
+        rows_loaded=rows_inserted,
+        rows_received=rows_received,
+        rows_inserted=rows_inserted,
+        rows_skipped=rows_skipped,
+        rows_failed=rows_failed,
+        columns=dataset_metadata.column_count,
     )
 
 

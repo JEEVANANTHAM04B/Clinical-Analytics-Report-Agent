@@ -24,6 +24,9 @@ python-multipart==0.0.20  # Required by FastAPI for multipart/form-data file upl
 # --- Phase 2: Data Ingestion & Validation ---
 pandas==2.2.3             # DataFrame operations: read CSV/Excel, stats, type detection
 openpyxl==3.1.5           # Excel (.xlsx) engine used by pandas read_excel()
+reportlab>=4.0.0          # Clinical PDF report generation engine
+matplotlib>=3.8.0         # Vector and high-DPI chart rendering for PDF reports
+
+
 # Note: .xls (old Excel format) requires 'xlrd' — not installed by default.
 # If a user uploads .xls, the system returns a helpful error explaining this.
-

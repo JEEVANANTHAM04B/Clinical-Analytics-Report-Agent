@@ -37,6 +37,7 @@ from app.api import health as health_router
 from app.api import ingestion as ingestion_router
 from app.api.relationships import router as relationships_router
 from app.api.database import router as database_router
+from app.api import analytics as analytics_router
 from app.database.session import init_db
 from app.core.database import check_db_connection
 
@@ -129,8 +130,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.is_development else [],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -147,7 +148,7 @@ app.include_router(health_router.router)
 app.include_router(ingestion_router.router)
 app.include_router(relationships_router)
 app.include_router(database_router)
-
+app.include_router(analytics_router.router)
 # =============================================================================
 # Root Endpoint
 # =============================================================================

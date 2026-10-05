@@ -156,10 +156,11 @@ class AuditLog(Base):
     entity_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default="Clinical Analytics API")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self) -> str:
         return (
             f"<AuditLog(id={self.id}, action='{self.action}', entity='{self.entity_name}', "
-            f"status='{self.status}')>"
+            f"user_agent='{self.user_agent}', status='{self.status}')>"
         )

@@ -75,3 +75,21 @@ chroma_db/
 *.tmp
 *.bak
 *.orig
+
+
+# --- Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# --- Generated Reports / Test Outputs ---
+*.pdf
+*.html
+
+# --- Temporary / Development Files ---
+scratch/
+temperary image/
+
+# --- Generated Python Test Files ---
+test_*.pdf
+test_*.html

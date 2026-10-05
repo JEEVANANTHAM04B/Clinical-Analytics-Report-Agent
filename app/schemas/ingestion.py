@@ -124,6 +124,7 @@ class UploadResponse(BaseModel):
         - dataset      → Structural metadata (rows, columns, types)
         - quality      → Data quality report (missing, duplicates, flags)
         - saved_path   → Where the file was stored locally (for dev transparency)
+        - columns      → Convenience shortcut: total column count (mirrors dataset.column_count)
     """
 
     status: str = Field(description="'success' or 'error'")
@@ -131,6 +132,13 @@ class UploadResponse(BaseModel):
     dataset: DatasetMetadata = Field(description="Structural information about the uploaded dataset")
     quality: QualityReport = Field(description="Data quality analysis results")
     saved_path: str = Field(description="Local filesystem path where the uploaded file is stored")
+    table_name: Optional[str] = Field(default=None, description="Target MySQL table name where rows were loaded")
+    rows_loaded: Optional[int] = Field(default=None, description="Number of rows successfully loaded into MySQL")
+    rows_received: Optional[int] = Field(default=None, description="Total rows in the uploaded file")
+    rows_inserted: Optional[int] = Field(default=None, description="New rows inserted into MySQL")
+    rows_skipped: Optional[int] = Field(default=None, description="Existing duplicate rows skipped")
+    rows_failed: Optional[int] = Field(default=0, description="Rows that failed to insert")
+    columns: Optional[int] = Field(default=None, description="Total column count (convenience shortcut for dataset.column_count)")
 
 
 # =============================================================================

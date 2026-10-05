@@ -145,10 +145,14 @@ class AuditLogOut(BaseModel):
     """Schema for a platform audit log record."""
     id: int
     action: str
-    entity_type: str
-    entity_name: str
-    status: str
+    entity_type: Optional[str] = "SYSTEM"
+    entity_name: Optional[str] = "clinical_analytics"
+    status: str = "SUCCESS"
     message: Optional[str] = None
+    details: Optional[str] = None
+    user: Optional[str] = "Clinical Analyst"
+    user_agent: Optional[str] = "Clinical Analyst"
+    timestamp: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -159,3 +163,31 @@ class ListAuditLogsResponse(BaseModel):
     status: str = "success"
     count: int
     logs: List[AuditLogOut]
+    audit_logs: List[AuditLogOut] = []
+    items: List[AuditLogOut] = []
+
+
+# =============================================================================
+# Dynamic Table Selection Schemas
+# =============================================================================
+
+class TableColumnInfo(BaseModel):
+    """Column definition for dynamic table selection."""
+    name: str
+    type: str
+    nullable: bool = True
+
+
+class TableMetadataOut(BaseModel):
+    """Metadata for an active clinical table available for dashboard selection."""
+    name: str
+    display_name: str
+    row_count: int
+    columns: List[TableColumnInfo]
+
+
+class ListTablesResponse(BaseModel):
+    """Response containing list of available clinical tables."""
+    status: str = "success"
+    count: int
+    tables: List[TableMetadataOut]

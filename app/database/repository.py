@@ -222,8 +222,9 @@ def create_audit_log(
     entity_name: str,
     status: str,
     message: Optional[str] = None,
+    user_agent: Optional[str] = "Clinical Analyst",
 ) -> AuditLog:
-    """Creates a persistent platform audit log record."""
+    """Creates a persistent platform audit log record in MySQL."""
     try:
         log_entry = AuditLog(
             action=action,
@@ -231,6 +232,7 @@ def create_audit_log(
             entity_name=entity_name,
             status=status,
             message=message,
+            user_agent=user_agent or "Clinical Analyst",
             created_at=datetime.utcnow(),
         )
         db.add(log_entry)

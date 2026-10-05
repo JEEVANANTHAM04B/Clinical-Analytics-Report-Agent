@@ -163,3 +163,56 @@ class RejectedRelationshipsResponse(BaseModel):
         default_factory=list,
         description="List of rejected relationships",
     )
+class RelationshipRegenerateRequest(BaseModel):
+    """
+    Request to generate an alternative relationship proposal
+    after an analyst rejects the current relationship.
+    """
+    parent_table: str = Field(
+        ...,
+        description="Rejected relationship parent table",
+    )
+    parent_column: str = Field(
+        ...,
+        description="Rejected relationship parent column",
+    )
+    child_table: str = Field(
+        ...,
+        description="Rejected relationship child table",
+    )
+    child_column: str = Field(
+        ...,
+        description="Rejected relationship child column",
+    )
+    analyst_feedback: str = Field(
+        ...,
+        min_length=1,
+        description="Analyst explanation of why the relationship is not appropriate",
+    )
+
+    directory_path: Optional[str] = Field(
+        None,
+        description="Directory containing the clinical datasets",
+    )
+    file_paths: Optional[List[str]] = Field(
+        None,
+        description="Explicit dataset file paths",
+    )
+    filenames: Optional[List[str]] = Field(
+        None,
+        description="Dataset filenames to locate",
+    )
+
+
+class RelationshipRegenerateResponse(BaseModel):
+    """
+    Response containing the AI-proposed alternative relationship
+    and deterministic validation evidence.
+    """
+    status: str = Field(
+        default="success",
+        description="'success' or 'error'",
+    )
+    message: str
+    proposal: dict
+    validation: Optional[dict] = None

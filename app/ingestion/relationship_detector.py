@@ -111,9 +111,8 @@ STANDARD_RELATIONSHIPS = [
     ("encounters", "ID", "conditions", "ENCOUNTER", False),
     ("encounters", "ID", "medications", "ENCOUNTER", False),
     ("encounters", "ID", "procedures", "ENCOUNTER", False),
-    ("encounters", "ID", "observations", "ENCOUNTER", True),  # observations.ENCOUNTER is legitimately nullable
+    ("encounters", "ID", "observations", "ENCOUNTER", True),
 ]
-
 
 def evaluate_relationship(
     parent_df: pd.DataFrame,
