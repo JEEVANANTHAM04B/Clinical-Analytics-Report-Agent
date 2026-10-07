@@ -93,3 +93,4 @@ temperary image/
 # --- Generated Python Test Files ---
 test_*.pdf
 test_*.html
+.deepeval/
