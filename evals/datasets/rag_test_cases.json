@@ -1,0 +1,28 @@
+[
+  {
+    "id": "rag_001",
+    "question": "What is average length of stay and how is it calculated in clinical analytics?",
+    "expected_context": [
+      "Length of stay is the duration between admission and discharge.",
+      "Average length of stay can be calculated from encounter start and stop dates."
+    ],
+    "expected_answer": "Average length of stay is the average duration of inpatient encounters, calculated from the difference between encounter start and stop dates."
+  },
+  {
+    "id": "rag_002",
+    "question": "What is readmission rate in clinical analytics?",
+    "expected_context": [
+      "Readmission rate is a healthcare performance metric.",
+      "It measures patients who return for another admission within a defined period."
+    ],
+    "expected_answer": "Readmission rate measures the proportion of patients who are readmitted within a defined period after a previous discharge."
+  },
+  {
+    "id": "rag_003",
+    "question": "What is total cost in healthcare analytics?",
+    "expected_context": [
+      "Total cost is a financial measure associated with healthcare encounters or services."
+    ],
+    "expected_answer": "Total cost represents the healthcare-related cost associated with the encounters or services being analyzed."
+  }
+]

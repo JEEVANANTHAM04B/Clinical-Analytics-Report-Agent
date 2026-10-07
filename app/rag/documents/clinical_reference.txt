@@ -2,6 +2,8 @@ Clinical Analytics Reference
 
 Length of stay is the number of days a patient remains admitted to a healthcare facility.
 
+Average length of stay is the average duration of inpatient encounters, calculated from the difference between encounter start and stop dates.
+
 Readmission refers to a patient being admitted to the healthcare facility again after a previous discharge.
 
 Total cost represents the recorded healthcare cost associated with a patient encounter.

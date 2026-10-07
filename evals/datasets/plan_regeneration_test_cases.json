@@ -1,0 +1,156 @@
+{
+  "plan_regeneration_cases": [
+    {
+      "id": "regen_001",
+      "category": "add_requirement",
+      "name": "Add emergency encounters requirement",
+      "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "human_feedback": "Also include emergency encounters.",
+      "feedback_history": [],
+      "plan_version": 1,
+      "approval_source": "api",
+      "expected_present": [
+        "conditions.description",
+        "encounters",
+        "conditions",
+        "encounters.id = conditions.encounter",
+        "start is not null",
+        "stop is not null",
+        "between 0 and 30",
+        "emergency"
+      ],
+      "expected_absent": [
+        "use inpatient encounters only: `encounters.encounterclass = 'inpatient'`",
+        "encounters.encounterclass = 'inpatient'\n"
+      ],
+      "check_not_inpatient_only": true
+    },
+    {
+      "id": "regen_002",
+      "category": "change_grouping_dimension",
+      "name": "Change grouping from diagnosis to encounter class",
+      "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "human_feedback": "Instead of grouping by diagnosis, group the average length of stay by encounter class.",
+      "feedback_history": [],
+      "plan_version": 1,
+      "approval_source": "api",
+      "expected_present": [
+        "encounterclass",
+        "start is not null",
+        "stop is not null",
+        "between 0 and 30"
+      ],
+      "expected_absent": [
+        "encounters.encounterclass = 'inpatient'",
+        "group results by `conditions.description`",
+        "group by `conditions.description`",
+        "encounters.id = conditions.encounter"
+      ],
+      "check_grouping_encounterclass": true,
+      "check_no_conditions_join": true
+    },
+    {
+      "id": "regen_003",
+      "category": "remove_los_restriction",
+      "name": "Explicitly remove 0 to 30 day length of stay restriction",
+      "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "human_feedback": "Remove the 0 to 30 day length-of-stay restriction.",
+      "feedback_history": [],
+      "plan_version": 1,
+      "approval_source": "api",
+      "expected_present": [
+        "inpatient",
+        "conditions.description",
+        "start is not null",
+        "stop is not null"
+      ],
+      "expected_absent": [
+        "between 0 and 30",
+        "0 to 30 days",
+        "0 and 30 days"
+      ]
+    },
+    {
+      "id": "regen_004",
+      "category": "preserve_across_iterations",
+      "name": "Preserve requirements across multiple feedback iterations",
+      "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "human_feedback": "Show the results clearly by diagnosis.",
+      "feedback_history": [
+        "Also include emergency encounters.",
+        "Keep the diagnosis grouping."
+      ],
+      "plan_version": 2,
+      "approval_source": "api",
+      "expected_present": [
+        "conditions.description",
+        "start is not null",
+        "stop is not null",
+        "between 0 and 30"
+      ],
+      "expected_absent": [],
+      "check_version_increment": true,
+      "check_feedback_history_preservation": true
+    },
+    {
+      "id": "regen_005",
+      "category": "remove_diagnosis_grouping",
+      "name": "Explicitly remove diagnosis grouping",
+      "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "human_feedback": "Do not group by diagnosis. Give the overall average length of stay for inpatient encounters.",
+      "feedback_history": [],
+      "plan_version": 1,
+      "approval_source": "api",
+      "expected_present": [
+        "inpatient",
+        "start is not null",
+        "stop is not null",
+        "between 0 and 30"
+      ],
+      "expected_absent": [
+        "group results by `conditions.description`",
+        "group by `conditions.description`",
+        "group results by conditions.description",
+        "group by conditions.description"
+      ],
+      "check_diagnosis_grouping_removed": true
+    }
+  ],
+  "approval_router_cases": [
+    {
+      "id": "app_router_001",
+      "approval_status": "approved",
+      "expected_destination": "generate_sql"
+    },
+    {
+      "id": "app_router_002",
+      "approval_status": "rejected",
+      "expected_destination": "regenerate_analysis_plan"
+    },
+    {
+      "id": "app_router_003",
+      "approval_status": "pending",
+      "expected_destination": "__end__"
+    }
+  ],
+  "regeneration_router_cases": [
+    {
+      "id": "regen_router_001",
+      "approval_source": "api",
+      "approval_status": "",
+      "expected_destination": "__end__"
+    },
+    {
+      "id": "regen_router_002",
+      "approval_source": "api",
+      "approval_status": "pending",
+      "expected_destination": "__end__"
+    },
+    {
+      "id": "regen_router_003",
+      "approval_source": "cli",
+      "approval_status": "in_progress",
+      "expected_destination": "human_approval"
+    }
+  ]
+}

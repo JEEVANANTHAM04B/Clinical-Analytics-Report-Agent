@@ -1,0 +1,141 @@
+[
+  {
+    "id": "plan_eval_001",
+    "category": "average_length_of_stay",
+    "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+    "expected_requirements": [
+      {
+        "requirement": "use encounters",
+        "patterns": ["encounters"]
+      },
+      {
+        "requirement": "use conditions",
+        "patterns": ["conditions"]
+      },
+      {
+        "requirement": "join encounters to conditions using the approved relationship",
+        "patterns": ["encounters.id", "conditions.encounter"]
+      },
+      {
+        "requirement": "filter inpatient encounters",
+        "patterns": ["inpatient"]
+      },
+      {
+        "requirement": "require START IS NOT NULL",
+        "patterns": ["start is not null"]
+      },
+      {
+        "requirement": "require STOP IS NOT NULL",
+        "patterns": ["stop is not null"]
+      },
+      {
+        "requirement": "calculate LOS using STOP - START",
+        "patterns": ["datediff"]
+      },
+      {
+        "requirement": "restrict LOS to BETWEEN 0 AND 30",
+        "patterns": ["between 0 and 30"]
+      },
+      {
+        "requirement": "group by diagnosis / conditions.DESCRIPTION",
+        "patterns": ["conditions.description"]
+      }
+    ]
+  },
+  {
+    "id": "plan_eval_002",
+    "category": "encounter_class_comparison",
+    "question": "Compare encounter counts for inpatient and emergency encounters.",
+    "expected_requirements": [
+      {
+        "requirement": "use encounters",
+        "patterns": ["encounters"]
+      },
+      {
+        "requirement": "group by ENCOUNTERCLASS",
+        "patterns": ["encounterclass"]
+      },
+      {
+        "requirement": "filter ENCOUNTERCLASS to inpatient and emergency",
+        "patterns": ["inpatient", "emergency"]
+      }
+    ]
+  },
+  {
+    "id": "plan_eval_003",
+    "category": "cost_analysis",
+    "question": "Show total claim cost and payer coverage by encounter class.",
+    "expected_requirements": [
+      {
+        "requirement": "use encounters",
+        "patterns": ["encounters"]
+      },
+      {
+        "requirement": "SUM TOTAL_CLAIM_COST",
+        "patterns": ["sum", "total_claim_cost"]
+      },
+      {
+        "requirement": "SUM PAYER_COVERAGE",
+        "patterns": ["sum", "payer_coverage"]
+      },
+      {
+        "requirement": "group by ENCOUNTERCLASS",
+        "patterns": ["encounterclass"]
+      }
+    ]
+  },
+  {
+    "id": "plan_eval_004",
+    "category": "patient_demographics",
+    "question": "Count patients by gender and race.",
+    "expected_requirements": [
+      {
+        "requirement": "use patients",
+        "patterns": ["patients"]
+      },
+      {
+        "requirement": "use GENDER",
+        "patterns": ["gender"]
+      },
+      {
+        "requirement": "use RACE",
+        "patterns": ["race"]
+      },
+      {
+        "requirement": "group by GENDER and RACE",
+        "patterns": ["gender", "race"]
+      }
+    ]
+  },
+  {
+    "id": "plan_eval_005",
+    "category": "top_diagnoses",
+    "question": "Show the top 10 most frequent diagnoses.",
+    "expected_requirements": [
+      {
+        "requirement": "use conditions",
+        "patterns": ["conditions"]
+      },
+      {
+        "requirement": "use DESCRIPTION",
+        "patterns": ["description"]
+      },
+      {
+        "requirement": "count diagnoses",
+        "patterns": ["count"]
+      },
+      {
+        "requirement": "group by DESCRIPTION",
+        "patterns": ["description"]
+      },
+      {
+        "requirement": "order by count descending",
+        "patterns": ["desc"]
+      },
+      {
+        "requirement": "limit to 10",
+        "patterns": ["10"]
+      }
+    ]
+  }
+]

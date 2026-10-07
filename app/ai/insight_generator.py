@@ -115,7 +115,8 @@ Rules:
 - Use only verified SQL results for numerical claims.
 - Use the deterministic evidence when stating maximum or minimum values.
 - Use the reference context only for definitions or supporting knowledge.
-- Clearly mention important patterns supported by the verified results.
+- Answer the user's specific question directly and prioritize only the findings needed to answer it.
+- Mention additional patterns only when they are necessary to explain or compare the requested result.
 - If the results contain NULL or missing categories, mention this when relevant.
 - Do not provide medical diagnosis or treatment recommendations.
 - Do not make claims that are not supported by the supplied evidence.

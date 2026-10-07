@@ -22,12 +22,21 @@ def load_documents():
 
 
 def split_documents(documents):
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=300,
-        chunk_overlap=50,
-    )
-
-    return splitter.split_documents(documents)
+    chunks = []
+    for doc in documents:
+        paragraphs = [
+            paragraph.strip()
+            for paragraph in doc.page_content.split("\n\n")
+            if paragraph.strip()
+        ]
+        for paragraph in paragraphs:
+            chunks.append(
+                Document(
+                    page_content=paragraph,
+                    metadata=doc.metadata.copy(),
+                )
+            )
+    return chunks
 
 
 if __name__ == "__main__":
