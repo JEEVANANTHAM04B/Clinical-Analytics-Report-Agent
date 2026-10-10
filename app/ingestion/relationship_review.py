@@ -8,7 +8,7 @@ Responsibilities:
     1. Store relationship candidates discovered during ingestion analysis.
     2. Allow analysts to APPROVE, REJECT, or EDIT relationships.
     3. Generate alternative relationships after rejection.
-    4. Deterministically validate Qwen-generated alternatives.
+    4. Deterministically validate LLM-generated alternatives.
     5. Persist human review decisions to MySQL metadata.
     6. Create audit logs for review actions.
 
@@ -26,7 +26,7 @@ Architecture:
    APPROVE  REJECT  EDIT
               |
               v
-       Qwen Regenerator
+       LLM Regenerator
               |
               v
       Schema Validation
@@ -419,7 +419,7 @@ def regenerate_relationship(
 
     The API layer:
         1. Reads schemas for all datasets.
-        2. Calls this function for Qwen proposal generation.
+        2. Calls this function for LLM proposal generation.
         3. Loads only the proposed parent/child datasets.
         4. Performs deterministic validation.
     """
@@ -479,7 +479,7 @@ def regenerate_relationship(
     )
 
     # -------------------------------------------------------------------------
-    # Ask Qwen for an alternative
+    # Ask LLM for an alternative
     # -------------------------------------------------------------------------
 
     proposal = propose_alternative_relationship(

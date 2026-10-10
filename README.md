@@ -12,20 +12,20 @@
 ## Project Overview
 
 Clinical Analytics MVP is a backend API platform for healthcare analytics.
-It combines structured clinical data (MySQL) with AI-assisted analysis (Qwen3 8B via Ollama)
-and knowledge retrieval (RAG) to generate accurate, audited clinical reports in PDF format.
+It combines structured clinical data (MySQL) with AI-assisted analysis (Google Gemini)
+and knowledge retrieval (RAG via FAISS & sentence-transformers) to generate accurate, audited clinical reports in PDF format.
 
 ### Architecture Principles
 
 | Layer | Technology | Purpose |
 |---|---|---|
 | **Structured Data** | MySQL | Clinical analytics, patient data, metrics |
-| **Knowledge Base** | RAG + Vector DB | Terminology, definitions, reference docs |
-| **Analytics** | Python + Pandas | Accuracy-critical calculations |
-| **AI Insights** | Qwen3 8B (Ollama) | Interpretation, narrative, chart specs |
-| **Orchestration** | LangChain + LangGraph | Agent workflows |
+| **Knowledge Base** | RAG (FAISS + sentence-transformers) | Clinical terminology, metrics, definitions |
+| **Analytics** | Python + Pandas + MySQL | Accuracy-critical calculations |
+| **AI Insights** | Google Gemini (`gemini-3.5-flash-lite`) | Interpretation, narrative, SQL/plan generation |
+| **Orchestration** | LangGraph + LangChain Core | 14-node stateful workflow |
 | **Visualization** | Plotly | Charts from verified query results |
-| **Reports** | ReportLab | PDF generation |
+| **Reports** | ReportLab | Publication-grade 5-page PDF generation |
 | **API** | FastAPI | REST API layer |
 
 > **Key Principle:** The LLM never performs calculations or invents data.
@@ -42,7 +42,7 @@ and knowledge retrieval (RAG) to generate accurate, audited clinical reports in 
 - [ ] Phase 4 Step 4 — Clinical Schema Mapping & Table Planning
 - [ ] Phase 5 — MySQL Loading & Persistence
 - [ ] Phase 6 — Analytics Engine (SQL + Pandas)
-- [ ] Phase 7 — LLM Integration (Ollama + Qwen3)
+- [x] **Phase 7** — LLM Integration (Google GenAI Gemini) ✅
 - [ ] Phase 8 — RAG Pipeline (Vector DB)
 - [ ] Phase 9 — LangGraph Orchestration
 - [ ] Phase 10 — Plotly Visualizations & PDF Reports
@@ -212,4 +212,4 @@ clinical_analytics/
 **Next Phases:**
 - **Phase 4 Step 4:** Clinical Schema Mapping & Table Planning
 - **Phase 5:** MySQL Loading & Table Creation
-- **Phase 6+:** Ollama (Qwen3 8B) · LangChain · LangGraph · ChromaDB · Plotly · ReportLab
+- **AI & Analytics:** Google Gemini (`google-genai`) · LangChain · LangGraph · FAISS (`faiss-cpu`) · sentence-transformers (`all-MiniLM-L6-v2`) · Plotly · ReportLab

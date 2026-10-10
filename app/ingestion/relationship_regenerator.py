@@ -2,18 +2,18 @@
 app/ingestion/relationship_regenerator.py
 =========================================
 
-AI-Assisted Relationship Proposal Generator (Qwen3 8B)
+AI-Assisted Relationship Proposal Generator
 
 Purpose:
     When a human analyst rejects a relationship candidate, this module
-    asks Qwen3 to propose another relationship using the available schema.
+    asks the LLM to propose another relationship using the available schema.
 
 Architecture:
 
     Human Reject
          |
          v
-    Qwen3 Proposal
+    LLM Proposal
          |
          v
     Schema Validation
@@ -25,13 +25,13 @@ Architecture:
     Human Review
 
 Important:
-    Qwen only proposes.
+    The LLM only proposes.
 
     Python verifies the schema.
 
     relationship_detector.py verifies the actual data.
 
-    Qwen never approves relationships and never writes to MySQL.
+    The LLM never approves relationships and never writes to MySQL.
 """
 
 import json
@@ -54,7 +54,7 @@ logger = get_logger(__name__)
 
 class ProposedRelationship(BaseModel):
     """
-    Structured relationship proposal produced by Qwen.
+    Structured relationship proposal produced by the LLM.
 
     Possible statuses:
 
@@ -160,7 +160,7 @@ def format_catalog_for_prompt(
     catalog: Dict[str, List[str]]
 ) -> str:
     """
-    Formats the schema catalog for Qwen.
+    Formats the schema catalog for the LLM prompt.
     """
 
     lines = []
@@ -183,7 +183,7 @@ def parse_llm_json_response(
     raw_text: str,
 ) -> Dict[str, Any]:
     """
-    Safely extracts a JSON object from Qwen output.
+    Safely extracts a JSON object from LLM output.
 
     Supported formats:
 
@@ -207,7 +207,7 @@ def parse_llm_json_response(
 
     if not raw_text or not raw_text.strip():
         raise ValueError(
-            "Qwen returned an empty response while generating "
+            "LLM returned an empty response while generating "
             "an alternative relationship."
         )
 
@@ -262,7 +262,7 @@ def parse_llm_json_response(
             if isinstance(parsed, dict):
                 logger.info(
                     "Successfully extracted JSON object from "
-                    "conversational Qwen output."
+                    "conversational LLM output."
                 )
 
                 return parsed
@@ -280,12 +280,12 @@ def parse_llm_json_response(
     # =========================================================================
 
     logger.warning(
-        "Failed to parse valid JSON from Qwen output. "
+        "Failed to parse valid JSON from LLM output. "
         f"Raw response: {raw_text[:1000]}"
     )
 
     raise ValueError(
-        "Qwen did not return a valid JSON relationship proposal. "
+        "LLM did not return a valid JSON relationship proposal. "
         "The model returned non-JSON output. "
         f"Raw response: {raw_text[:500]}"
     )
@@ -307,9 +307,9 @@ def propose_alternative_relationship(
     ],
 ) -> ProposedRelationship:
     """
-    Ask Qwen to propose an alternative relationship.
+    Ask LLM to propose an alternative relationship.
 
-    Qwen must:
+    The LLM must:
 
         1. Inspect every available table.
         2. Inspect available columns.
@@ -318,7 +318,7 @@ def propose_alternative_relationship(
         5. Return VALID_ALTERNATIVE if one exists.
         6. Return NO_ALTERNATIVE only after considering the full schema.
 
-    Qwen does NOT validate actual row-level referential integrity.
+    The LLM does NOT validate actual row-level referential integrity.
     That is handled by relationship_detector.py.
     """
 
@@ -407,7 +407,7 @@ def propose_alternative_relationship(
     )
 
     # =========================================================================
-    # 3. Build stronger Qwen prompt
+    # 3. Build LLM prompt
     # =========================================================================
 
     prompt = f"""
@@ -614,7 +614,7 @@ NOTHING ELSE.
     )
 
     # =========================================================================
-    # 4. Call Qwen
+    # 4. Call LLM
     # =========================================================================
 
     raw_response = generate_response(
@@ -631,7 +631,7 @@ NOTHING ELSE.
         )
     except ValueError as exc:
         logger.warning(
-            f"Initial Qwen response was not valid JSON: {exc}. "
+            f"Initial LLM response was not valid JSON: {exc}. "
             "Retrying once with strict JSON correction prompt."
         )
 
@@ -693,7 +693,7 @@ NOTHING ELSE.
     if status == "NO_ALTERNATIVE":
 
         logger.info(
-            "Qwen found no alternative relationship."
+            "LLM found no alternative relationship."
         )
 
         return ProposedRelationship(
@@ -758,7 +758,7 @@ NOTHING ELSE.
     if same_relationship:
 
         logger.warning(
-            "Qwen returned the exact rejected relationship."
+            "LLM returned the exact rejected relationship."
         )
 
         return ProposedRelationship(
@@ -768,7 +768,7 @@ NOTHING ELSE.
             child_table="",
             child_column="",
             reasoning=(
-                "Qwen returned the exact rejected relationship. "
+                "LLM returned the exact rejected relationship. "
                 "It cannot be used as an alternative."
             ),
             is_valid_schema=False,
@@ -909,7 +909,7 @@ NOTHING ELSE.
     if is_valid_schema:
 
         logger.info(
-            "Qwen proposal verified against schema: "
+            "LLM proposal verified against schema: "
             f"{proposed_parent_table}."
             f"{proposed_parent_column} -> "
             f"{proposed_child_table}."
@@ -919,7 +919,7 @@ NOTHING ELSE.
     else:
 
         logger.warning(
-            "Qwen proposal failed schema validation: "
+            "LLM proposal failed schema validation: "
             f"{validation_message}"
         )
 
@@ -948,9 +948,9 @@ def validate_proposed_relationship(
     datasets: Dict[str, Tuple[str, Any]],
 ) -> Optional[Any]:
     """
-    Validates the Qwen proposal against the actual DataFrames.
+    Validates the LLM proposal against the actual DataFrames.
 
-    Qwen:
+    LLM:
         proposes
 
     relationship_detector.py:

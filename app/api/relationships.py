@@ -303,7 +303,7 @@ def regenerate_relationship_endpoint(
                 ↓
         Read schemas only
                 ↓
-        Qwen proposes alternative
+        AI proposes alternative
                 ↓
         Load only proposed parent/child datasets
                 ↓
@@ -390,7 +390,7 @@ def regenerate_relationship_endpoint(
         validation = result["validation"]
 
         # ---------------------------------------------------------------------
-        # Step 4: If Qwen found an alternative, load ONLY the two datasets
+        # Step 4: If LLM found an alternative, load ONLY the two datasets
         # ---------------------------------------------------------------------
 
         if (
