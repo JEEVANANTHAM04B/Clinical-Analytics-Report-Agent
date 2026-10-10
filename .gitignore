@@ -85,6 +85,7 @@ frontend/.vite/
 # --- Generated Reports / Test Outputs ---
 *.pdf
 *.html
+!frontend/index.html
 
 # --- Temporary / Development Files ---
 scratch/
@@ -93,6 +94,7 @@ temperary image/
 # --- Generated Python Test Files ---
 test_*.pdf
 test_*.html
+!frontend/index.html
 .deepeval/
 # --- Clinical Trial Raw Archive & RAG Backup ---
 Dataset.zip
