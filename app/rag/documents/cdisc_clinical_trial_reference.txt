@@ -1,0 +1,101 @@
+Clinical Trial Protocol & Study Management (study)
+The clinical trial protocol defines the complete scientific, operational, and regulatory design of a study. It outlines the clinical phase (Phase 1, Phase 2, Phase 3, Phase 4), primary and secondary objectives, therapeutic area (e.g. Rheumatology, Oncology, Cardiology), target indication, sponsor, and overall timelines from study initiation (START_DATE) to trial completion (END_DATE). In the CDISC data architecture, the study table serves as the root metadata entity, establishing protocol-level parameters that govern all downstream observational domains and analytical datasets.
+
+Clinical Trial Investigator Sites & Enrollment (sites)
+Investigator sites are medical institutions, clinics, and academic centers participating in a clinical trial protocol. Each site is uniquely identified by SITEID and tracked by institutional name (SITE_NAME), geographic location (country and city), and the responsible Principal Investigator (PI_NAME). Investigator sites manage target recruitment quotas (PLANNED_SUBJECTS) and record actual recruited participants (ACTUAL_SUBJECTS). Regulatory standards require close monitoring of site-level enrollment variance to ensure adherence to Good Clinical Practice (GCP) and adequate sample representation across trial centers.
+
+Subject Demographics Domain (dm)
+The CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject domain containing the unique subject identifier (USUBJID), protocol identifier (STUDYID), center identifier (SITEID), chronological age in years (AGE), biological sex (SEX), race (RACE), ethnicity, randomized treatment arm (ARM), and formal enrollment date (ENROLL_DATE). In regulatory clinical submissions, DM serves as the fundamental demographic baseline dataset to which all longitudinal clinical observations and safety events are anchored.
+
+Subject-Level Analysis Dataset (adsl)
+The Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per randomized study subject and combines demographic variables with protocol-specific treatment allocations (planned treatment arm TRT01P and actual treatment arm TRT01A), stratification factors, key dates (first dose, last dose, disposition date), and critical analysis population indicators such as the Safety Population Flag (SAFFL) and Intent-to-Treat Flag (ITTFL). ADSL serves as the master denominator dataset for all categorical safety, efficacy, and demographic summary tables.
+
+Unique Subject Identifier (USUBJID)
+The Unique Subject Identifier (USUBJID) is the globally unique standard variable specified by CDISC to identify individual participants across all trial datasets, domains, and regulatory submission modules. In compliant CDISC implementations, USUBJID typically follows the structured format <STUDYID>-<SITEID>-<SUBJID>. USUBJID serves as the primary entity key and foreign key linkage across all SDTM tabulation domains and ADaM analytical structures, guaranteeing complete traceability and eliminating double-counting of subjects across multi-center studies.
+
+Safety Analysis Population (SAFFL)
+The Safety Population, designated by the binary flag SAFFL = 'Y' in ADSL and related ADaM datasets, comprises all randomized subjects who received at least one dose of study intervention (active investigational drug or placebo comparator). In regulatory clinical trials conforming to ICH E9, all safety summaries—including adverse event incidences, laboratory abnormalities, and vital sign changes—are evaluated and reported using the safety population as the authoritative denominator.
+
+Intent-to-Treat Population (ITTFL) & Full Analysis Set (FAS)
+The Intent-to-Treat (ITT) population, designated by ITTFL = 'Y', includes all randomized subjects analyzed according to the treatment arm to which they were originally randomized, regardless of whether they complied with the protocol or completed the prescribed treatment regimen. Conforming to ICH E9 biostatistical principles, the ITT / Full Analysis Set minimizes post-randomization selection bias and provides the primary standard for evaluating comparative efficacy in regulatory approval submissions.
+
+Treatment Arms & Randomization (TRT01A & ARM)
+Treatment arms define the specific intervention schedules to which subjects are allocated in a randomized controlled trial. In CDISC terminology, ARM represents the planned arm in SDTM DM, while TRT01A in ADaM represents the actual treatment administered in Period 1 (e.g. Drug X active therapy versus Placebo comparator). Randomization ensures balanced prognostic factors across arms, enabling unbiased biostatistical comparisons of clinical outcomes, adverse event rates, and therapeutic response between investigational and control regimens.
+
+Analysis Visits & Study Windows (AVISIT & VISIT)
+In clinical trial data structures, VISIT represents the protocol-defined nominal visit in SDTM (e.g. Screening, Day 1, Week 4, Week 8), while AVISIT in ADaM represents the derived analysis visit assigned according to predefined temporal analysis windows. Because subjects may attend clinic appointments slightly before or after exact target days, analysis windowing rules map observed assessment dates into canonical analysis visits (AVISIT) to enable standardized cross-sectional aggregations and baseline comparison across trial participants.
+
+Adverse Event Definition (ae)
+An Adverse Event (AE) is defined by ICH GCP as any untoward medical occurrence in a clinical trial subject administered a pharmaceutical product, which does not necessarily have a causal relationship with the treatment. In the CDISC SDTM AE domain, each adverse event is recorded as a discrete event-level record containing subject identifier (USUBJID), reported verbatim term (AETERM), standardized coded term (AEDECOD), system organ class (AEBODSYS), severity (AESEV), seriousness (AESER), relationship to study drug (AEREL), and start and end dates (AESTDTC, AEENDTC).
+
+Serious Adverse Event Definition & Seriousness Flag (AESER)
+A Serious Adverse Event (SAE), identified by the flag AESER = 'Y', is an adverse event that meets one or more regulatory seriousness criteria defined by the FDA, EMA, and ICH E2A: (1) results in death, (2) is life-threatening at the time of the event, (3) requires inpatient hospitalization or prolongation of existing hospitalization, (4) results in persistent or significant disability or incapacity, (5) is a congenital anomaly or birth defect, or (6) constitutes an important medical event that jeopardizes the subject and requires intervention. SAEs mandate expedited regulatory reporting and rigorous independent safety monitoring.
+
+Adverse Event Severity (AESEV)
+Adverse Event Severity (AESEV) characterizes the intensity of a clinical event: Mild (transient discomfort that does not interfere with daily activities), Moderate (sufficient discomfort to interfere with normal daily activities), or Severe (incapacitating, preventing normal work or daily activities). Crucially in biostatistical reporting, severity is an assessment of intensity and is distinct from seriousness: a severe headache is not a Serious Adverse Event unless it results in hospitalization, whereas a mild allergic reaction requiring emergency admission is classified as an SAE.
+
+Treatment-Emergent Adverse Events (TRTEMFL)
+A Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the date and time of the first dose of study treatment up to a protocol-defined safety follow-up window (typically 30 days post-last dose), or any pre-existing medical condition that worsens in severity during the treatment period. Regulatory safety analyses evaluate TEAEs to ensure that observed safety signals are temporally associated with active exposure to the investigational regimen.
+
+Adverse Event Analysis Dataset (adae)
+The Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links each event to the subject's actual treatment arm (TRT01A), verifies treatment-emergent status (TRTEMFL = 'Y'), includes MedDRA hierarchy coding (AEDECOD, AEBODSYS), integrates relative study days of onset (ASTDY), and enforces safety population inclusion (SAFFL = 'Y'). ADAE is the primary dataset used to generate publication-grade safety summary tables.
+
+Adverse Event Rate Calculation & Interpretation
+The Adverse Event Rate in clinical trials represents the proportion of subjects in a specific treatment arm who experienced at least one adverse event during the study period. In CDISC ADaM datasets, it is calculated as COUNT(DISTINCT adae.USUBJID) * 100.0 divided by COUNT(DISTINCT adsl.USUBJID) within the safety population (adsl.SAFFL = 'Y' and adae.TRTEMFL = 'Y'). Because a single subject may experience multiple events, subject-level de-duplication prevents inflated frequency counts and yields true subject incidence rates.
+
+Medical Dictionary for Regulatory Activities (MedDRA)
+MedDRA is the international medical terminology standard developed under the auspices of the ICH for coding adverse event verbatim descriptions in biopharmaceutical clinical trials. MedDRA utilizes a structured five-level hierarchy: System Organ Class (SOC / AEBODSYS), High Level Group Term (HLGT), High Level Term (HLT), Preferred Term (PT / AEDECOD), and Lowest Level Term (LLT). Standardized coding into Preferred Terms ensures uniform identification, classification, and statistical aggregation of safety signals across global clinical development programs.
+
+Adverse Event Causality & Relationship (AEREL)
+Adverse Event Causality (AEREL) represents the clinical judgment of the Principal Investigator regarding whether a reasonable possibility exists that an adverse event was caused by the investigational medicinal product. Common categorical classifications include Not Related, Unlikely, Possible, Probable, and Definite. Regulatory safety guidelines emphasize that observational differences in adverse event frequencies between treatment arms indicate observed associations rather than definitive pharmacological causation in the absence of controlled biostatistical tests.
+
+Clinical Laboratory Domain (lb)
+The CDISC SDTM Laboratory (LB) domain captures all clinical laboratory assays collected during trial conduct, including clinical chemistry, hematology, and urinalysis. Records contain test codes (LBTESTCD), standard test descriptions (LBTEST, e.g. Alanine Aminotransferase, Hemoglobin), original numerical results (LBORRES), units (LBORRESU), reference range indicators (LBNRIND: LOW, NORMAL, HIGH), visit identifiers, and specimen collection dates. Laboratory monitoring detects subclinical organ toxicity and metabolic perturbations.
+
+Laboratory Analysis Dataset (adlb)
+The Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For each subject, parameter (PARAM / PARAMCD), and analysis visit (AVISIT), ADLB captures the baseline assessment (BASE), the post-baseline analysis value (AVAL), the absolute change from baseline (CHG = AVAL - BASE), and the percentage change from baseline (PCHG). ADLB is used to construct shift tables, summary statistics across visits, and liver enzyme elevation safety evaluations.
+
+Baseline Value (BASE) & Change from Baseline (CHG)
+In clinical trial biostatistics, the Baseline Value (BASE) is formally defined as the last valid, non-missing evaluable assessment measured prior to the first administration of study treatment. The Change from Baseline (CHG) at any subsequent scheduled visit is calculated as AVAL minus BASE. A negative change indicates a decrease from pre-treatment levels, while a positive change indicates an increase. Baseline adjustment accounts for pre-existing physiological variability and permits accurate assessment of drug-induced biochemical alterations over time.
+
+Laboratory Normal Ranges & LOINC Coding
+Laboratory test results are evaluated against laboratory-specific normal reference ranges, recorded in LBNRIND as LOW, NORMAL, or HIGH. LOINC (Logical Observation Identifiers Names and Codes) provides universal numeric identifiers for clinical laboratory measurements, standardizing assay types, analytes, systems, and scales across multiple disparate commercial central laboratories participating in global clinical research.
+
+Vital Signs Domain & Analysis Dataset (vs & advs)
+The Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood Pressure, Diastolic Blood Pressure, Pulse / Heart Rate, Body Temperature, Respiratory Rate, Weight, Height, and Body Mass Index (BMI). ADVS implements the Basic Data Structure (BDS) to evaluate hemodynamic changes across scheduled visits (AVISIT) by calculating baseline values (BASE) and changes from baseline (CHG) across treatment arms.
+
+Efficacy Response Analysis Dataset (adresp)
+The Analysis Dataset for Efficacy Response (ADRESP) is an ADaM dataset that models therapeutic response outcomes according to standardized protocol-defined efficacy criteria (such as RECIST for oncology or ACR criteria for rheumatology). ADRESP records whether each evaluable subject achieved confirmed clinical response (RESPFL = 'Y') by a specific evaluation visit (AVISIT) or milestone date, providing the statistical foundation for primary efficacy endpoint analysis.
+
+Responder Flag (RESPFL) & Response Rate Calculation
+The Responder Flag (RESPFL = 'Y') is a binary categorical variable in ADRESP indicating that a participant met pre-specified protocol criteria for confirmed therapeutic response. The Efficacy Response Rate represents the percentage of evaluable subjects achieving response: calculated as COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) * 100.0 divided by COUNT(DISTINCT USUBJID). In randomized trials, response rates are compared across treatment arms to assess therapeutic efficacy.
+
+Questionnaires & Patient-Reported Outcomes (qs)
+The Questionnaires (QS) domain in CDISC SDTM captures patient-reported outcomes (PRO), quality-of-life assessments, disease severity indices, and functional disability instruments. Questionnaires evaluate subjective symptom relief, mental well-being, and physical functional capacity directly from the participant's perspective using validated psychometric scales (e.g. SF-36, EQ-5D, HAQ-DI) without physician interpretation.
+
+Study Drug Exposure Domain (ex)
+The CDISC SDTM Exposure (EX) domain tracks all administrations of investigational products and protocol-specified comparator therapies. It documents treatment name (EXTRT), administered dose (EXDOSE), dosing units (EXDOSU), dose frequency, route of administration, and exact start and stop dates (EXSTDTC, EXENDTC). EX records enable computation of cumulative drug exposure, treatment compliance, dose intensity, and verification of the safety population criteria.
+
+Subject Disposition & Protocol Discontinuation
+Subject Disposition tracks the progress of enrolled participants through trial milestones, including screening, enrollment, randomization, treatment completion, and follow-up. It categorizes reasons for premature discontinuation such as adverse events, lack of therapeutic efficacy, withdrawal of consent, protocol violation, or loss to follow-up. Complete disposition accounting is mandated by the CONSORT guidelines and regulatory authorities to evaluate study validity.
+
+CDISC Standards Overview (SDTM vs ADaM)
+The Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model) standardizes raw clinical observations into standardized domain tables for archival and regulatory tabulation. ADaM (Analysis Data Model) derives analysis-ready datasets directly from SDTM, incorporating standardized variable names, population flags, and derivations to ensure that every summary statistic presented in a Clinical Study Report is fully traceable to source observations.
+
+ICH E6(R2) Good Clinical Practice (GCP)
+ICH E6(R2) is the international ethical and scientific quality standard for designing, conducting, recording, and reporting trials that involve human subjects. Compliance with GCP provides public assurance that the rights, safety, and well-being of trial participants are protected in accordance with the Declaration of Helsinki, and that clinical trial data and reported results are credible, verifiable, and reproducible.
+
+ICH E9 Statistical Principles for Clinical Trials
+ICH E9 outlines foundational biostatistical principles governing clinical trials, including the minimization of bias through randomization and blinding, pre-specification of statistical analysis plans, appropriate selection of primary and secondary endpoints, definition of analysis populations (ITT, Safety, Per-Protocol), handling of missing data without arbitrary imputation, and interpretation of statistical significance in regulatory evaluation.
+
+FDA 21 CFR Part 11 & Clinical Data Integrity
+FDA 21 CFR Part 11 establishes United States federal criteria under which electronic records and electronic signatures are considered trustworthy, reliable, and equivalent to paper records. It mandates computer system validation, strict user access controls, audit trail logging for all data modifications, data security, and end-to-end traceability for automated software systems used in clinical trial data management and analytics.
+
+Tables, Listings, and Figures (TLFs) in Clinical Reporting
+Clinical Study Reports (CSR) communicate clinical trial findings through standard TLF packages: Summary Tables provide aggregated descriptive and inferential statistics across treatment arms; Patient Listings display itemized, subject-by-subject chronological data records for medical review; and Figures provide graphical representations of primary endpoints, Kaplan-Meier curves, and safety parameter trends across study visits.
+
+Electronic Health Record (EHR) Inpatient Encounters & Length of Stay
+In legacy healthcare electronic health record (EHR) analytics, an inpatient encounter represents a formal hospital admission for acute medical care. Length of Stay (LOS) is defined as the elapsed duration in days from admission (START) to hospital discharge (STOP). Average length of stay is computed across diagnostic cohorts (such as Anemia, Pneumonia, or Surgical procedures) to monitor acute resource utilization and operational hospital efficiency.
+
+Hospital Readmissions & Diagnostic Classifications (EHR)
+Hospital readmission is defined in health services research as an unplanned acute inpatient admission occurring within 30 days of discharge from an index hospitalization. In legacy EHR systems, diagnoses are coded using SNOMED-CT or ICD-10 terminologies, and hospital performance is evaluated against Centers for Medicare & Medicaid Services (CMS) Inpatient Quality Reporting (IQR) benchmarks.

@@ -21,13 +21,13 @@ interface PipelineVisualizerProps {
 
 const nodeDescriptions: Record<number, string> = {
   1: 'Natural language intent extraction',
-  2: 'Fetching table metadata & foreign keys',
-  3: 'Matching medical definitions',
+  2: 'Boundary check against selected tables',
+  3: 'Fetching table metadata & foreign keys',
   4: 'Structuring tables and joins',
   5: 'Pending analyst verification gate',
   6: 'Translating plan to optimized SQL',
   7: 'AST parsing & structural verification',
-  8: 'Checking injection & destructive clauses',
+  8: 'Checking table boundaries & safety',
   9: 'Running query in MySQL pool',
   10: 'Validating dataset dimensions',
   11: 'Auditing clinical citations',
@@ -85,6 +85,7 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
           const isCompleted = node.status === 'completed';
           const isRunning = node.status === 'running';
           const isFailed = node.status === 'failed';
+          const isBlocked = node.status === 'blocked';
           const isAwaitingApproval = (node.id === 5 && isApprovalPending) || node.status === 'waiting_approval';
           const isApprovalNode = node.id === 5;
           const isLast = idx === nodes.length - 1;
@@ -95,8 +96,13 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
             latencyText = defaultLatencies[node.id] || '12ms';
           } else if (isRunning) {
             latencyText = 'running...';
+          } else if (isBlocked) {
+            latencyText = 'BLOCKED';
           } else if (isFailed) {
             latencyText = '✕ Failed';
+          } else {
+            const hasPriorBlockedOrFailed = nodes.some(n => n.id < node.id && (n.status === 'blocked' || n.status === 'failed'));
+            latencyText = hasPriorBlockedOrFailed ? 'Not Executed' : '--';
           }
 
           return (
@@ -105,7 +111,7 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
               {!isLast && (
                 <div
                   className={`absolute left-[7px] top-[14px] w-[1.5px] h-full -bottom-1 z-0 transition-colors ${
-                    isCompleted ? 'bg-emerald-500' : isFailed ? 'bg-rose-300' : 'bg-gray-200'
+                    isCompleted ? 'bg-emerald-500' : (isFailed || isBlocked) ? 'bg-rose-300' : 'bg-gray-200'
                   }`}
                 />
               )}
@@ -115,6 +121,10 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
                 {isCompleted ? (
                   <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-2xs">
                     <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  </div>
+                ) : isBlocked ? (
+                  <div className="w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-2xs ring-2 ring-rose-200" title="Validation Blocked">
+                    <X className="w-2.5 h-2.5 stroke-[3]" />
                   </div>
                 ) : isFailed ? (
                   <div className="w-3.5 h-3.5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-2xs ring-2 ring-rose-200">
@@ -141,7 +151,9 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
                 <div className="flex items-center justify-between">
                   <h4
                     className={`text-xs font-semibold leading-tight truncate ${
-                      isFailed
+                      isBlocked
+                        ? 'text-rose-700 font-bold'
+                        : isFailed
                         ? 'text-rose-700 font-bold'
                         : isAwaitingApproval
                         ? 'text-amber-700 font-bold'
@@ -149,14 +161,18 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
                         ? 'text-gray-900'
                         : isRunning
                         ? 'text-blue-700 font-bold'
-                        : 'text-gray-600'
+                        : 'text-gray-500'
                     }`}
                   >
                     {node.name}
                   </h4>
 
                   {/* Right badge: latency or status pill */}
-                  {isFailed ? (
+                  {isBlocked ? (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
+                      BLOCKED
+                    </span>
+                  ) : isFailed ? (
                     <div className="flex items-center space-x-1.5">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
                         ✕ Failed
@@ -187,8 +203,8 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
                   )}
                 </div>
 
-                <p className="text-[10px] text-gray-400 truncate mt-0.5 leading-tight">
-                  {description}
+                <p className="text-[10px] text-gray-500 truncate mt-0.5 leading-tight">
+                  {node.detail || description}
                 </p>
               </div>
             </div>

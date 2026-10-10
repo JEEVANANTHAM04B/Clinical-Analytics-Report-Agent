@@ -1,0 +1,112 @@
+[
+  {
+    "id": "insight_eval_001",
+    "category": "average_length_of_stay",
+    "question": "Which diagnosis has the highest average length of stay?",
+    "query_results": [
+      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
+      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
+      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+    ],
+    "expected_facts": [
+      {
+        "fact": "Anemia has the highest average LOS",
+        "keywords": ["anemia"],
+        "requires_highest": true
+      },
+      {
+        "fact": "Value is 4.0 days",
+        "keywords": ["4.0"]
+      }
+    ],
+    "requires_empty_warning": false
+  },
+  {
+    "id": "insight_eval_002",
+    "category": "encounter_counts",
+    "question": "Compare the number of inpatient and emergency encounters.",
+    "query_results": [
+      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
+      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+    ],
+    "expected_facts": [
+      {
+        "fact": "Inpatient has 120 encounters",
+        "keywords": ["inpatient", "120"]
+      },
+      {
+        "fact": "Emergency has 80 encounters",
+        "keywords": ["emergency", "80"]
+      }
+    ],
+    "requires_empty_warning": false
+  },
+  {
+    "id": "insight_eval_003",
+    "category": "cost_analysis",
+    "question": "Which encounter class has the highest total claim cost?",
+    "query_results": [
+      {
+        "ENCOUNTERCLASS": "inpatient",
+        "total_claim_cost": 50000.0,
+        "total_payer_coverage": 30000.0
+      },
+      {
+        "ENCOUNTERCLASS": "emergency",
+        "total_claim_cost": 35000.0,
+        "total_payer_coverage": 20000.0
+      }
+    ],
+    "expected_facts": [
+      {
+        "fact": "Inpatient has the highest total claim cost",
+        "keywords": ["inpatient"],
+        "requires_highest": true
+      },
+      {
+        "fact": "Inpatient total claim cost is 50000.0",
+        "keywords": ["50000"]
+      },
+      {
+        "fact": "Emergency total claim cost is 35000.0",
+        "keywords": ["35000"]
+      }
+    ],
+    "requires_empty_warning": false
+  },
+  {
+    "id": "insight_eval_004",
+    "category": "demographics",
+    "question": "Which gender and race combination has the highest patient count?",
+    "query_results": [
+      {"GENDER": "F", "RACE": "White", "patient_count": 150},
+      {"GENDER": "M", "RACE": "White", "patient_count": 120},
+      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+    ],
+    "expected_facts": [
+      {
+        "fact": "Female and White has the highest patient count",
+        "keywords": ["white", "150"],
+        "requires_highest": true
+      },
+      {
+        "fact": "Value is 150",
+        "keywords": ["150"]
+      }
+    ],
+    "requires_empty_warning": false
+  },
+  {
+    "id": "insight_eval_005",
+    "category": "empty_result",
+    "question": "Show encounters matching an impossible filter.",
+    "query_results": [],
+    "expected_facts": [
+      {
+        "fact": "Clearly state that no matching records were returned",
+        "keywords_any": ["no encounters", "no matching", "no records", "0", "row count: 0", "empty"]
+      }
+    ],
+    "requires_empty_warning": true
+  }
+]

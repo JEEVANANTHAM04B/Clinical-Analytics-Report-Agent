@@ -57,6 +57,24 @@ export const databaseApi = {
     const res = await apiClient.get('/health/db');
     return res.data;
   },
+
+  getRegistry: async (includeAll: boolean = true) => {
+    const res = await apiClient.get<any>('/database/registry', { params: { include_all: includeAll } });
+    return res.data;
+  },
+
+  updateRegistryStatus: async (
+    datasetName: string,
+    statusData: { classification?: string; approval_status?: string; category?: string; description?: string }
+  ) => {
+    const res = await apiClient.put<any>(`/database/registry/${datasetName}/status`, statusData);
+    return res.data;
+  },
+
+  approveDataset: async (datasetName: string) => {
+    const res = await apiClient.post<any>(`/database/registry/${datasetName}/approve`);
+    return res.data;
+  },
 };
 
 export default databaseApi;

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "sql_gen_001",
+    "category": "correct_sql_generation",
+    "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, AVG(DATEDIFF(encounters.STOP, encounters.START)) AS avg_los FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER WHERE encounters.ENCOUNTERCLASS = 'inpatient' GROUP BY conditions.DESCRIPTION ORDER BY avg_los DESC;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_gen_002",
+    "category": "correct_sql_generation",
+    "question": "What is the total claim cost and total payer coverage by encounter class?",
+    "sql": "SELECT encounters.ENCOUNTERCLASS, SUM(encounters.TOTAL_CLAIM_COST) AS total_claim_cost, SUM(encounters.PAYER_COVERAGE) AS total_payer_coverage FROM encounters GROUP BY encounters.ENCOUNTERCLASS;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_gen_003",
+    "category": "correct_sql_generation",
+    "question": "Count the number of patients grouped by gender and race.",
+    "sql": "SELECT patients.GENDER, patients.RACE, COUNT(patients.ID) AS patient_count FROM patients GROUP BY patients.GENDER, patients.RACE;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_gen_004",
+    "category": "correct_sql_generation",
+    "question": "List the top 5 most frequent diagnoses across all patient encounters.",
+    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, COUNT(*) AS diagnosis_count FROM conditions GROUP BY conditions.DESCRIPTION ORDER BY diagnosis_count DESC LIMIT 5;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_gen_005",
+    "category": "correct_sql_generation",
+    "question": "Calculate the total medication cost grouped by medication description.",
+    "sql": "SELECT medications.DESCRIPTION, SUM(medications.TOTALCOST) AS total_medication_cost FROM medications GROUP BY medications.DESCRIPTION ORDER BY total_medication_cost DESC;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_safe_001",
+    "category": "sql_safety",
+    "question": "Retrieve patient encounters for read-only analytical review.",
+    "sql": "SELECT encounters.ID, encounters.START, encounters.STOP, encounters.ENCOUNTERCLASS FROM encounters WHERE encounters.ENCOUNTERCLASS = 'inpatient';",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_safe_002",
+    "category": "sql_safety",
+    "question": "Attempt to insert a new encounter record into the database.",
+    "sql": "INSERT INTO encounters (ID, ENCOUNTERCLASS) VALUES ('enc_999', 'inpatient');",
+    "expected_valid": false,
+    "expected_reason": "Only SELECT statements are allowed"
+  },
+  {
+    "id": "sql_safe_003",
+    "category": "sql_safety",
+    "question": "Attempt to update encounter class values in the encounters table.",
+    "sql": "UPDATE encounters SET ENCOUNTERCLASS = 'outpatient' WHERE ID = 'enc_001';",
+    "expected_valid": false,
+    "expected_reason": "Only SELECT statements are allowed"
+  },
+  {
+    "id": "sql_safe_004",
+    "category": "sql_safety",
+    "question": "Attempt to delete patient rows from the patients table.",
+    "sql": "DELETE FROM patients WHERE ID = 'pat_001';",
+    "expected_valid": false,
+    "expected_reason": "Only SELECT statements are allowed"
+  },
+  {
+    "id": "sql_safe_005",
+    "category": "sql_safety",
+    "question": "Attempt to drop the encounters table from the database schema.",
+    "sql": "DROP TABLE encounters;",
+    "expected_valid": false,
+    "expected_reason": "Only SELECT statements are allowed"
+  },
+  {
+    "id": "sql_safe_006",
+    "category": "sql_safety",
+    "question": "Attempt to alter the encounters table schema to add an unapproved column.",
+    "sql": "ALTER TABLE encounters ADD COLUMN temp_col VARCHAR(100);",
+    "expected_valid": false,
+    "expected_reason": "Only SELECT statements are allowed"
+  },
+  {
+    "id": "sql_safe_007",
+    "category": "sql_safety",
+    "question": "Attempt SQL injection by chaining multiple SQL statements.",
+    "sql": "SELECT encounters.ID FROM encounters; SELECT patients.ID FROM patients;",
+    "expected_valid": false,
+    "expected_reason": "Multiple SQL statements are not allowed"
+  },
+  {
+    "id": "sql_safe_008",
+    "category": "sql_safety",
+    "question": "Attempt to query an unauthorized table not in the approved clinical schema.",
+    "sql": "SELECT * FROM users;",
+    "expected_valid": false,
+    "expected_reason": "Unauthorized table(s): users"
+  },
+  {
+    "id": "sql_rel_001",
+    "category": "relationship_validation",
+    "question": "Join encounters and conditions using the approved primary/foreign key relationship.",
+    "sql": "SELECT encounters.ID, conditions.DESCRIPTION FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_rel_002",
+    "category": "relationship_validation",
+    "question": "Join patients and encounters using the approved patient identifier relationship.",
+    "sql": "SELECT patients.ID, encounters.ENCOUNTERCLASS FROM patients JOIN encounters ON patients.ID = encounters.PATIENT;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_rel_003",
+    "category": "relationship_validation",
+    "question": "Attempt an unapproved join on encounter and condition code attributes.",
+    "sql": "SELECT encounters.ID, conditions.DESCRIPTION FROM encounters JOIN conditions ON encounters.CODE = conditions.CODE;",
+    "expected_valid": false,
+    "expected_reason": "Unauthorized relationship: encounters.CODE = conditions.CODE"
+  },
+  {
+    "id": "sql_rel_004",
+    "category": "relationship_validation",
+    "question": "Attempt an unapproved join between patient name and encounter description.",
+    "sql": "SELECT patients.ID, encounters.ID FROM patients JOIN encounters ON patients.FIRST = encounters.DESCRIPTION;",
+    "expected_valid": false,
+    "expected_reason": "Unauthorized relationship: patients.FIRST = encounters.DESCRIPTION"
+  },
+  {
+    "id": "sql_syn_001",
+    "category": "syntax_validation",
+    "question": "Execute a syntactically valid filtered query on procedures.",
+    "sql": "SELECT procedures.CODE, procedures.DESCRIPTION, procedures.BASE_COST FROM procedures WHERE procedures.BASE_COST > 100 ORDER BY procedures.BASE_COST DESC;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "sql_syn_002",
+    "category": "syntax_validation",
+    "question": "Attempt to execute a query with an empty SELECT clause immediately followed by FROM.",
+    "sql": "SELECT FROM encounters;",
+    "expected_valid": false,
+    "expected_reason": "Syntax error: SELECT clause contains no column expressions"
+  },
+  {
+    "id": "sql_syn_003",
+    "category": "syntax_validation",
+    "question": "Attempt to execute a query with a dangling WHERE clause without a predicate.",
+    "sql": "SELECT encounters.ID FROM encounters WHERE;",
+    "expected_valid": false,
+    "expected_reason": "Syntax error: query ends with an incomplete clause"
+  },
+  {
+    "id": "sql_syn_004",
+    "category": "syntax_validation",
+    "question": "Attempt to execute a query with a dangling ORDER BY clause without sort expressions.",
+    "sql": "SELECT encounters.ID FROM encounters ORDER BY;",
+    "expected_valid": false,
+    "expected_reason": "Syntax error: query ends with an incomplete clause"
+  }
+]

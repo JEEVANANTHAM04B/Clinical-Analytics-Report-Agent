@@ -25,7 +25,7 @@ class PDFReportRequest(BaseModel):
     follow_up_answers: list[dict[str, Any]] | None = Field(default_factory=list, description="Follow-up Q&A pairs")
     approved_by: str | None = Field(default="Clinical Analyst", description="Name/title of approving clinical reviewer")
     report_status: str | None = Field(default="Approved & Certified", description="Official report verification status")
-    dataset_name: str | None = Field(default="Organization EHR Dataset", description="Name of verified EHR dataset")
+    dataset_name: str | None = Field(default="CDISC Clinical Trial Dataset", description="Name of verified dataset")
 
     @field_validator("question", mode="before")
     @classmethod
@@ -59,7 +59,7 @@ class PDFReportRequest(BaseModel):
     @classmethod
     def sanitize_tables(cls, v: Any) -> list[str]:
         if not v or not isinstance(v, list):
-            return ["encounters", "conditions", "patients"]
+            return []
         return [str(t) for t in v if t]
 
     @field_validator("follow_up_answers", mode="before")
@@ -114,5 +114,5 @@ class PDFReportRequest(BaseModel):
     @classmethod
     def sanitize_dataset_name(cls, v: Any) -> str:
         if not v or not isinstance(v, str) or not v.strip():
-            return "Organization EHR Dataset"
+            return "CDISC Clinical Trial Dataset"
         return v.strip()

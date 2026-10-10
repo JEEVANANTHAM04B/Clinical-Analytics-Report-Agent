@@ -1,90 +1,136 @@
 [
   {
-    "id": "exec_los_001",
-    "category": "average_length_of_stay",
-    "question": "Calculate the average length of stay by diagnosis for inpatient encounters using validated date intervals.",
-    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, AVG(DATEDIFF(encounters.STOP, encounters.START)) AS avg_los FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER WHERE encounters.ENCOUNTERCLASS = 'inpatient' AND encounters.START IS NOT NULL AND encounters.STOP IS NOT NULL AND DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30 GROUP BY conditions.DESCRIPTION ORDER BY avg_los DESC;",
+    "id": "exec_subj_001",
+    "category": "enrollment_by_site",
+    "question": "Show subject enrollment count by site identifier and site name.",
+    "sql": "SELECT sites.SITEID, sites.SITE_NAME, COUNT(DISTINCT dm.USUBJID) AS enrolled_subjects FROM sites JOIN dm ON sites.SITEID = dm.SITEID GROUP BY sites.SITEID, sites.SITE_NAME ORDER BY enrolled_subjects DESC;",
     "expected_columns": [
-      "diagnosis",
-      "avg_los"
-    ],
-    "expect_non_empty": true,
-    "expected_result_type": "numeric_aggregation"
-  },
-  {
-    "id": "exec_cnt_001",
-    "category": "encounter_counts",
-    "question": "Count total encounters grouped by encounter class across all records.",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) AS encounter_count FROM encounters WHERE encounters.ENCOUNTERCLASS IS NOT NULL GROUP BY encounters.ENCOUNTERCLASS ORDER BY encounter_count DESC;",
-    "expected_columns": [
-      "ENCOUNTERCLASS",
-      "encounter_count"
+      "SITEID",
+      "SITE_NAME",
+      "enrolled_subjects"
     ],
     "expect_non_empty": true,
     "expected_result_type": "count_aggregation"
-  },
-  {
-    "id": "exec_fin_001",
-    "category": "cost_and_coverage",
-    "question": "Calculate total claim cost and total payer coverage grouped by encounter class.",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, SUM(encounters.TOTAL_CLAIM_COST) AS total_claim_cost, SUM(encounters.PAYER_COVERAGE) AS total_payer_coverage FROM encounters WHERE encounters.ENCOUNTERCLASS IS NOT NULL GROUP BY encounters.ENCOUNTERCLASS ORDER BY total_claim_cost DESC;",
-    "expected_columns": [
-      "ENCOUNTERCLASS",
-      "total_claim_cost",
-      "total_payer_coverage"
-    ],
-    "expect_non_empty": true,
-    "expected_result_type": "numeric_aggregation"
   },
   {
     "id": "exec_dem_001",
-    "category": "demographics",
-    "question": "Count patient population grouped by gender and racial demographic categories.",
-    "sql": "SELECT patients.GENDER, patients.RACE, COUNT(*) AS patient_count FROM patients WHERE patients.GENDER IS NOT NULL AND patients.RACE IS NOT NULL GROUP BY patients.GENDER, patients.RACE ORDER BY patient_count DESC;",
+    "category": "treatment_distribution",
+    "question": "Count total enrolled subjects grouped by treatment arm.",
+    "sql": "SELECT dm.ARM, COUNT(DISTINCT dm.USUBJID) AS total_subjects FROM dm WHERE dm.ARM IS NOT NULL GROUP BY dm.ARM ORDER BY total_subjects DESC;",
     "expected_columns": [
-      "GENDER",
-      "RACE",
-      "patient_count"
+      "ARM",
+      "total_subjects"
     ],
     "expect_non_empty": true,
     "expected_result_type": "count_aggregation"
   },
   {
-    "id": "exec_top_001",
-    "category": "top_diagnoses",
-    "question": "List the top 10 most frequent diagnoses ordered by diagnosis volume.",
-    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, COUNT(*) AS diagnosis_count FROM conditions WHERE conditions.DESCRIPTION IS NOT NULL GROUP BY conditions.DESCRIPTION ORDER BY diagnosis_count DESC LIMIT 10;",
+    "id": "exec_age_001",
+    "category": "average_age",
+    "question": "Calculate the average age of subjects by treatment arm.",
+    "sql": "SELECT dm.ARM, ROUND(AVG(dm.AGE), 2) AS mean_age, COUNT(dm.USUBJID) AS subject_count FROM dm WHERE dm.AGE IS NOT NULL GROUP BY dm.ARM ORDER BY mean_age DESC;",
     "expected_columns": [
-      "diagnosis",
-      "diagnosis_count"
+      "ARM",
+      "mean_age",
+      "subject_count"
     ],
     "expect_non_empty": true,
-    "expected_result_type": "ranked_aggregation"
+    "expected_result_type": "numeric_aggregation"
   },
   {
-    "id": "exec_null_001",
-    "category": "result_validation_null_handling",
-    "question": "Retrieve encounters with null reason codes to verify safe handling of NULL column values in query results.",
-    "sql": "SELECT encounters.ID, encounters.START, encounters.STOP, encounters.REASONCODE FROM encounters WHERE encounters.REASONCODE IS NULL LIMIT 5;",
+    "id": "exec_sex_001",
+    "category": "sex_distribution",
+    "question": "Count subjects grouped by sex demographic category.",
+    "sql": "SELECT dm.SEX, COUNT(DISTINCT dm.USUBJID) AS subject_count FROM dm WHERE dm.SEX IS NOT NULL GROUP BY dm.SEX ORDER BY subject_count DESC;",
     "expected_columns": [
-      "ID",
-      "START",
-      "STOP",
-      "REASONCODE"
+      "SEX",
+      "subject_count"
     ],
     "expect_non_empty": true,
-    "expected_result_type": "nullable_record_set"
+    "expected_result_type": "count_aggregation"
   },
   {
-    "id": "exec_empty_001",
-    "category": "result_validation_empty_set",
-    "question": "Query encounters with an impossible filter to verify result validator behavior on an empty result set.",
-    "sql": "SELECT encounters.ID, encounters.ENCOUNTERCLASS FROM encounters WHERE encounters.ENCOUNTERCLASS = 'non_existent_class';",
+    "id": "exec_ae_001",
+    "category": "adverse_events_by_severity",
+    "question": "Count adverse events grouped by severity classification.",
+    "sql": "SELECT ae.AESEV, COUNT(*) AS ae_count FROM ae WHERE ae.AESEV IS NOT NULL GROUP BY ae.AESEV ORDER BY ae_count DESC;",
     "expected_columns": [
-      "ID",
-      "ENCOUNTERCLASS"
+      "AESEV",
+      "ae_count"
     ],
-    "expect_non_empty": false,
-    "expected_result_type": "empty_record_set"
+    "expect_non_empty": true,
+    "expected_result_type": "count_aggregation"
+  },
+  {
+    "id": "exec_sae_001",
+    "category": "serious_adverse_events",
+    "question": "Count total serious adverse events across the study population.",
+    "sql": "SELECT COUNT(*) AS serious_adverse_events FROM ae WHERE ae.AESER = 'Y';",
+    "expected_columns": [
+      "serious_adverse_events"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "count_aggregation"
+  },
+  {
+    "id": "exec_aerat_001",
+    "category": "adverse_event_rate_by_treatment",
+    "question": "Calculate adverse event incidence rate percentage by treatment arm.",
+    "sql": "SELECT adsl.TRT01A AS treatment_arm, COUNT(DISTINCT adsl.USUBJID) AS total_subjects, COUNT(DISTINCT adae.USUBJID) AS ae_subjects, ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct FROM adsl LEFT JOIN adae ON adsl.USUBJID = adae.USUBJID GROUP BY adsl.TRT01A ORDER BY ae_rate_pct DESC;",
+    "expected_columns": [
+      "treatment_arm",
+      "total_subjects",
+      "ae_subjects",
+      "ae_rate_pct"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
+  },
+  {
+    "id": "exec_lab_001",
+    "category": "laboratory_change_from_baseline",
+    "question": "Calculate laboratory parameter mean baseline, Week 8 value, and change from baseline by treatment arm.",
+    "sql": "SELECT adlb.PARAMCD AS param_cd, adlb.TRT01A AS treatment_arm, adlb.AVISIT AS visit, ROUND(AVG(adlb.BASE), 2) AS mean_baseline, ROUND(AVG(adlb.AVAL), 2) AS mean_visit_val, ROUND(AVG(adlb.CHG), 2) AS mean_change FROM adlb WHERE adlb.AVISIT = 'WEEK 8' AND adlb.PARAMCD = 'HGB' GROUP BY adlb.PARAMCD, adlb.TRT01A, adlb.AVISIT ORDER BY adlb.TRT01A;",
+    "expected_columns": [
+      "param_cd",
+      "treatment_arm",
+      "visit",
+      "mean_baseline",
+      "mean_visit_val",
+      "mean_change"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
+  },
+  {
+    "id": "exec_vs_001",
+    "category": "vital_sign_change_from_baseline",
+    "question": "Calculate vital signs systolic blood pressure change from baseline to Week 8 by treatment arm.",
+    "sql": "SELECT advs.PARAMCD AS param_cd, advs.TRT01A AS treatment_arm, advs.AVISIT AS visit, ROUND(AVG(advs.BASE), 2) AS mean_baseline, ROUND(AVG(advs.AVAL), 2) AS mean_visit_val, ROUND(AVG(advs.CHG), 2) AS mean_change FROM advs WHERE advs.AVISIT = 'WEEK 8' AND advs.PARAMCD = 'SYSBP' GROUP BY advs.PARAMCD, advs.TRT01A, advs.AVISIT ORDER BY advs.TRT01A;",
+    "expected_columns": [
+      "param_cd",
+      "treatment_arm",
+      "visit",
+      "mean_baseline",
+      "mean_visit_val",
+      "mean_change"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
+  },
+  {
+    "id": "exec_resp_001",
+    "category": "efficacy_response_rate",
+    "question": "Calculate Week 8 responder count and efficacy response rate percentage by treatment arm.",
+    "sql": "SELECT adresp.TRT01A AS treatment_arm, adresp.AVISIT AS visit, COUNT(DISTINCT adresp.USUBJID) AS evaluable_subjects, COUNT(DISTINCT CASE WHEN adresp.RESPFL = 'Y' THEN adresp.USUBJID END) AS responders, ROUND(COUNT(DISTINCT CASE WHEN adresp.RESPFL = 'Y' THEN adresp.USUBJID END) * 100.0 / COUNT(DISTINCT adresp.USUBJID), 2) AS response_rate_pct FROM adresp WHERE adresp.AVISIT = 'WEEK 8' GROUP BY adresp.TRT01A, adresp.AVISIT ORDER BY response_rate_pct DESC;",
+    "expected_columns": [
+      "treatment_arm",
+      "visit",
+      "evaluable_subjects",
+      "responders",
+      "response_rate_pct"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
   }
 ]

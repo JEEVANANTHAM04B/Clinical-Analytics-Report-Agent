@@ -4,8 +4,13 @@ from typing import Any, TypedDict
 class ClinicalAnalyticsState(TypedDict, total=False):
     user_question: str
     selected_tables: list[str]
-    database_schema: dict
-    analysis_plan: str
+    # Table boundary validation
+    validation_status: str
+    reason: str
+    required_tables: list[str]
+    missing_tables: list[str]
+    validation_message: str
+    next_action: str
 
     # Human-in-the-loop approval
     approval_status: str
@@ -14,8 +19,14 @@ class ClinicalAnalyticsState(TypedDict, total=False):
     feedback_history: list[str]
     plan_version: int
 
+    # Schema & Plan
+    database_schema: dict[str, Any]
+    analysis_plan: str
+    clinical_question_plan: Any
+
     sql_query: str
     query_result: list[dict[str, Any]]
+    results: list[dict[str, Any]]
     result_validation: dict[str, Any]
 
     # Deterministic evidence for insight generation

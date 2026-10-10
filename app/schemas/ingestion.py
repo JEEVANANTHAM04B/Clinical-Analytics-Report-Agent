@@ -157,3 +157,29 @@ class ErrorResponse(BaseModel):
     error_code: str = Field(description="Short machine-readable error code")
     message: str = Field(description="Human-readable error description")
     detail: Optional[str] = Field(default=None, description="Additional technical detail (safe to show)")
+
+
+# =============================================================================
+# Preview Response (used for POST /ingestion/preview)
+# =============================================================================
+
+class ColumnPreview(BaseModel):
+    name: str = Field(description="Sanitized column identifier for MySQL")
+    original_name: str = Field(description="Original column header from file")
+    inferred_type: str = Field(description="Inferred MySQL column type (e.g. INTEGER, VARCHAR(255), DOUBLE)")
+    null_count: int = Field(default=0, description="Count of null/empty values")
+    sample_values: List[str] = Field(default_factory=list, description="Sample values from dataset")
+
+
+class PreviewResponse(BaseModel):
+    status: str = Field(description="'success' or 'error'")
+    detected_mode: str = Field(description="'new', 'existing', or 'ambiguous'")
+    proposed_table: str = Field(description="Proposed MySQL table name")
+    table_already_exists: bool = Field(default=False, description="Whether proposed table already exists in MySQL")
+    match_confidence: Optional[float] = Field(default=None, description="Match confidence against existing table (0.0 to 1.0)")
+    match_message: Optional[str] = Field(default=None, description="Message describing detected target or recommendation")
+    warning: Optional[str] = Field(default=None, description="Warning if table already exists or target is ambiguous")
+    total_rows: int = Field(description="Total data rows in uploaded file")
+    total_columns: int = Field(description="Total columns in uploaded file")
+    columns: List[ColumnPreview] = Field(description="Column schema preview")
+    preview_rows: List[Dict[str, Any]] = Field(default_factory=list, description="First rows of dataset for preview")

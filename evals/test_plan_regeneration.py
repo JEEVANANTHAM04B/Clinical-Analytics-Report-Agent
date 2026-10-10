@@ -24,41 +24,34 @@ DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "plan_regeneration
 BASE_PLAN = """### Clinical Analytics Analysis Plan
 
 #### 1. Relevant Tables and Columns
-* **`encounters`**:
-  * `ID` (VARCHAR): Unique identifier for the encounter.
-  * `START` (DATE): Start date/time of the medical encounter.
-  * `STOP` (DATE): End date/time of the medical encounter.
-  * `ENCOUNTERCLASS` (VARCHAR): Class of encounter (e.g., inpatient).
-* **`conditions`**:
-  * `DESCRIPTION` (VARCHAR): Human-readable diagnosis description.
-  * `ENCOUNTER` (VARCHAR): Foreign key referencing the encounter.
+* **`dm`**:
+  * `USUBJID` (VARCHAR): Unique identifier for the subject.
+  * `ARM` (VARCHAR): Treatment arm.
+  * `AGE` (DOUBLE): Subject age.
+* **`ae`**:
+  * `USUBJID` (VARCHAR): Subject identifier.
+  * `AETERM` (VARCHAR): Adverse event verbatim term.
+  * `AESEV` (VARCHAR): Severity classification.
+  * `AESER` (VARCHAR): Serious adverse event flag.
 
 #### 2. Join Conditions
-* `encounters.ID = conditions.ENCOUNTER`
+* `dm.USUBJID = ae.USUBJID`
 
 #### 3. Derived Calculations
-* **Length of Stay**:
-  `DATEDIFF(encounters.STOP, encounters.START)`
-* **Average Length of Stay**:
-  `AVG(DATEDIFF(encounters.STOP, encounters.START))`
+* **Adverse Event Count**:
+  `COUNT(*)`
 
 #### 4. Aggregations & Grouping
 * **Grouping**:
-  Group results by `conditions.DESCRIPTION`.
+  Group results by `ae.AESEV`.
 
 #### 5. Filtering
-* **Inpatient Encounters Only**:
-  * Use inpatient encounters only: `encounters.ENCOUNTERCLASS = 'inpatient'`
-* **Valid Encounter Dates**:
-  * Exclude NULL START and STOP values:
-    * `encounters.START IS NOT NULL`
-    * `encounters.STOP IS NOT NULL`
-* **Length of Stay Range**:
-  * Include only LOS values between 0 and 30 days:
-    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`
-* **Valid Diagnosis**:
-  * Exclude records where diagnosis description is missing:
-    * `conditions.DESCRIPTION IS NOT NULL`"""
+* **Valid Subject Identifier**:
+  * `dm.USUBJID IS NOT NULL`
+  * `ae.USUBJID IS NOT NULL`
+* **Age Range**:
+  * Include only subjects with age between 18 and 65:
+    * `dm.AGE BETWEEN 18 AND 65`"""
 
 
 def load_test_cases():
@@ -192,24 +185,17 @@ def run_plan_regeneration_tests(data: dict, schema: dict):
                 failures.append(f"Forbidden requirement still present: '{forbidden}'")
 
         # Category-specific checks
-        if case.get("check_not_inpatient_only"):
-            # Ensure not restricted to inpatient only
-            if "use inpatient encounters only" in revised_lower and "emergency" not in revised_lower:
-                failures.append("Plan still restricts analysis to inpatient only without including emergency.")
+        if case.get("check_serious_filter"):
+            if "aeser" not in revised_lower:
+                failures.append("Plan missing serious adverse events filter (AESER).")
 
-        if case.get("check_grouping_encounterclass"):
-            # Ensure grouping is by encounter class
-            if "encounterclass" not in revised_lower and "encounter class" not in revised_lower:
-                failures.append("Plan does not group by encounter class.")
+        if case.get("check_grouping_arm"):
+            if "arm" not in revised_lower:
+                failures.append("Plan does not group by treatment arm.")
 
-        if case.get("check_no_conditions_join"):
-            # Ensure conditions join is removed when grouping changes
-            if "encounters.id = conditions.encounter" in revised_lower:
-                failures.append("Unnecessary conditions join remains in plan.")
-
-        if case.get("check_diagnosis_grouping_removed"):
-            if "group results by `conditions.description`" in revised_lower or "group by `conditions.description`" in revised_lower:
-                failures.append("Diagnosis grouping was not removed.")
+        if case.get("check_severity_grouping_removed"):
+            if "group results by `ae.aesev`" in revised_lower or "group by `ae.aesev`" in revised_lower:
+                failures.append("Severity grouping was not removed.")
 
         if case.get("check_version_increment"):
             if new_version != initial_version + 1:

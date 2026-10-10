@@ -31,12 +31,15 @@ def verify_numeric_fields(rows: list[dict[str, Any]], expected_type: str) -> tup
         for key, val in row.items():
             key_lower = key.lower()
             is_numeric_metric = (
-                key_lower in ("avg_los", "total_claim_cost", "total_payer_coverage", "encounter_count", "patient_count", "diagnosis_count")
+                key_lower in ("avg_los", "total_claim_cost", "total_payer_coverage", "encounter_count", "patient_count", "diagnosis_count", "subject_count", "total_subjects", "enrolled_subjects", "serious_adverse_events")
                 or key_lower.endswith("_count")
                 or key_lower.endswith("_cost")
                 or key_lower.endswith("_coverage")
+                or key_lower.endswith("_rate")
+                or key_lower.endswith("_pct")
                 or key_lower.startswith("avg_")
                 or key_lower.startswith("sum_")
+                or key_lower.startswith("mean_")
             )
             if is_numeric_metric:
                 if val is not None and not isinstance(val, (int, float, Decimal)):

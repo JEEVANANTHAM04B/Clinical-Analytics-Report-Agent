@@ -27,7 +27,7 @@ export const VerifiedResultsTable: React.FC<VerifiedResultsTableProps> = ({
   const valCol = keys.find((k) => /avg|los|day|count|val/i.test(k)) || keys[1] || 'average_length_of_stay';
 
   return (
-    <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm flex flex-col justify-between h-full">
+    <div data-testid="verified-results-table" className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm flex flex-col justify-between h-full">
       <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-100">
@@ -36,7 +36,7 @@ export const VerifiedResultsTable: React.FC<VerifiedResultsTableProps> = ({
             <h3 className="text-xs font-bold text-gray-900">Verified Results</h3>
           </div>
           <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100">
-            <span>{countBadge}</span>
+            <span data-testid="verified-results-badge">{countBadge}</span>
           </span>
         </div>
 

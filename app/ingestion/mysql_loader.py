@@ -63,6 +63,7 @@ PROTECTED_METADATA_TABLES = {
     "dataset_columns",
     "approved_relationships",
     "audit_logs",
+    "clinical_dataset_registry",
 }
 
 MYSQL_RESERVED_WORDS = {
@@ -103,6 +104,8 @@ MYSQL_RESERVED_WORDS = {
 ALLOWED_DIRECTORIES = [
     Path("data/sample").resolve(),
     Path("data/uploads").resolve(),
+    Path("data/clinical_trials").resolve(),
+    Path(r"C:\Users\sathy\OneDrive\Documents\Desktop\Dataset").resolve(),
     Path(r"C:\Users\sathy\OneDrive\Documents\Desktop\Office Bootcamp\Dataset\CSV Dataset").resolve(),
     Path(r"..\Dataset\CSV Dataset").resolve(),
     Path(r"C:\Users\sathy\OneDrive\Documents\Desktop\Jeeva\data_cleaning\csv").resolve(),
@@ -166,6 +169,86 @@ def sanitize_table_name(input_name: str) -> str:
     return clean
 
 
+def validate_table_name(input_name: str) -> str:
+    """
+    Validates and sanitizes table name.
+    Raises ValueError if input_name contains disallowed characters or injection tokens.
+    """
+    if not input_name or not isinstance(input_name, str) or not input_name.strip():
+        raise ValueError("Table name must be a non-empty string.")
+
+    clean_raw = input_name.strip()
+    if any(ch in clean_raw for ch in (";", "--", "/*", "*/", "'", '"', "\\", "`", "/", "<", ">")):
+        raise ValueError(f"Table name '{clean_raw}' contains invalid or disallowed characters.")
+
+    sanitized = sanitize_table_name(clean_raw)
+    if not sanitized:
+        raise ValueError(f"Table name '{clean_raw}' cannot be sanitized into a valid MySQL identifier.")
+    return sanitized
+
+
+def validate_and_sanitize_column_names(columns: List[Any]) -> Tuple[List[str], Dict[str, str]]:
+    """
+    Validates column headers:
+      - Detects duplicate column headers (case-insensitive)
+      - Detects empty or whitespace column headers
+      - Preserves valid source column names (e.g. SUBJID, ENDPOINT, RESULT, VISIT)
+      - Sanitizes invalid characters to safe SQL identifiers
+    """
+    if len(columns) == 0:
+        raise ValueError("Dataset has no column headers.")
+
+    raw_headers = [str(c).strip() for c in columns]
+
+    # Check for empty column headers
+    for idx, h in enumerate(raw_headers):
+        if not h or h.lower().startswith("unnamed:") or h.lower() in ("nan", "none", "null"):
+            raise ValueError(f"Dataset contains empty or missing column header at index {idx}.")
+
+    # Check for duplicate headers
+    headers_lower = [h.lower() for h in raw_headers]
+    seen = set()
+    duplicates = set()
+    for h in headers_lower:
+        if h in seen:
+            duplicates.add(h)
+        seen.add(h)
+
+    for h in raw_headers:
+        if "." in h and h.rsplit(".", 1)[1].isdigit():
+            base_h = h.rsplit(".", 1)[0]
+            if base_h in raw_headers:
+                duplicates.add(base_h.lower())
+
+    if duplicates:
+        raise ValueError(
+            f"Duplicate column name(s) detected in dataset: {', '.join(sorted(duplicates))}. "
+            f"Each column must have a unique name."
+        )
+
+    # Sanitize each column name safely while preserving clinical casing / meaning
+    sanitized_cols = []
+    col_mapping = {}
+    for h in raw_headers:
+        clean_col = re.sub(r"[^a-zA-Z0-9_]", "_", h)
+        clean_col = re.sub(r"_+", "_", clean_col).strip("_")
+        if not clean_col:
+            clean_col = f"col_{len(sanitized_cols)+1}"
+        if clean_col[0].isdigit():
+            clean_col = f"col_{clean_col}"
+        if clean_col.lower() in MYSQL_RESERVED_WORDS:
+            clean_col = f"{clean_col}_val"
+        clean_col = clean_col[:64]
+        sanitized_cols.append(clean_col)
+        col_mapping[h] = clean_col
+
+    # Final check on sanitized uniqueness
+    if len(sanitized_cols) != len(set(c.lower() for c in sanitized_cols)):
+        raise ValueError("Sanitizing column names produced duplicate column identifiers.")
+
+    return sanitized_cols, col_mapping
+
+
 # =============================================================================
 # Helper 1b: Target Table Name Resolver
 # =============================================================================
@@ -175,21 +258,24 @@ def resolve_target_table_name(
     df: Optional[pd.DataFrame] = None,
     explicit_table_name: Optional[str] = None,
     engine_obj: Any = engine,
+    is_new_table: bool = False,
 ) -> str:
     """
     Deterministically resolves the target MySQL table name for an uploaded dataset.
 
     Order of resolution & Safety Guards:
       1. Inspect existing clinical tables and compute column compatibility for each.
-      2. If explicit_table_name is provided:
+      2. If is_new_table is True:
+         - Validate table name and verify table does NOT already exist.
+         - If it exists, raise ValueError.
+      3. If explicit_table_name is provided:
          - Verify that the uploaded CSV is actually compatible with that table.
          - If compatibility is poor (< 50% column match) and another table is a strong match,
            REJECT with a clear validation error so columns are NEVER silently dropped.
-      3. If Auto-Detect (explicit_table_name is None, '', or 'auto'):
+      4. If Auto-Detect (explicit_table_name is None, '', or 'auto'):
          - Choose the table with the strongest valid schema match (coverage >= 70%).
          - Check for ambiguous matches; if ambiguous, verify with filename tokens or raise.
-      4. Filename token match fallback against clinical tables.
-      5. Safe table name sanitization fallback.
+      5. Safe table name sanitization fallback (derives new table name).
     """
     inspector = inspect(engine_obj)
     all_tables = inspector.get_table_names()
@@ -225,13 +311,30 @@ def resolve_target_table_name(
             except Exception as e:
                 logger.debug(f"Error inspecting table '{t}': {e}")
 
-    # Check if explicit_table_name is an actual table or 'auto'
+    # Check if explicit_table_name is provided
     clean_explicit = None
     if explicit_table_name and explicit_table_name.strip() and explicit_table_name.strip().lower() not in ("auto", "auto-detect", "none"):
-        clean_explicit = sanitize_table_name(explicit_table_name)
+        clean_explicit = validate_table_name(explicit_table_name)
 
-    # ── Step 1: Explicit table validation & Safety Guard ──────────────────────
+    # ── Step 1: Explicit "Create New Table" Mode ─────────────────────────────
+    if is_new_table:
+        target = clean_explicit or (sanitize_table_name(base_name) if base_name else "clinical_dataset")
+        target = validate_table_name(target)
+        # Check if table already exists
+        if target.lower() in [t.lower() for t in all_tables]:
+            raise ValueError(
+                f"Table {target} already exists. Choose another name or explicitly select an existing table as the upload target."
+            )
+        logger.info(f"Target table validated for new table creation: '{target}'")
+        return target
+
+    # ── Step 2: Explicit Target Table Selected (Existing Table) ─────────────
     if clean_explicit:
+        existing_match = next((t for t in all_tables if t.lower() == clean_explicit.lower()), None)
+        if not existing_match:
+            logger.info(f"Explicit target table '{clean_explicit}' does not exist; creating as new table.")
+            return clean_explicit
+
         if clean_explicit in clinical_tables and df_cols:
             explicit_info = table_matches.get(
                 clean_explicit,
@@ -239,7 +342,6 @@ def resolve_target_table_name(
             )
             explicit_coverage = explicit_info["coverage"]
 
-            # Check if another table has a significantly better match
             best_other = None
             if table_matches:
                 sorted_by_score = sorted(
@@ -250,7 +352,6 @@ def resolve_target_table_name(
                 if sorted_by_score:
                     best_other = sorted_by_score[0]
 
-            # If fewer than 50% of the uploaded columns match the explicit table
             if explicit_coverage < 0.50:
                 if best_other and best_other[1]["coverage"] >= 0.70:
                     raise ValueError(
@@ -269,17 +370,15 @@ def resolve_target_table_name(
         logger.info(f"Target table validated from explicit selection: '{clean_explicit}'")
         return clean_explicit
 
-    # ── Step 2: Auto-Detect from column schema match ─────────────────────────
+    # ── Step 3: Auto-Detect from column schema match ─────────────────────────
     if table_matches:
         sorted_matches = sorted(table_matches.items(), key=lambda x: x[1]["score"], reverse=True)
         best_table, best_data = sorted_matches[0]
 
         if best_data["coverage"] >= 0.70:
-            # Check for ambiguity
             if len(sorted_matches) > 1:
                 second_table, second_data = sorted_matches[1]
                 if second_data["coverage"] >= 0.70 and abs(best_data["score"] - second_data["score"]) < 0.05:
-                    # Disambiguate using filename
                     for cand in (best_table, second_table):
                         if re.search(rf"(^|_){re.escape(cand)}(_|$)", base_name):
                             logger.info(f"Auto-detected target table with filename disambiguation: '{cand}'")
@@ -291,17 +390,25 @@ def resolve_target_table_name(
             logger.info(f"Auto-detected target table by column schema match ({best_data['coverage']:.0%}): '{best_table}'")
             return best_table
 
-    # ── Step 3: Filename token match fallback ────────────────────────────────
+    # ── Step 4: Filename token match fallback (Existing tables) ──────────────
     if base_name:
         for table in sorted(clinical_tables, key=len, reverse=True):
             pattern = rf"(^|_){re.escape(table)}(_|$)"
             if re.search(pattern, base_name):
-                logger.info(f"Target table resolved by filename token match: '{table}' (from '{base_name}')")
-                return table
+                table_info = table_matches.get(table, {"coverage": 0.0})
+                if table_info["coverage"] >= 0.50:
+                    logger.info(f"Target table resolved by filename token match: '{table}' (from '{base_name}')")
+                    return table
 
-    # ── Step 4: Fallback to sanitized filename ────────────────────────────────
+    # ── Step 5: Fallback to new table creation from sanitized filename ───────
     fallback_name = base_name if base_name else "clinical_dataset"
-    return sanitize_table_name(fallback_name)
+    fallback_clean = validate_table_name(fallback_name)
+    if fallback_clean.lower() in [t.lower() for t in all_tables]:
+        raise ValueError(
+            f"Table {fallback_clean} already exists. Choose another name or explicitly select an existing table as the upload target."
+        )
+    logger.info(f"No existing schema match found; resolved to new table '{fallback_clean}'")
+    return fallback_clean
 
 
 # =============================================================================
@@ -549,6 +656,10 @@ def load_dataset_to_mysql(
     file_path: Optional[str] = None,
     custom_table_name: Optional[str] = None,
     if_exists: str = "fail",
+    is_new_table: bool = False,
+    classification: str = "CLINICAL",
+    approval_status: str = "APPROVED",
+    category: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Validates, profiles, and loads a clinical dataset into MySQL.
@@ -556,17 +667,19 @@ def load_dataset_to_mysql(
     Workflow:
       1. Resolve file safely within allowed directories.
       2. Execute Phase 2/3 analysis pipeline (schema profiling, quality flags, null checks).
-      3. Sanitize dataset or custom name into a valid MySQL table name.
-      4. Prepare DataFrame: parse dates to native datetime, clean column headers.
-      5. Deterministically map Pandas dtypes to SQLAlchemy/MySQL types.
-      6. Insert data into MySQL using pandas.to_sql(chunksize=5000).
-      7. Record DatasetVersion, DatasetColumn metadata, and AuditLog.
+      3. Validate column headers (checks duplicates, empty headers, sanitizes identifiers).
+      4. Determine and sanitize MySQL table name (with duplicate table protection).
+      5. Convert date columns to native datetime, clean values.
+      6. Map Pandas dtypes to SQLAlchemy/MySQL types deterministically.
+      7. Create table and insert records using transaction with clean rollback on failure.
+      8. Persist DatasetVersion, DatasetColumn metadata, and AuditLog.
 
     Args:
       filename: Dataset filename (e.g. 'sample_clinical_data.csv').
       file_path: Explicit path within allowed directories.
       custom_table_name: Optional custom table name (will still be sanitized).
       if_exists: 'fail' (default), 'replace', or 'append'.
+      is_new_table: True if explicitly creating a new table.
 
     Returns:
       Dict with table_name, rows_loaded, columns_loaded, version_id, loaded_at.
@@ -576,38 +689,44 @@ def load_dataset_to_mysql(
     source_filename = os.path.basename(safe_path)
     source_file_ext = Path(safe_path).suffix.lower()
 
-    logger.info(f"Initiating MySQL dataset load for: '{source_filename}' (path: {safe_path})")
+    logger.info(f"Initiating MySQL dataset load for: '{source_filename}' (path: {safe_path}) | is_new_table={is_new_table}")
 
     # ── Step 2: Validate & Analyze Dataset ───────────────────────────────────
-    # Run full Phase 2/3 validation and schema inference pipeline
     analysis_report, df = analyze_single_dataset(safe_path)
 
     if len(df) == 0:
         raise ValueError(f"Cannot load empty dataset '{source_filename}'. Zero data rows detected.")
+
+    # ── Step 2b: Validate and sanitize column headers ────────────────────────
+    sanitized_cols, col_mapping = validate_and_sanitize_column_names(df.columns)
+    df = df.rename(columns=col_mapping)
 
     # ── Step 3: Determine and sanitize MySQL table name ──────────────────────
     table_name = resolve_target_table_name(
         filename=source_filename,
         df=df,
         explicit_table_name=custom_table_name,
+        is_new_table=is_new_table,
     )
 
     # ── Step 4: Check if table already exists in MySQL ────────────────────────
     inspector = inspect(engine)
     table_exists = inspector.has_table(table_name)
 
+    if is_new_table and table_exists:
+        raise ValueError(
+            f"Table {table_name} already exists. Choose another name or explicitly select an existing table as the upload target."
+        )
+
     if table_exists and if_exists == "fail":
         msg = (
-            f"Table '{table_name}' already exists in MySQL database 'clinical_analytics_db'. "
-            f"Specify if_exists='replace' to overwrite or 'append' to add rows."
+            f"Table {table_name} already exists. "
+            f"Choose another name or explicitly select an existing table as the upload target."
         )
         logger.warning(msg)
         raise ValueError(msg)
 
     # ── Step 5: Clean column headers, align with existing schema, and convert dates ───
-    # Strip whitespace from column headers
-    df.columns = [str(c).strip() for c in df.columns]
-
     existing_columns = inspector.get_columns(table_name) if table_exists else []
     existing_col_map = {col["name"].lower(): col["name"] for col in existing_columns}
 
@@ -705,27 +824,50 @@ def load_dataset_to_mysql(
     load_start = datetime.utcnow()
     logger.info(
         f"Writing {rows_inserted:,} rows × {len(df.columns)} cols to MySQL table '{table_name}' "
-        f"with mode if_exists='{if_exists}' (received={rows_received}, skipped={rows_skipped})..."
+        f"with mode if_exists='{if_exists}' (received={rows_received}, skipped={rows_skipped}, new_table={not table_exists})..."
     )
 
+    table_created = False
     try:
+        # If creating a new table, generate DDL with quoted identifiers and execute in transaction
+        if not table_exists:
+            col_defs = []
+            for col in df.columns:
+                type_str = sql_type_strings.get(col, "VARCHAR(255)")
+                col_defs.append(f"`{col}` {type_str} NULL")
+            create_table_sql = f"CREATE TABLE `{table_name}` ({', '.join(col_defs)}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+
+            with engine.begin() as ddl_conn:
+                ddl_conn.execute(text(create_table_sql))
+            table_created = True
+            logger.info(f"Created new MySQL table '{table_name}' successfully.")
+
         if rows_inserted > 0:
-            # If table already exists and appending, let MySQL's established column types govern
             to_sql_dtype = None if (table_exists and if_exists == "append") else sqlalchemy_dtypes
-            load_dataframe_to_mysql(
-                df=df,
-                table_name=table_name,
-                con=engine,
-                if_exists=if_exists,
-                dtype=to_sql_dtype,
-                chunksize=5000,
-            )
+            with engine.begin() as insert_conn:
+                load_dataframe_to_mysql(
+                    df=df,
+                    table_name=table_name,
+                    con=insert_conn,
+                    if_exists="append",
+                    dtype=to_sql_dtype,
+                    chunksize=5000,
+                )
             logger.info(f"Successfully loaded {rows_inserted:,} rows into MySQL table '{table_name}'.")
         else:
-            logger.info(f"Zero new rows to insert into '{table_name}' (all candidate rows already exist).")
+            logger.info(f"Zero new rows to insert into '{table_name}'.")
 
     except Exception as e:
         logger.exception(f"Failed to write dataset to MySQL table '{table_name}': {e}")
+        # Rollback / cleanup newly created table if insertion failed
+        if table_created:
+            try:
+                with engine.begin() as cleanup_conn:
+                    cleanup_conn.execute(text(f"DROP TABLE IF EXISTS `{table_name}`"))
+                logger.info(f"Cleaned up incomplete new table '{table_name}' after error.")
+            except Exception as drop_err:
+                logger.warning(f"Failed to cleanup aborted table '{table_name}': {drop_err}")
+
         # Log failure to audit log
         try:
             with get_db_context() as db:
@@ -790,10 +932,34 @@ def load_dataset_to_mysql(
             message=audit_msg,
         )
 
+        # 4. Register newly loaded table in authoritative dataset registry
+        try:
+            from app.clinical.dataset_registry_service import register_dataset
+            register_dataset(
+                dataset_name=table_name,
+                display_name=table_name.capitalize(),
+                classification=classification,
+                approval_status=approval_status,
+                category=category or ("Custom Clinical" if classification == "CLINICAL" else "Testing"),
+                description=f"Uploaded dataset table '{table_name}'",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to register dataset '{table_name}' in clinical registry: {e}")
+
+        # 5. Profile newly loaded table in clinical schema registry if approved
+        try:
+            if classification == "CLINICAL" and approval_status == "APPROVED":
+                from app.clinical.schema_registry import registry as clinical_registry
+                clinical_registry.get_dataset(table_name)
+        except Exception:
+            pass
+
         return {
             "status": "success",
             "message": audit_msg,
             "table_name": table_name,
+            "classification": classification,
+            "approval_status": approval_status,
             "rows_loaded": rows_inserted,
             "rows_received": rows_received,
             "rows_inserted": rows_inserted,

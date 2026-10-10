@@ -15,27 +15,28 @@ import ReportTriggerBanner from '../components/ReportTriggerBanner';
 import ReportModal from '../components/ReportModal';
 import DatasetUploadModal from '../components/DatasetUploadModal';
 import apiService from '../services/api';
-import { 
-  AnalyticsResponse, 
-  OverviewResponse, 
-  ClinicalTable, 
+import {
+  AnalyticsResponse,
+  OverviewResponse,
+  ClinicalTable,
   DashboardCustomizationResponse,
-  FollowUpResponse 
+  FollowUpResponse
 } from '../types/analytics';
-import { 
-  Activity, 
-  MessageSquare, 
-  TrendingUp, 
-  Database, 
-  History, 
-  FileText, 
-  Settings, 
-  Sparkles, 
-  CheckCircle2, 
-  Clock, 
-  ArrowRight, 
-  UploadCloud, 
-  ShieldCheck, 
+import {
+  Activity,
+  MessageSquare,
+  TrendingUp,
+  Database,
+  History,
+  FileText,
+  Settings,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  UploadCloud,
+  ShieldCheck,
+  ShieldAlert,
   Sliders
 } from 'lucide-react';
 
@@ -49,8 +50,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   const [isLoading, setIsLoading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [approveElapsedSecs, setApproveElapsedSecs] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState('What is the average length of stay by diagnosis?');
-  
+  const [currentQuestion, setCurrentQuestion] = useState('What is the adverse event rate by treatment arm?');
+
   // Analytics state
   const [isQuestionMode, setIsQuestionMode] = useState(false);
   const [approvalPending, setApprovalPending] = useState(false);
@@ -63,10 +64,20 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
 
   // Dynamic Table Selection & Custom Dashboard state
   const [availableTables, setAvailableTables] = useState<ClinicalTable[]>([]);
-  const [selectedTables, setSelectedTables] = useState<string[]>(['patients', 'encounters', 'conditions']);
+  const [selectedTables, setSelectedTables] = useState<string[]>(['study', 'sites', 'dm']);
   const [isApplyingTables, setIsApplyingTables] = useState(false);
   const [tableCombinationError, setTableCombinationError] = useState<string | null>(null);
   const [customDashboardData, setCustomDashboardData] = useState<DashboardCustomizationResponse | null>(null);
+  const [blockedInfo, setBlockedInfo] = useState<{
+    status: string;
+    reason?: string;
+    question: string;
+    required_tables: string[];
+    selected_tables: string[];
+    missing_tables: string[];
+    message: string;
+    next_action?: string;
+  } | null>(null);
 
   // Modals state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -139,8 +150,12 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   }, []);
 
   // Handle user applying custom table selection
-  const handleApplyTableSelection = async (tablesToApply: string[]) => {
-    if (!tablesToApply || tablesToApply.length === 0) {
+  const handleApplyTableSelection = async (tablesToApply: string[], autoResume = true) => {
+    const sanitized = (tablesToApply || []).filter(
+      (t) => !['patients', 'encounters', 'conditions', 'medications', 'observations', 'procedures'].includes(t.toLowerCase().trim())
+    );
+
+    if (!sanitized || sanitized.length === 0) {
       setTableCombinationError('Please select at least one clinical table.');
       return;
     }
@@ -149,22 +164,38 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     setTableCombinationError(null);
 
     try {
-      const response = await apiService.customizeDashboard(tablesToApply);
+      const response = await apiService.customizeDashboard(sanitized);
       if (!response.valid_combination) {
         setTableCombinationError(
-          response.message || 
+          response.message ||
           'These tables cannot currently be combined because no approved relationship exists.'
         );
         return;
       }
 
+      setSelectedTables(sanitized);
       setCustomDashboardData(response);
       setTableCombinationError(null);
       setIsQuestionMode(false);
+
+      // If there was an active blocked analysis, check if all required tables are now selected
+      if (blockedInfo && autoResume) {
+        const stillMissing = blockedInfo.required_tables.filter(
+          (t) => !sanitized.map(s => s.toLowerCase()).includes(t.toLowerCase())
+        );
+        if (stillMissing.length === 0) {
+          // All required tables selected! Automatically resume analysis
+          setBlockedInfo(null);
+          handleRunAnalysisWithTables(currentQuestion, sanitized);
+        } else {
+          // Re-validate against updated selection
+          handleRunAnalysisWithTables(currentQuestion, sanitized);
+        }
+      }
     } catch (err: any) {
       console.error('Error applying table selection:', err);
       setTableCombinationError(
-        err.response?.data?.detail || 
+        err.response?.data?.detail ||
         'These tables cannot currently be combined because no approved relationship exists.'
       );
     } finally {
@@ -172,21 +203,43 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     }
   };
 
-  // Step 1: User runs question -> calls backend with approval_status = 'pending' + selected_tables
-  const handleRunAnalysis = async (question: string) => {
+  // Run question against an explicit table selection
+  const handleRunAnalysisWithTables = async (question: string, tablesToUse?: string[]) => {
     setIsLoading(true);
     setErrorMessage(null);
     setCurrentQuestion(question);
     setPlanVersion(1);
     setFeedbackHistory([]);
 
+    const tables = tablesToUse || selectedTables;
+
     try {
       const res = await apiService.runAnalytics({
         question,
         approval_status: 'pending',
-        selected_tables: selectedTables,
+        selected_tables: tables,
         plan_version: 1,
       });
+
+      if (res.status === 'blocked') {
+        setBlockedInfo({
+          status: 'blocked',
+          reason: res.reason || 'required_tables_not_selected',
+          question: res.question || question,
+          required_tables: res.required_tables || [],
+          selected_tables: res.selected_tables || tables,
+          missing_tables: res.missing_tables || [],
+          message: res.message || 'This analysis requires tables that have not been selected.',
+          next_action: res.next_action || 'select_missing_tables',
+        });
+        setApprovalPending(false);
+        setAnalysisPlan(null);
+        setAnalyticsResult(null);
+        setIsQuestionMode(false);
+        return;
+      }
+
+      setBlockedInfo(null);
 
       if (res.analysis_plan) {
         setAnalysisPlan(res.analysis_plan);
@@ -196,10 +249,35 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       }
     } catch (err: any) {
       console.error('Error starting analysis:', err);
-      setErrorMessage(err.response?.data?.detail || 'An error occurred while connecting to the analytics engine.');
+      const detail = err.response?.data?.detail;
+      setErrorMessage(typeof detail === 'string' ? detail : detail?.message || 'An error occurred while connecting to the analytics engine.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Step 1: User runs question -> calls backend with approval_status = 'pending' + selected_tables
+  const handleRunAnalysis = (question: string) => {
+    return handleRunAnalysisWithTables(question, selectedTables);
+  };
+
+  // User clicks to select missing tables and resume analysis
+  const handleSelectMissingTablesAndResume = async (missing: string[]) => {
+    const sanitizedMissing = missing.map((t) => t.toLowerCase().trim());
+    const newTables = Array.from(new Set([...selectedTables.map((t) => t.toLowerCase().trim()), ...sanitizedMissing]));
+    setSelectedTables(newTables);
+    setBlockedInfo(null);
+
+    try {
+      const response = await apiService.customizeDashboard(newTables);
+      if (response.valid_combination) {
+        setCustomDashboardData(response);
+      }
+    } catch (e) {
+      console.error('Failed to update dashboard metadata for selected tables:', e);
+    }
+
+    await handleRunAnalysisWithTables(currentQuestion, newTables);
   };
 
   // Step 2: User approves analysis plan -> calls backend with approval_status = 'approved' + selected_tables
@@ -247,6 +325,25 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
         error: res.error,
       });
 
+      if (res.status === 'blocked') {
+        setBlockedInfo({
+          status: 'blocked',
+          reason: res.reason || 'required_tables_not_selected',
+          question: res.question || currentQuestion,
+          required_tables: res.required_tables || [],
+          selected_tables: res.selected_tables || selectedTables,
+          missing_tables: res.missing_tables || [],
+          message: res.message || 'This analysis requires tables that have not been selected.',
+          next_action: res.next_action || 'select_missing_tables',
+        });
+        setApprovalPending(false);
+        setAnalysisPlan(null);
+        setAnalyticsResult(null);
+        setIsQuestionMode(false);
+        return;
+      }
+
+      setBlockedInfo(null);
       setAnalyticsResult(res);
       setApprovalPending(false);
       setIsQuestionMode(true);
@@ -479,13 +576,13 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 readmissionRate={overview?.readmission_rate ?? 10.2}
                 dataQualityStatus={overview?.data_quality_status ?? "Fully Validated"}
                 datasetStatus={overview?.organization_dataset ?? "Connected"}
-                selectedTables={selectedTables}
+                selectedTables={customDashboardData?.selected_tables || selectedTables}
                 kpiCards={customDashboardData?.kpi_cards}
               />
 
               {/* Active Dataset Card with Upload Trigger */}
-              <ActiveDatasetCard 
-                datasetName={overview?.dataset_name || "Organization EHR Dataset"} 
+              <ActiveDatasetCard
+                datasetName={overview?.dataset_name || "Clinical Trial CDISC Dataset"}
                 onUploadClick={() => setIsUploadModalOpen(true)}
               />
 
@@ -496,6 +593,87 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 defaultQuestion={currentQuestion}
                 suggestedQuestions={customDashboardData?.suggested_questions}
               />
+
+              {/* ANALYSIS BLOCKED CARD */}
+              {blockedInfo && (
+                <div className="bg-white border-2 border-rose-300 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                        <ShieldAlert className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                            ANALYSIS BLOCKED
+                          </span>
+                          <span className="text-xs text-rose-600 font-semibold">Strict Table Boundary Enforced</span>
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 mt-1">
+                          Your question requires additional dataset tables.
+                        </h3>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setBlockedInfo(null)}
+                      className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-xs text-gray-700">
+                    <span className="font-semibold text-gray-900">Question: </span>
+                    <span className="italic">"{blockedInfo.question}"</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                      Required Dataset Tables:
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {blockedInfo.required_tables.map((table) => {
+                        const isSelected = blockedInfo.selected_tables.map(s => s.toLowerCase()).includes(table.toLowerCase());
+                        return (
+                          <div
+                            key={table}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
+                              isSelected
+                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                                : 'bg-rose-50/80 border-rose-200 text-rose-900 font-medium'
+                            }`}
+                          >
+                            <span className="font-mono font-bold uppercase">{table}</span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isSelected
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                            }`}>
+                              {isSelected ? '✓ Selected' : '✕ Not selected'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-700 bg-amber-50/60 border border-amber-200/80 rounded-lg p-3">
+                    <p className="font-medium text-amber-900">{blockedInfo.message}</p>
+                  </div>
+
+                  {blockedInfo.missing_tables.length > 0 && (
+                    <div className="flex items-center justify-end space-x-3 pt-1">
+                      <button
+                        onClick={() => handleSelectMissingTablesAndResume(blockedInfo.missing_tables)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span>Select {blockedInfo.missing_tables.map(t => t.toUpperCase()).join(' & ')} & Resume Analysis</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Human Approval Required Gate (When approval_status === pending) */}
               {approvalPending && analysisPlan && (
@@ -519,7 +697,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 encounterClasses={overview?.encounter_classes}
                 monthlyTrends={overview?.monthly_trends}
                 topDiagnoses={overview?.top_diagnoses}
-                selectedTables={selectedTables}
+                selectedTables={customDashboardData?.selected_tables || selectedTables}
                 customTitle={customDashboardData?.chart_title}
                 customCategories={customDashboardData?.chart_categories}
                 customValues={customDashboardData?.chart_values}
@@ -543,7 +721,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                     isQuestionMode
                       ? `${analyticsResult?.results.length || 8} Rows Verified`
                       : customDashboardData
-                      ? `${customDashboardData.verified_results.length} Rows Verified`
+                      ? `${customDashboardData.verified_results.length} Rows (${customDashboardData.selected_tables.join('+')})`
                       : undefined
                   }
                 />
@@ -594,6 +772,87 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                   defaultQuestion={currentQuestion}
                 />
               </div>
+
+              {/* ANALYSIS BLOCKED CARD */}
+              {blockedInfo && (
+                <div className="bg-white border-2 border-rose-300 rounded-xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                        <ShieldAlert className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                            ANALYSIS BLOCKED
+                          </span>
+                          <span className="text-xs text-rose-600 font-semibold">Strict Table Boundary Enforced</span>
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 mt-1">
+                          Your question requires additional dataset tables.
+                        </h3>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setBlockedInfo(null)}
+                      className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-xs text-gray-700">
+                    <span className="font-semibold text-gray-900">Question: </span>
+                    <span className="italic">"{blockedInfo.question}"</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                      Required Dataset Tables:
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {blockedInfo.required_tables.map((table) => {
+                        const isSelected = blockedInfo.selected_tables.map(s => s.toLowerCase()).includes(table.toLowerCase());
+                        return (
+                          <div
+                            key={table}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
+                              isSelected
+                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                                : 'bg-rose-50/80 border-rose-200 text-rose-900 font-medium'
+                            }`}
+                          >
+                            <span className="font-mono font-bold uppercase">{table}</span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isSelected
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                            }`}>
+                              {isSelected ? '✓ Selected' : '✕ Not selected'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-700 bg-amber-50/60 border border-amber-200/80 rounded-lg p-3">
+                    <p className="font-medium text-amber-900">{blockedInfo.message}</p>
+                  </div>
+
+                  {blockedInfo.missing_tables.length > 0 && (
+                    <div className="flex items-center justify-end space-x-3 pt-1">
+                      <button
+                        onClick={() => handleSelectMissingTablesAndResume(blockedInfo.missing_tables)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span>Select {blockedInfo.missing_tables.map(t => t.toUpperCase()).join(' & ')} & Resume Analysis</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {approvalPending && analysisPlan && (
                 <ClinicalApprovalCard
@@ -745,7 +1004,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                   <span>Clinical Ontology & Knowledge Embeddings</span>
                 </div>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  The Clinical RAG system indexes evidence from standard clinical reference texts (e.g. SNOMED-CT, ICD-10-CM guidelines, and inpatient LOS benchmarks). 
+                  The Clinical RAG system indexes evidence from standard clinical reference texts (e.g. SNOMED-CT, ICD-10-CM guidelines, and inpatient LOS benchmarks).
                   When an analytics inquiry is processed, semantically retrieved clinical reference passages are passed directly into the AI insight synthesis node to ground conclusions strictly in certified medical literature.
                 </p>
                 <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 font-mono text-xs text-gray-800 space-y-1">
@@ -919,7 +1178,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                     <span>Compliance & Audit Guarantee</span>
                   </div>
                   <p className="text-xs text-gray-600">
-                    PDF reports compile verified SQL results, natural-language insights, and RAG ontology references into an immutable publication format. 
+                    PDF reports compile verified SQL results, natural-language insights, and RAG ontology references into an immutable publication format.
                     Downloads are strictly unlocked only after the clinical analyst confirms review.
                   </p>
                   <button
@@ -1017,4 +1276,3 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
 };
 
 export default ClinicalDashboard;
-

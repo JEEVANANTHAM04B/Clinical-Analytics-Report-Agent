@@ -52,7 +52,8 @@ def _result_numeric_values(
     """
     Extract numeric values from verified SQL results.
 
-    Handles MySQL Decimal values as well as int and float.
+    Handles MySQL Decimal values as well as int, float,
+    and numbers embedded in category strings (e.g. 'Site 10', 'Week 8').
     """
 
     values = []
@@ -62,6 +63,9 @@ def _result_numeric_values(
 
             if _is_numeric(value):
                 values.append(float(value))
+            elif isinstance(value, str):
+                for num in _extract_numbers(value):
+                    values.append(num)
 
     return values
 
@@ -107,10 +111,10 @@ def _number_exists_in_results(
     ):
         return True
 
-    # Allow normal two-decimal presentation
+    # Allow normal one- or two-decimal presentation
     for result_number in result_numbers:
 
-        if round(number, 2) == round(result_number, 2):
+        if round(number, 2) == round(result_number, 2) or round(number, 1) == round(result_number, 1):
             return True
 
     return False
@@ -167,6 +171,12 @@ def validate_insight(
         result_numbers.append(
             float(row_count)
         )
+
+    # Allow total sums of numeric columns across verified rows
+    for key in insight_evidence.get("numeric_columns", []):
+        col_vals = [float(row[key]) for row in query_results if _is_numeric(row.get(key))]
+        if col_vals:
+            result_numbers.append(sum(col_vals))
 
     # ---------------------------------------------------------
     # Extract categories

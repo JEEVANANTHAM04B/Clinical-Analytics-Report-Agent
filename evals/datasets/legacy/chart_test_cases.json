@@ -1,0 +1,91 @@
+[
+  {
+    "id": "chart_eval_001",
+    "category": "average_los_by_diagnosis",
+    "description": "Average length of stay by diagnosis",
+    "input_rows": [
+      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
+      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
+      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+    ],
+    "expect_spec": true,
+    "expected_x_columns": ["diagnosis"],
+    "expected_y_columns": ["average_length_of_stay"],
+    "valid_chart_types": ["bar", "line", "scatter"],
+    "require_non_empty_title": true
+  },
+  {
+    "id": "chart_eval_002",
+    "category": "encounter_counts",
+    "description": "Encounter counts comparison",
+    "input_rows": [
+      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
+      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+    ],
+    "expect_spec": true,
+    "expected_x_columns": ["ENCOUNTERCLASS"],
+    "expected_y_columns": ["encounter_count"],
+    "valid_chart_types": ["bar", "line", "scatter"],
+    "require_non_empty_title": true
+  },
+  {
+    "id": "chart_eval_003",
+    "category": "cost_analysis",
+    "description": "Total claim cost and payer coverage by encounter class",
+    "input_rows": [
+      {
+        "ENCOUNTERCLASS": "inpatient",
+        "total_claim_cost": 50000.0,
+        "total_payer_coverage": 30000.0
+      },
+      {
+        "ENCOUNTERCLASS": "emergency",
+        "total_claim_cost": 35000.0,
+        "total_payer_coverage": 20000.0
+      }
+    ],
+    "expect_spec": true,
+    "expected_x_columns": ["ENCOUNTERCLASS"],
+    "expected_y_columns": ["total_claim_cost", "total_payer_coverage"],
+    "valid_chart_types": ["bar", "line", "scatter"],
+    "require_non_empty_title": true
+  },
+  {
+    "id": "chart_eval_004",
+    "category": "demographics",
+    "description": "Patient count by gender and race",
+    "input_rows": [
+      {"GENDER": "F", "RACE": "White", "patient_count": 150},
+      {"GENDER": "M", "RACE": "White", "patient_count": 120},
+      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+    ],
+    "expect_spec": true,
+    "expected_x_columns": ["GENDER", "RACE"],
+    "expected_y_columns": ["patient_count"],
+    "valid_chart_types": ["bar", "line", "scatter"],
+    "require_non_empty_title": true
+  },
+  {
+    "id": "chart_eval_005",
+    "category": "empty_result",
+    "description": "Empty SQL query result set handling",
+    "input_rows": [],
+    "expect_spec": false,
+    "allow_empty_exception": true,
+    "expected_exception_types": ["ValueError"]
+  },
+  {
+    "id": "chart_eval_006",
+    "category": "column_containment_validation",
+    "description": "Validate that generated specification references only columns actually present in the result rows",
+    "input_rows": [
+      {"diagnosis": "Anemia", "average_length_of_stay": 4.0}
+    ],
+    "expect_spec": true,
+    "expected_x_columns": ["diagnosis"],
+    "expected_y_columns": ["average_length_of_stay"],
+    "valid_chart_types": ["bar", "line", "scatter"],
+    "require_non_empty_title": true,
+    "strict_column_containment": true
+  }
+]

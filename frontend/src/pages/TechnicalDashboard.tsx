@@ -22,31 +22,33 @@ import DatasetUploadModal from '../components/DatasetUploadModal';
 import apiService from '../services/api';
 import databaseApi, { AuditLogItem } from '../api/database';
 import datasetsApi, { DatasetVersionItem } from '../api/datasets';
-import { 
-  AnalyticsResponse, 
-  OverviewResponse, 
-  PipelineNode, 
+import {
+  AnalyticsResponse,
+  OverviewResponse,
+  PipelineNode,
   PipelineNodeStatus,
   ClinicalTable,
   DashboardCustomizationResponse,
   FollowUpResponse
 } from '../types/analytics';
-import { 
-  Search, 
-  Loader2, 
-  Activity, 
-  GitFork, 
-  Terminal, 
-  CheckSquare, 
-  Database, 
-  History, 
-  ShieldCheck, 
-  Cpu, 
-  Settings, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Search,
+  Loader2,
+  Activity,
+  GitFork,
+  Terminal,
+  CheckSquare,
+  Database,
+  History,
+  ShieldCheck,
+  Cpu,
+  Settings,
+  CheckCircle2,
+  Clock,
   RefreshCw,
   AlertCircle,
+  ShieldAlert,
+  ArrowRight,
   Code2
 } from 'lucide-react';
 
@@ -56,8 +58,8 @@ interface TechnicalDashboardProps {
 
 const initialPipelineNodes: PipelineNode[] = [
   { id: 1, name: 'Question Parsed', status: 'completed' },
-  { id: 2, name: 'Schema Retrieval', status: 'completed' },
-  { id: 3, name: 'RAG Retrieval', status: 'completed' },
+  { id: 2, name: 'Table Selection Check', status: 'completed' },
+  { id: 3, name: 'Schema Retrieval', status: 'completed' },
   { id: 4, name: 'Analysis Plan', status: 'completed' },
   { id: 5, name: 'Human Approval', status: 'completed' },
   { id: 6, name: 'SQL Generation', status: 'completed' },
@@ -73,7 +75,7 @@ const initialPipelineNodes: PipelineNode[] = [
 
 export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitchRole }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [question, setQuestion] = useState('What is the average length of stay by diagnosis?');
+  const [question, setQuestion] = useState('What is the adverse event rate by treatment arm?');
   const [isExecuting, setIsExecuting] = useState(false);
   const [isApprovalPending, setIsApprovalPending] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -97,10 +99,20 @@ export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitch
 
   // Dynamic Table Selection & Custom Dashboard state
   const [availableTables, setAvailableTables] = useState<ClinicalTable[]>([]);
-  const [selectedTables, setSelectedTables] = useState<string[]>(['patients', 'encounters', 'conditions']);
+  const [selectedTables, setSelectedTables] = useState<string[]>(['study', 'sites', 'dm']);
   const [isApplyingTables, setIsApplyingTables] = useState(false);
   const [tableCombinationError, setTableCombinationError] = useState<string | null>(null);
   const [customDashboardData, setCustomDashboardData] = useState<DashboardCustomizationResponse | null>(null);
+  const [blockedInfo, setBlockedInfo] = useState<{
+    status: string;
+    reason?: string;
+    question: string;
+    required_tables: string[];
+    selected_tables: string[];
+    missing_tables: string[];
+    message: string;
+    next_action?: string;
+  } | null>(null);
 
   // Lightweight Follow-up session state (does NOT restart pipeline)
   const [followUpAnswer, setFollowUpAnswer] = useState<FollowUpResponse | null>(null);
@@ -123,13 +135,13 @@ export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitch
       question: 'What is the average length of stay by diagnosis?',
       answer: 'Average length of stay spans 1.0 to 4.0 days across diagnoses.',
       timestamp: 'Today, 10:45 AM',
-      sql_query: `SELECT 
-    c.DESCRIPTION AS diagnosis, 
+      sql_query: `SELECT
+    c.DESCRIPTION AS diagnosis,
     ROUND(AVG(DATEDIFF(e.STOP, e.START)), 1) AS avg_length_of_stay
 FROM encounters e
 JOIN conditions c ON e.ID = c.ENCOUNTER
 WHERE e.ENCOUNTERCLASS = 'inpatient'
-  AND e.START IS NOT NULL 
+  AND e.START IS NOT NULL
   AND e.STOP IS NOT NULL
   AND DATEDIFF(e.STOP, e.START) BETWEEN 0 AND 30
 GROUP BY c.DESCRIPTION
@@ -181,7 +193,11 @@ LIMIT 8;`,
 
   // Handle user applying custom table selection in technical observatory
   const handleApplyTableSelection = async (tablesToApply: string[]) => {
-    if (!tablesToApply || tablesToApply.length === 0) {
+    const sanitized = (tablesToApply || []).filter(
+      (t) => !['patients', 'encounters', 'conditions', 'medications', 'observations', 'procedures'].includes(t.toLowerCase().trim())
+    );
+
+    if (!sanitized || sanitized.length === 0) {
       setTableCombinationError('Please select at least one database table.');
       return;
     }
@@ -190,21 +206,35 @@ LIMIT 8;`,
     setTableCombinationError(null);
 
     try {
-      const response = await apiService.customizeDashboard(tablesToApply);
+      const response = await apiService.customizeDashboard(sanitized);
       if (!response.valid_combination) {
         setTableCombinationError(
-          response.message || 
+          response.message ||
           'These tables cannot currently be combined because no approved relationship exists.'
         );
         return;
       }
 
+      setSelectedTables(sanitized);
       setCustomDashboardData(response);
       setTableCombinationError(null);
+
+      // If pipeline was blocked, check if missing tables are now selected
+      if (blockedInfo) {
+        const stillMissing = blockedInfo.required_tables.filter(
+          (t) => !sanitized.map(s => s.toLowerCase()).includes(t.toLowerCase())
+        );
+        if (stillMissing.length === 0) {
+          setBlockedInfo(null);
+          handleExecutePipelineWithTables(question, sanitized);
+        } else {
+          handleExecutePipelineWithTables(question, sanitized);
+        }
+      }
     } catch (err: any) {
       console.error('Error applying technical table selection:', err);
       setTableCombinationError(
-        err.response?.data?.detail || 
+        err.response?.data?.detail ||
         'These tables cannot currently be combined because no approved relationship exists.'
       );
     } finally {
@@ -280,10 +310,9 @@ LIMIT 8;`,
     );
   };
 
-  // Step 1: User runs pipeline trigger -> calls backend with approval_status = 'pending' + selected_tables
-  const handleExecutePipeline = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!question.trim() || isExecuting) return;
+  // Step 1: Execute pipeline with specific tables
+  const handleExecutePipelineWithTables = async (questionToRun: string, tablesToUse?: string[]) => {
+    if (!questionToRun.trim() || isExecuting) return;
 
     setIsExecuting(true);
     setErrorMessage(null);
@@ -291,6 +320,8 @@ LIMIT 8;`,
     setFailedStep(null);
     setCurrentSqlQuery(null);
     setIsApprovalPending(false);
+
+    const tables = tablesToUse || selectedTables;
 
     // Animate initial parsing nodes
     setNodesProgress(0, 1);
@@ -305,11 +336,39 @@ LIMIT 8;`,
       setPlanVersion(1);
       setFeedbackHistory([]);
       const res = await apiService.runAnalytics({
-        question,
+        question: questionToRun,
         approval_status: 'pending',
-        selected_tables: selectedTables,
+        selected_tables: tables,
         plan_version: 1,
       });
+
+      if (res && res.status === 'blocked') {
+        // Table Selection Validation BLOCKED!
+        setBlockedInfo({
+          status: 'blocked',
+          reason: res.reason || 'required_tables_not_selected',
+          question: res.question || questionToRun,
+          required_tables: res.required_tables || [],
+          selected_tables: res.selected_tables || tables,
+          missing_tables: res.missing_tables || [],
+          message: res.message || 'This analysis requires tables that have not been selected.',
+          next_action: res.next_action || 'select_missing_tables',
+        });
+        setPipelineNodes((prev) =>
+          prev.map((n) => {
+            if (n.id === 1) return { ...n, status: 'completed' };
+            if (n.id === 2) return { ...n, status: 'blocked', detail: res.message || 'Required tables not selected' };
+            return { ...n, status: 'pending' };
+          })
+        );
+        setIsApprovalPending(false);
+        setAnalysisPlan(null);
+        setAnalyticsResult(null);
+        setErrorMessage(res.message || 'Analysis blocked: required tables not selected');
+        return;
+      }
+
+      setBlockedInfo(null);
 
       if (res && res.analysis_plan) {
         setAnalysisPlan(res.analysis_plan);
@@ -331,6 +390,30 @@ LIMIT 8;`,
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  const handleExecutePipeline = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    return handleExecutePipelineWithTables(question, selectedTables);
+  };
+
+  // User selects missing tables and resumes analysis
+  const handleSelectMissingTablesAndResume = async (missing: string[]) => {
+    const sanitizedMissing = missing.map((t) => t.toLowerCase().trim());
+    const newTables = Array.from(new Set([...selectedTables.map((t) => t.toLowerCase().trim()), ...sanitizedMissing]));
+    setSelectedTables(newTables);
+    setBlockedInfo(null);
+
+    try {
+      const response = await apiService.customizeDashboard(newTables);
+      if (response.valid_combination) {
+        setCustomDashboardData(response);
+      }
+    } catch (e) {
+      console.error('Failed to update technical metadata for selected tables:', e);
+    }
+
+    await handleExecutePipelineWithTables(question, newTables);
   };
 
   // Step 2: Approve & Resume + selected_tables
@@ -377,6 +460,32 @@ LIMIT 8;`,
         visualization_error: res.visualization_error,
         error: res.error,
       });
+
+      if (res && res.status === 'blocked') {
+        setBlockedInfo({
+          status: 'blocked',
+          reason: res.reason || 'required_tables_not_selected',
+          question: res.question || question,
+          required_tables: res.required_tables || [],
+          selected_tables: res.selected_tables || selectedTables,
+          missing_tables: res.missing_tables || [],
+          message: res.message || 'This analysis requires tables that have not been selected.',
+          next_action: res.next_action || 'select_missing_tables',
+        });
+        setPipelineNodes((prev) =>
+          prev.map((n) => {
+            if (n.id <= 5) return { ...n, status: 'completed' };
+            if (n.id === 6 || n.id === 8) return { ...n, status: 'blocked', detail: res.message || 'Unauthorized table reference' };
+            return { ...n, status: 'pending' };
+          })
+        );
+        setErrorMessage(res.message || 'Analysis blocked: unauthorized table reference or required table not selected.');
+        setAnalyticsResult(null);
+        setIsExecuting(false);
+        return;
+      }
+
+      setBlockedInfo(null);
 
       // Immediately display the generated SQL in the SqlInspectorCard
       if (res.sql_query) {
@@ -833,6 +942,87 @@ LIMIT 8;`,
                 </form>
               </div>
 
+              {/* ANALYSIS BLOCKED CARD */}
+              {blockedInfo && (
+                <div className="bg-white border-2 border-rose-300 rounded-xl p-4 shadow-sm space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                        <ShieldAlert className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                            ANALYSIS BLOCKED
+                          </span>
+                          <span className="text-xs text-rose-600 font-semibold">Strict Table Boundary Enforced</span>
+                        </div>
+                        <h3 className="text-xs font-bold text-gray-900 mt-0.5">
+                          Your question requires additional dataset tables.
+                        </h3>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setBlockedInfo(null)}
+                      className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-200 text-xs text-gray-700">
+                    <span className="font-semibold text-gray-900">Question: </span>
+                    <span className="italic">"{blockedInfo.question}"</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Required Dataset Tables:
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {blockedInfo.required_tables.map((table) => {
+                        const isSelected = blockedInfo.selected_tables.map(s => s.toLowerCase()).includes(table.toLowerCase());
+                        return (
+                          <div
+                            key={table}
+                            className={`flex items-center justify-between p-2 rounded-lg border text-xs ${
+                              isSelected
+                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                                : 'bg-rose-50/80 border-rose-200 text-rose-900 font-medium'
+                            }`}
+                          >
+                            <span className="font-mono font-bold uppercase">{table}</span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isSelected
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                            }`}>
+                              {isSelected ? '✓ Selected' : '✕ Not selected'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-700 bg-amber-50/60 border border-amber-200/80 rounded-lg p-2.5">
+                    <p className="font-medium text-amber-900">{blockedInfo.message}</p>
+                  </div>
+
+                  {blockedInfo.missing_tables.length > 0 && (
+                    <div className="flex items-center justify-end space-x-3 pt-0.5">
+                      <button
+                        onClick={() => handleSelectMissingTablesAndResume(blockedInfo.missing_tables)}
+                        className="flex items-center space-x-2 px-3.5 py-1.5 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span>Select {blockedInfo.missing_tables.map(t => t.toUpperCase()).join(' & ')} & Resume Analysis</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 3. Middle 2-Column Grid (Screenshot 2 & 4): Vertical 14-Step Trace (Left) + 3 Stacked Cards (Right) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
                 {/* Left Column: Vertical 14-Step Trace */}
@@ -850,7 +1040,7 @@ LIMIT 8;`,
                 {/* Right Column: 3 Stacked Cards + HUMAN APPROVAL */}
                 <div className="lg:col-span-8 xl:col-span-8 space-y-3">
                   {/* Card 1: Active MySQL Connection & Database Schema */}
-                  <ActiveDatabaseCard 
+                  <ActiveDatabaseCard
                     datasetName={overview?.dataset_name || "Organization EHR Dataset"}
                     onUploadClick={() => setIsUploadModalOpen(true)}
                   />
@@ -913,8 +1103,8 @@ LIMIT 8;`,
                 <VerifiedResultsTable
                   results={analyticsResult?.results || (customDashboardData?.verified_results as any)}
                   badgeText={
-                    analyticsResult?.results?.length 
-                      ? `${analyticsResult.results.length} Rows Verified` 
+                    analyticsResult?.results?.length
+                      ? `${analyticsResult.results.length} Rows Verified`
                       : customDashboardData
                       ? `${customDashboardData.verified_results.length} Rows (${customDashboardData.selected_tables.join('+')})`
                       : "5 Rows General"
@@ -1069,10 +1259,10 @@ LIMIT 8;`,
               <div className="bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm space-y-3">
                 <h3 className="text-sm font-bold text-gray-900">RAG Vector Base & Semantic Retriever Status</h3>
                 <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 font-mono text-xs space-y-1 text-gray-700">
-                  <div><strong>Vector Storage:</strong> Chroma / In-Memory LangChain Store</div>
-                  <div><strong>Embedding Model:</strong> Google Text-Embedding-004</div>
+                  <div><strong>Vector Storage:</strong> FAISS / LangChain Store</div>
+                  <div><strong>Embedding Model:</strong> sentence-transformers/all-MiniLM-L6-v2 (384 dims)</div>
                   <div><strong>Similarity Metric:</strong> Cosine (Threshold: 0.75)</div>
-                  <div><strong>Indexed Documents:</strong> clinical_reference.txt (Inpatient LOS, SNOMED-CT 267036007 Dyspnea, Outlier bounds)</div>
+                  <div><strong>Indexed Documents:</strong> cdisc_clinical_trial_reference.txt (AE, SAE, ADAE, ADSL, LB, VS, ADRESP)</div>
                 </div>
               </div>
             </div>
@@ -1102,8 +1292,8 @@ LIMIT 8;`,
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                       <div className="flex items-center space-x-2">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          q.type === 'followup' 
-                            ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                          q.type === 'followup'
+                            ? 'bg-purple-100 text-purple-700 border border-purple-200'
                             : 'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}>
                           {q.type === 'followup' ? 'Follow-Up' : 'Pipeline Execution'}
@@ -1380,4 +1570,3 @@ LIMIT 8;`,
 };
 
 export default TechnicalDashboard;
-

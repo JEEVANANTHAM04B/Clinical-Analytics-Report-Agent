@@ -270,6 +270,21 @@ def _read_csv(buffer: io.BytesIO, filename: str) -> pd.DataFrame:
     for encoding in ("utf-8", "latin-1"):
         try:
             buffer.seek(0)
+            first_line = buffer.readline()
+            buffer.seek(0)
+            if first_line:
+                import csv
+                reader = csv.reader(io.StringIO(first_line.decode(encoding, errors="ignore")))
+                raw_headers = next(reader, [])
+                if raw_headers:
+                    cleaned_headers = [str(h).strip().lower() for h in raw_headers if str(h).strip()]
+                    if len(cleaned_headers) != len(set(cleaned_headers)):
+                        dups = [h for h in set(cleaned_headers) if cleaned_headers.count(h) > 1]
+                        raise ValueError(
+                            f"Duplicate column name(s) detected in dataset: {', '.join(sorted(dups))}. "
+                            f"Each column must have a unique name."
+                        )
+
             df = pd.read_csv(buffer, encoding=encoding, low_memory=False)
 
             _check_dataframe_not_empty(df, filename)
@@ -308,6 +323,19 @@ def _read_excel(buffer: io.BytesIO, filename: str) -> pd.DataFrame:
     try:
         buffer.seek(0)
         df = pd.read_excel(buffer, engine="openpyxl", sheet_name=0)
+
+        # Check for duplicate column names auto-renamed by pandas with .1 suffix
+        dups = set()
+        for c in df.columns:
+            if isinstance(c, str) and "." in c and c.rsplit(".", 1)[1].isdigit():
+                base_c = c.rsplit(".", 1)[0]
+                if base_c in df.columns:
+                    dups.add(base_c.lower())
+        if dups:
+            raise ValueError(
+                f"Duplicate column name(s) detected in dataset: {', '.join(sorted(dups))}. "
+                f"Each column must have a unique name."
+            )
 
         _check_dataframe_not_empty(df, filename)
         logger.debug(f"Excel parsed successfully | shape={df.shape}")

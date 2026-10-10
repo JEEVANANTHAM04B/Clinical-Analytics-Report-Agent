@@ -1,0 +1,1697 @@
+{
+  "total_cases": 50,
+  "total_passed": 50,
+  "total_failed": 0,
+  "overall_accuracy_pct": 100.0,
+  "execution_time_seconds": 549.8538763523102,
+  "category_stats": {
+    "enrollment": {
+      "passed": 5,
+      "total": 5
+    },
+    "treatment": {
+      "passed": 5,
+      "total": 5
+    },
+    "demographics": {
+      "passed": 5,
+      "total": 5
+    },
+    "safety": {
+      "passed": 5,
+      "total": 5
+    },
+    "teae": {
+      "passed": 5,
+      "total": 5
+    },
+    "laboratory": {
+      "passed": 5,
+      "total": 5
+    },
+    "vital_signs": {
+      "passed": 5,
+      "total": 5
+    },
+    "efficacy": {
+      "passed": 5,
+      "total": 5
+    },
+    "disposition": {
+      "passed": 5,
+      "total": 5
+    },
+    "rag": {
+      "passed": 5,
+      "total": 5
+    }
+  },
+  "reports": [
+    {
+      "id": "uat_enr_001",
+      "category": "enrollment",
+      "question": "How many participants joined the study?",
+      "type": "sql",
+      "detected_intent": "Matches total subject enrollment query. Counts distinct USUBJID in DM.",
+      "detected_kpi": "TOTAL_SUBJECTS",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT COUNT(DISTINCT USUBJID) AS total_subjects FROM dm;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "SELECT",
+        "COUNT",
+        "DISTINCT",
+        "dm"
+      ],
+      "actual_concept": [
+        "SELECT",
+        "COUNT",
+        "DISTINCT",
+        "dm"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The study currently includes 10,000 enrolled subjects.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_enr_002",
+      "category": "enrollment",
+      "question": "How many subjects were enrolled overall?",
+      "type": "sql",
+      "detected_intent": "Matches total subject enrollment query. Counts distinct USUBJID in DM.",
+      "detected_kpi": "TOTAL_SUBJECTS",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT COUNT(DISTINCT USUBJID) AS total_subjects FROM dm;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "SELECT",
+        "COUNT",
+        "DISTINCT",
+        "dm"
+      ],
+      "actual_concept": [
+        "SELECT",
+        "COUNT",
+        "DISTINCT",
+        "dm"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The study currently includes 10,000 enrolled subjects.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_enr_003",
+      "category": "enrollment",
+      "question": "Which clinical site recruited the most people?",
+      "type": "sql",
+      "detected_intent": "Matches site enrollment query. Joins SITES and DM on SITEID to count enrolled subjects per center.",
+      "detected_kpi": "ENROLLMENT_BY_SITE",
+      "selected_datasets": [
+        "sites",
+        "dm"
+      ],
+      "generated_sql": "SELECT sites.SITEID, sites.SITE_NAME, sites.CITY, COUNT(DISTINCT dm.USUBJID) AS enrolled_subjects\n            FROM sites\n            JOIN dm ON sites.SITEID = dm.SITEID\n            GROUP BY sites.SITEID, sites.SITE_NAME, sites.CITY\n            ORDER BY enrolled_subjects DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "JOIN",
+        "GROUP BY",
+        "ORDER BY DESC"
+      ],
+      "actual_concept": [
+        "JOIN",
+        "GROUP BY",
+        "ORDER BY DESC"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Clinical Trial Investigator Sites & Enrollment (sites)\nInvestigator sites are medical institutions, clinics, and academic centers participating in a clinical trial protocol. Each site is uniquely iden",
+      "final_response": "Site SITE010 (Clinical Center 10) recorded the highest enrollment with 1,053 enrolled subjects.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_enr_004",
+      "category": "enrollment",
+      "question": "Show me enrollment across all research sites.",
+      "type": "sql",
+      "detected_intent": "Matches site enrollment query. Joins SITES and DM on SITEID to count enrolled subjects per center.",
+      "detected_kpi": "ENROLLMENT_BY_SITE",
+      "selected_datasets": [
+        "sites",
+        "dm"
+      ],
+      "generated_sql": "SELECT sites.SITEID, sites.SITE_NAME, sites.CITY, COUNT(DISTINCT dm.USUBJID) AS enrolled_subjects\n            FROM sites\n            JOIN dm ON sites.SITEID = dm.SITEID\n            GROUP BY sites.SITEID, sites.SITE_NAME, sites.CITY\n            ORDER BY enrolled_subjects DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "JOIN",
+        "GROUP BY",
+        "sites"
+      ],
+      "actual_concept": [
+        "JOIN",
+        "GROUP BY",
+        "sites"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Clinical Trial Investigator Sites & Enrollment (sites)\nInvestigator sites are medical institutions, clinics, and academic centers participating in a clinical trial protocol. Each site is uniquely iden",
+      "final_response": "Site SITE010 (Clinical Center 10) recorded the highest enrollment with 1,053 enrolled subjects.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_enr_005",
+      "category": "enrollment",
+      "question": "Which center has the largest number of enrolled subjects?",
+      "type": "sql",
+      "detected_intent": "Matches site enrollment query. Joins SITES and DM on SITEID to count enrolled subjects per center.",
+      "detected_kpi": "ENROLLMENT_BY_SITE",
+      "selected_datasets": [
+        "sites",
+        "dm"
+      ],
+      "generated_sql": "SELECT sites.SITEID, sites.SITE_NAME, sites.CITY, COUNT(DISTINCT dm.USUBJID) AS enrolled_subjects\n            FROM sites\n            JOIN dm ON sites.SITEID = dm.SITEID\n            GROUP BY sites.SITEID, sites.SITE_NAME, sites.CITY\n            ORDER BY enrolled_subjects DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "JOIN",
+        "GROUP BY",
+        "ORDER BY DESC"
+      ],
+      "actual_concept": [
+        "JOIN",
+        "GROUP BY",
+        "ORDER BY DESC"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Clinical Trial Investigator Sites & Enrollment (sites)\nInvestigator sites are medical institutions, clinics, and academic centers participating in a clinical trial protocol. Each site is uniquely iden",
+      "final_response": "Site SITE010 (Clinical Center 10) recorded the highest enrollment with 1,053 enrolled subjects.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_trt_001",
+      "category": "treatment",
+      "question": "How many participants received Drug X versus placebo?",
+      "type": "sql",
+      "detected_intent": "Matches subject treatment arm breakdown in ADSL.",
+      "detected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A, COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adsl\n            GROUP BY TRT01A\n            ORDER BY subject_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_trt_002",
+      "category": "treatment",
+      "question": "Break down the study population by treatment.",
+      "type": "sql",
+      "detected_intent": "Matches subject treatment arm breakdown in ADSL.",
+      "detected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A, COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adsl\n            GROUP BY TRT01A\n            ORDER BY subject_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_trt_003",
+      "category": "treatment",
+      "question": "Show the treatment allocation.",
+      "type": "sql",
+      "detected_intent": "Matches subject treatment arm breakdown in ADSL.",
+      "detected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A, COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adsl\n            GROUP BY TRT01A\n            ORDER BY subject_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_trt_004",
+      "category": "treatment",
+      "question": "How many subjects are in each treatment group?",
+      "type": "sql",
+      "detected_intent": "Matches subject treatment arm breakdown in ADSL.",
+      "detected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A, COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adsl\n            GROUP BY TRT01A\n            ORDER BY subject_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_trt_005",
+      "category": "treatment",
+      "question": "Compare the treatment groups by subject count.",
+      "type": "sql",
+      "detected_intent": "Matches subject treatment arm breakdown in ADSL.",
+      "detected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A, COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adsl\n            GROUP BY TRT01A\n            ORDER BY subject_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_dem_001",
+      "category": "demographics",
+      "question": "What is the average age of participants?",
+      "type": "sql",
+      "detected_intent": "Matches demographic age question. Computes mean of AGE from DM.",
+      "detected_kpi": "AVERAGE_AGE",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT ROUND(AVG(AGE), 2) AS mean_age, MIN(AGE) AS min_age, MAX(AGE) AS max_age\n            FROM dm;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "AVG",
+        "AGE",
+        "dm"
+      ],
+      "actual_concept": [
+        "AVG",
+        "AGE",
+        "dm"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The average age of enrolled subjects in the study is 54.63 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_dem_002",
+      "category": "demographics",
+      "question": "How old are the participants on average?",
+      "type": "sql",
+      "detected_intent": "Matches demographic age question. Computes mean of AGE from DM.",
+      "detected_kpi": "AVERAGE_AGE",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT ROUND(AVG(AGE), 2) AS mean_age, MIN(AGE) AS min_age, MAX(AGE) AS max_age\n            FROM dm;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "AVG",
+        "AGE",
+        "dm"
+      ],
+      "actual_concept": [
+        "AVG",
+        "AGE",
+        "dm"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The average age of enrolled subjects in the study is 54.63 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_dem_003",
+      "category": "demographics",
+      "question": "Show the age profile for each treatment group.",
+      "type": "sql",
+      "detected_intent": "Matches demographic age distribution by treatment arm in DM.",
+      "detected_kpi": "AVERAGE_AGE",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT ARM, ROUND(AVG(AGE), 2) AS mean_age, MIN(AGE) AS min_age, MAX(AGE) AS max_age FROM dm GROUP BY ARM;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "AVG",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "AVG",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The average age of enrolled subjects in the study is 54.63 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_dem_004",
+      "category": "demographics",
+      "question": "Compare age between Drug X and placebo.",
+      "type": "sql",
+      "detected_intent": "Matches demographic age distribution by treatment arm in DM.",
+      "detected_kpi": "AVERAGE_AGE",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT ARM, ROUND(AVG(AGE), 2) AS mean_age, MIN(AGE) AS min_age, MAX(AGE) AS max_age FROM dm GROUP BY ARM;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "ARM",
+        "AVG",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "ARM",
+        "AVG",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The average age of enrolled subjects in the study is 54.63 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_dem_005",
+      "category": "demographics",
+      "question": "Give me the minimum and maximum participant ages.",
+      "type": "sql",
+      "detected_intent": "Matches demographic age min and max bounds in DM.",
+      "detected_kpi": "AVERAGE_AGE",
+      "selected_datasets": [
+        "dm"
+      ],
+      "generated_sql": "SELECT MIN(AGE) AS min_age, MAX(AGE) AS max_age FROM dm;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "MIN",
+        "MAX",
+        "AGE",
+        "dm"
+      ],
+      "actual_concept": [
+        "MIN",
+        "MAX",
+        "AGE",
+        "dm"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject Demographics Domain (dm)\nThe CDISC SDTM Demographics (DM) domain contains subject-level demographic characteristics collected at trial screening and baseline. It is a single-record-per-subject",
+      "final_response": "The average age of enrolled subjects in the study is 14 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_saf_001",
+      "category": "safety",
+      "question": "How many adverse events were reported?",
+      "type": "sql",
+      "detected_intent": "Matches total adverse event count. Aggregates all incident records in AE.",
+      "detected_kpi": "ADVERSE_EVENT_COUNT",
+      "selected_datasets": [
+        "ae"
+      ],
+      "generated_sql": "SELECT COUNT(*) AS total_adverse_events FROM ae;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "COUNT",
+        "ae"
+      ],
+      "actual_concept": [
+        "COUNT",
+        "ae"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "A total of 10,000 adverse events occurred across the study.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_saf_002",
+      "category": "safety",
+      "question": "How many serious adverse events occurred?",
+      "type": "sql",
+      "detected_intent": "Matches serious adverse events query. Queries AE filtering for AESER = 'Y'.",
+      "detected_kpi": "SERIOUS_AE_COUNT",
+      "selected_datasets": [
+        "ae"
+      ],
+      "generated_sql": "SELECT COUNT(*) AS serious_adverse_events FROM ae WHERE AESER = 'Y';",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "COUNT",
+        "AESER",
+        "'Y'"
+      ],
+      "actual_concept": [
+        "COUNT",
+        "AESER",
+        "'Y'"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "A total of 2,518 serious adverse events (AESER = 'Y') occurred across the study.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_saf_003",
+      "category": "safety",
+      "question": "What is the AE rate in each treatment group?",
+      "type": "sql",
+      "detected_intent": "Matches safety incidence by treatment arm. Requires ADSL as denominator and ADAE as numerator joined on USUBJID.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n                   COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n                   COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n                   ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\n            FROM adsl\n            LEFT JOIN adae ON adsl.USUBJID = adae.USUBJID\n            GROUP BY adsl.TRT01A\n            ORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "LEFT JOIN",
+        "GROUP BY",
+        "ARM"
+      ],
+      "actual_concept": [
+        "LEFT JOIN",
+        "GROUP BY",
+        "ARM"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_saf_004",
+      "category": "safety",
+      "question": "Which treatment group had more adverse events?",
+      "type": "sql",
+      "detected_intent": "Matches safety incidence by treatment arm. Requires ADSL as denominator and ADAE as numerator joined on USUBJID.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n                   COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n                   COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n                   ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\n            FROM adsl\n            LEFT JOIN adae ON adsl.USUBJID = adae.USUBJID\n            GROUP BY adsl.TRT01A\n            ORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "LEFT JOIN",
+        "GROUP BY",
+        "ARM"
+      ],
+      "actual_concept": [
+        "LEFT JOIN",
+        "GROUP BY",
+        "ARM"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_saf_005",
+      "category": "safety",
+      "question": "Show the distribution of AE severity.",
+      "type": "sql",
+      "detected_intent": "Matches AE severity breakdown. Aggregates ADAE grouping by AESEV.",
+      "detected_kpi": "AE_SEVERITY_DISTRIBUTION",
+      "selected_datasets": [
+        "adae"
+      ],
+      "generated_sql": "SELECT AESEV AS severity, COUNT(*) AS event_count,\n                   ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM adae), 2) AS percentage\n            FROM adae\n            GROUP BY AESEV\n            ORDER BY event_count DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "AESEV",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "AESEV",
+        "COUNT",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Based on the verified clinical trial dataset across 3 severity: the highest was MILD with 7018.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_teae_001",
+      "category": "teae",
+      "question": "What percentage of patients had treatment-emergent adverse events?",
+      "type": "sql",
+      "detected_intent": "Matches treatment-emergent AE incidence (TRTEMFL = 'Y') by treatment arm joining ADSL and ADAE.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n       COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n       COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n       ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\nFROM adsl\nLEFT JOIN adae ON adsl.USUBJID = adae.USUBJID AND adae.TRTEMFL = 'Y'\nGROUP BY adsl.TRT01A\nORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "TRTEMFL",
+        "'Y'",
+        "LEFT JOIN",
+        "COUNT"
+      ],
+      "actual_concept": [
+        "TRTEMFL",
+        "'Y'",
+        "LEFT JOIN",
+        "COUNT"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "The average age of enrolled subjects in the study is 5011 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_teae_002",
+      "category": "teae",
+      "question": "How many TEAEs occurred?",
+      "type": "sql",
+      "detected_intent": "Matches treatment-emergent AE incidence (TRTEMFL = 'Y') by treatment arm joining ADSL and ADAE.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n       COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n       COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n       ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\nFROM adsl\nLEFT JOIN adae ON adsl.USUBJID = adae.USUBJID AND adae.TRTEMFL = 'Y'\nGROUP BY adsl.TRT01A\nORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "actual_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_teae_003",
+      "category": "teae",
+      "question": "Compare treatment-emergent AE rates between treatments.",
+      "type": "sql",
+      "detected_intent": "Matches treatment-emergent AE incidence (TRTEMFL = 'Y') by treatment arm joining ADSL and ADAE.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n       COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n       COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n       ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\nFROM adsl\nLEFT JOIN adae ON adsl.USUBJID = adae.USUBJID AND adae.TRTEMFL = 'Y'\nGROUP BY adsl.TRT01A\nORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "TRTEMFL",
+        "'Y'",
+        "LEFT JOIN",
+        "ARM"
+      ],
+      "actual_concept": [
+        "TRTEMFL",
+        "'Y'",
+        "LEFT JOIN",
+        "ARM"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_teae_004",
+      "category": "teae",
+      "question": "Show subjects with treatment-emergent AEs.",
+      "type": "sql",
+      "detected_intent": "Matches treatment-emergent AE incidence (TRTEMFL = 'Y') by treatment arm joining ADSL and ADAE.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n       COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n       COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n       ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\nFROM adsl\nLEFT JOIN adae ON adsl.USUBJID = adae.USUBJID AND adae.TRTEMFL = 'Y'\nGROUP BY adsl.TRT01A\nORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "actual_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Adverse Event Analysis Dataset (adae)\nThe Analysis Dataset for Adverse Events (ADAE) is an ADaM occurrence data structure (OCCDS) that derives analytical variables from SDTM AE and ADSL. ADAE links ea",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_teae_005",
+      "category": "teae",
+      "question": "What is the incidence of TEAEs?",
+      "type": "sql",
+      "detected_intent": "Matches treatment-emergent AE incidence (TRTEMFL = 'Y') by treatment arm joining ADSL and ADAE.",
+      "detected_kpi": "AE_RATE_BY_TREATMENT",
+      "selected_datasets": [
+        "adsl",
+        "adae"
+      ],
+      "generated_sql": "SELECT adsl.TRT01A,\n       COUNT(DISTINCT adsl.USUBJID) AS total_subjects,\n       COUNT(DISTINCT adae.USUBJID) AS ae_subjects,\n       ROUND(COUNT(DISTINCT adae.USUBJID) * 100.0 / COUNT(DISTINCT adsl.USUBJID), 2) AS ae_rate_pct\nFROM adsl\nLEFT JOIN adae ON adsl.USUBJID = adae.USUBJID AND adae.TRTEMFL = 'Y'\nGROUP BY adsl.TRT01A\nORDER BY ae_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "actual_concept": [
+        "TRTEMFL",
+        "'Y'"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Treatment-Emergent Adverse Events (TRTEMFL)\nA Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the ",
+      "final_response": "Across treatment arms, the adverse event rate was Drug X at 100.00%, and Placebo at 100.00%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_lab_001",
+      "category": "laboratory",
+      "question": "Show hemoglobin results.",
+      "type": "sql",
+      "detected_intent": "Matches laboratory measurement summary in ADLB.",
+      "detected_kpi": "LAB_VALUE",
+      "selected_datasets": [
+        "adlb"
+      ],
+      "generated_sql": "SELECT PARAMCD, PARAM, AVISIT,\n                   ROUND(AVG(AVAL), 2) AS mean_aval,\n                   ROUND(MIN(AVAL), 2) AS min_aval,\n                   ROUND(MAX(AVAL), 2) AS max_aval,\n                   COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adlb\n            GROUP BY PARAMCD, PARAM, AVISIT\n            ORDER BY PARAMCD, AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "adlb"
+      ],
+      "actual_concept": [
+        "adlb"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Laboratory Analysis Dataset (adlb)\nThe Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For ",
+      "final_response": "Based on the verified clinical trial dataset across 2 PARAMCD: the highest was HGB with 5000.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_lab_002",
+      "category": "laboratory",
+      "question": "What was the change in hemoglobin from baseline?",
+      "type": "sql",
+      "detected_intent": "Matches laboratory change from baseline analysis in ADLB for Week 8.",
+      "detected_kpi": "LAB_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "adlb"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_value,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM adlb\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "PARAMCD",
+        "adlb"
+      ],
+      "actual_concept": [
+        "CHG",
+        "PARAMCD",
+        "adlb"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Laboratory Analysis Dataset (adlb)\nThe Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For ",
+      "final_response": "The mean laboratory change from baseline was Drug X at -0.80, and Placebo at -0.10.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_lab_003",
+      "category": "laboratory",
+      "question": "Compare hemoglobin changes between treatment groups.",
+      "type": "sql",
+      "detected_intent": "Matches laboratory change from baseline analysis in ADLB for Week 8.",
+      "detected_kpi": "LAB_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "adlb"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_value,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM adlb\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Laboratory Analysis Dataset (adlb)\nThe Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For ",
+      "final_response": "The mean laboratory change from baseline was Drug X at -0.80, and Placebo at -0.10.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_lab_004",
+      "category": "laboratory",
+      "question": "Which treatment had the larger laboratory change?",
+      "type": "sql",
+      "detected_intent": "Matches laboratory change from baseline analysis in ADLB for Week 8.",
+      "detected_kpi": "LAB_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "adlb"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_value,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM adlb\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Laboratory Analysis Dataset (adlb)\nThe Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For ",
+      "final_response": "The mean laboratory change from baseline was Drug X at -0.80, and Placebo at -0.10.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_lab_005",
+      "category": "laboratory",
+      "question": "Show the laboratory measurements for the study.",
+      "type": "sql",
+      "detected_intent": "Matches laboratory measurement summary in ADLB.",
+      "detected_kpi": "LAB_VALUE",
+      "selected_datasets": [
+        "adlb"
+      ],
+      "generated_sql": "SELECT PARAMCD, PARAM, AVISIT,\n                   ROUND(AVG(AVAL), 2) AS mean_aval,\n                   ROUND(MIN(AVAL), 2) AS min_aval,\n                   ROUND(MAX(AVAL), 2) AS max_aval,\n                   COUNT(DISTINCT USUBJID) AS subject_count\n            FROM adlb\n            GROUP BY PARAMCD, PARAM, AVISIT\n            ORDER BY PARAMCD, AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "PARAMCD",
+        "AVAL",
+        "adlb"
+      ],
+      "actual_concept": [
+        "PARAMCD",
+        "AVAL",
+        "adlb"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Laboratory Analysis Dataset (adlb)\nThe Analysis Dataset for Laboratory Data (ADLB) is a CDISC ADaM Basic Data Structure (BDS) dataset that formats laboratory evaluations for statistical analysis. For ",
+      "final_response": "Based on the verified clinical trial dataset across 2 PARAMCD: the highest was HGB with 5000.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_vs_001",
+      "category": "vital_signs",
+      "question": "Show systolic blood pressure results.",
+      "type": "sql",
+      "detected_intent": "Matches vital sign measurement summary in ADVS.",
+      "detected_kpi": "VITAL_SIGN_VALUE",
+      "selected_datasets": [
+        "advs"
+      ],
+      "generated_sql": "SELECT PARAMCD, PARAM, AVISIT,\n                   ROUND(AVG(AVAL), 2) AS mean_val,\n                   ROUND(MIN(AVAL), 2) AS min_val,\n                   ROUND(MAX(AVAL), 2) AS max_val\n            FROM advs\n            GROUP BY PARAMCD, PARAM, AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "advs"
+      ],
+      "actual_concept": [
+        "advs"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Vital Signs Domain & Analysis Dataset (vs & advs)\nThe Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood ",
+      "final_response": "Based on the verified clinical trial dataset across 2 PARAMCD: the highest was SYSBP with 134.68.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_vs_002",
+      "category": "vital_signs",
+      "question": "What was the change in systolic blood pressure from baseline?",
+      "type": "sql",
+      "detected_intent": "Matches vital sign change from baseline in ADVS.",
+      "detected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "advs"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_val,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM advs\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "advs"
+      ],
+      "actual_concept": [
+        "CHG",
+        "advs"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Vital Signs Domain & Analysis Dataset (vs & advs)\nThe Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood ",
+      "final_response": "The mean vital sign change from baseline was WEEK 8 at -9.95, and WEEK 8 at -2.00.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_vs_003",
+      "category": "vital_signs",
+      "question": "Compare blood pressure changes between treatments.",
+      "type": "sql",
+      "detected_intent": "Matches vital sign change from baseline in ADVS.",
+      "detected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "advs"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_val,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM advs\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "CHG",
+        "ARM",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Vital Signs Domain & Analysis Dataset (vs & advs)\nThe Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood ",
+      "final_response": "The mean vital sign change from baseline was WEEK 8 at -9.95, and WEEK 8 at -2.00.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_vs_004",
+      "category": "vital_signs",
+      "question": "Show vital-sign changes after treatment.",
+      "type": "sql",
+      "detected_intent": "Matches vital sign change from baseline in ADVS.",
+      "detected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "advs"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_val,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM advs\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "CHG",
+        "advs"
+      ],
+      "actual_concept": [
+        "CHG",
+        "advs"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Vital Signs Domain & Analysis Dataset (vs & advs)\nThe Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood ",
+      "final_response": "The mean vital sign change from baseline was WEEK 8 at -9.95, and WEEK 8 at -2.00.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_vs_005",
+      "category": "vital_signs",
+      "question": "What happened to systolic blood pressure during the study?",
+      "type": "sql",
+      "detected_intent": "Matches vital sign change from baseline in ADVS.",
+      "detected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
+      "selected_datasets": [
+        "advs"
+      ],
+      "generated_sql": "SELECT PARAMCD, TRT01A, AVISIT,\n                   ROUND(AVG(BASE), 2) AS mean_baseline,\n                   ROUND(AVG(AVAL), 2) AS mean_visit_val,\n                   ROUND(AVG(CHG), 2) AS mean_change,\n                   ROUND(AVG(PCHG), 2) AS mean_pct_change\n            FROM advs\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY PARAMCD, TRT01A, AVISIT\n            ORDER BY PARAMCD, TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "advs"
+      ],
+      "actual_concept": [
+        "advs"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Vital Signs Domain & Analysis Dataset (vs & advs)\nThe Vital Signs domain (VS in SDTM) and Vital Signs Analysis Dataset (ADVS in ADaM) track physiological biometric parameters including Systolic Blood ",
+      "final_response": "The mean vital sign change from baseline was WEEK 8 at -9.95, and WEEK 8 at -2.00.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_eff_001",
+      "category": "efficacy",
+      "question": "How many subjects responded at Week 8?",
+      "type": "sql",
+      "detected_intent": "Matches efficacy responder count in ADRESP.",
+      "detected_kpi": "EFFICACY_RESPONSE_COUNT",
+      "selected_datasets": [
+        "adresp"
+      ],
+      "generated_sql": "SELECT AVISIT, COUNT(DISTINCT USUBJID) AS responder_count\n            FROM adresp\n            WHERE RESPFL = 'Y'\n            GROUP BY AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "RESPFL",
+        "'Y'",
+        "adresp"
+      ],
+      "actual_concept": [
+        "RESPFL",
+        "'Y'",
+        "adresp"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Efficacy Response Analysis Dataset (adresp)\nThe Analysis Dataset for Efficacy Response (ADRESP) is an ADaM dataset that models therapeutic response outcomes according to standardized protocol-defined ",
+      "final_response": "Based on the verified clinical trial dataset, Avisit is WEEK 8, and Responder Count is 2,126.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_eff_002",
+      "category": "efficacy",
+      "question": "What was the response rate?",
+      "type": "sql",
+      "detected_intent": "Matches efficacy response rate query. Evaluates responder flag RESPFL in ADRESP by treatment arm.",
+      "detected_kpi": "EFFICACY_RESPONSE_RATE",
+      "selected_datasets": [
+        "adresp"
+      ],
+      "generated_sql": "SELECT TRT01A, AVISIT,\n                   COUNT(DISTINCT USUBJID) AS evaluable_subjects,\n                   COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) AS responders,\n                   ROUND(COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) * 100.0 / COUNT(DISTINCT USUBJID), 2) AS response_rate_pct\n            FROM adresp\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY TRT01A, AVISIT\n            ORDER BY response_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "RESPFL",
+        "adresp",
+        "ROUND"
+      ],
+      "actual_concept": [
+        "RESPFL",
+        "adresp",
+        "ROUND"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Responder Flag (RESPFL) & Response Rate Calculation\nThe Responder Flag (RESPFL = 'Y') is a binary categorical variable in ADRESP indicating that a participant met pre-specified protocol criteria for c",
+      "final_response": "Across treatment arms, the efficacy response rate (RESPFL = 'Y') was Drug X at 84.90%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_eff_003",
+      "category": "efficacy",
+      "question": "Compare response rates between treatments.",
+      "type": "sql",
+      "detected_intent": "Matches efficacy response rate query. Evaluates responder flag RESPFL in ADRESP by treatment arm.",
+      "detected_kpi": "EFFICACY_RESPONSE_RATE",
+      "selected_datasets": [
+        "adresp"
+      ],
+      "generated_sql": "SELECT TRT01A, AVISIT,\n                   COUNT(DISTINCT USUBJID) AS evaluable_subjects,\n                   COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) AS responders,\n                   ROUND(COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) * 100.0 / COUNT(DISTINCT USUBJID), 2) AS response_rate_pct\n            FROM adresp\n            WHERE AVISIT = 'WEEK 8'\n            GROUP BY TRT01A, AVISIT\n            ORDER BY response_rate_pct DESC;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "RESPFL",
+        "ARM",
+        "GROUP BY"
+      ],
+      "actual_concept": [
+        "RESPFL",
+        "ARM",
+        "GROUP BY"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Responder Flag (RESPFL) & Response Rate Calculation\nThe Responder Flag (RESPFL = 'Y') is a binary categorical variable in ADRESP indicating that a participant met pre-specified protocol criteria for c",
+      "final_response": "Across treatment arms, the efficacy response rate (RESPFL = 'Y') was Drug X at 84.90%.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_eff_004",
+      "category": "efficacy",
+      "question": "How effective was Drug X at Week 8?",
+      "type": "sql",
+      "detected_intent": "Matches efficacy responder count by treatment arm in ADRESP.",
+      "detected_kpi": "EFFICACY_RESPONSE_COUNT",
+      "selected_datasets": [
+        "adresp"
+      ],
+      "generated_sql": "SELECT TRT01A, AVISIT, COUNT(DISTINCT USUBJID) AS responder_count FROM adresp WHERE RESPFL = 'Y' GROUP BY TRT01A, AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "RESPFL",
+        "adresp"
+      ],
+      "actual_concept": [
+        "RESPFL",
+        "adresp"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Efficacy Response Analysis Dataset (adresp)\nThe Analysis Dataset for Efficacy Response (ADRESP) is an ADaM dataset that models therapeutic response outcomes according to standardized protocol-defined ",
+      "final_response": "Based on the verified clinical trial dataset, Trt01A is Drug X, and Avisit is WEEK 8, and Responder Count is 2,126.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_eff_005",
+      "category": "efficacy",
+      "question": "Show the number of responders by treatment.",
+      "type": "sql",
+      "detected_intent": "Matches efficacy responder count by treatment arm in ADRESP.",
+      "detected_kpi": "EFFICACY_RESPONSE_COUNT",
+      "selected_datasets": [
+        "adresp"
+      ],
+      "generated_sql": "SELECT TRT01A, AVISIT, COUNT(DISTINCT USUBJID) AS responder_count FROM adresp WHERE RESPFL = 'Y' GROUP BY TRT01A, AVISIT;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "RESPFL",
+        "ARM"
+      ],
+      "actual_concept": [
+        "RESPFL",
+        "ARM"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Efficacy Response Analysis Dataset (adresp)\nThe Analysis Dataset for Efficacy Response (ADRESP) is an ADaM dataset that models therapeutic response outcomes according to standardized protocol-defined ",
+      "final_response": "Based on the verified clinical trial dataset, Trt01A is Drug X, and Avisit is WEEK 8, and Responder Count is 2,126.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_disp_001",
+      "category": "disposition",
+      "question": "How many participants completed the study?",
+      "type": "sql",
+      "detected_intent": "Matches subject disposition tracking in ADSL.",
+      "detected_kpi": "SUBJECT_DISPOSITION",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT COUNT(DISTINCT USUBJID) AS completed_subjects FROM adsl WHERE EOSDT IS NOT NULL;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "EOSDT",
+        "IS NOT NULL",
+        "adsl"
+      ],
+      "actual_concept": [
+        "EOSDT",
+        "IS NOT NULL",
+        "adsl"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset, Completed Subjects is 10,000.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_disp_002",
+      "category": "disposition",
+      "question": "How many subjects discontinued?",
+      "type": "sql",
+      "detected_intent": "Matches subject disposition tracking in ADSL.",
+      "detected_kpi": "SUBJECT_DISPOSITION",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT COUNT(DISTINCT USUBJID) AS discontinued_subjects FROM adsl WHERE EOSDT IS NULL;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "EOSDT",
+        "IS NULL",
+        "adsl"
+      ],
+      "actual_concept": [
+        "EOSDT",
+        "IS NULL",
+        "adsl"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset, Discontinued Subjects is 0.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_disp_003",
+      "category": "disposition",
+      "question": "Show the subject disposition.",
+      "type": "sql",
+      "detected_intent": "Matches subject disposition tracking in ADSL.",
+      "detected_kpi": "SUBJECT_DISPOSITION",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT TRT01A,\n                   COUNT(DISTINCT USUBJID) AS randomized_subjects,\n                   COUNT(DISTINCT CASE WHEN TRTSDT IS NOT NULL THEN USUBJID END) AS treated_subjects,\n                   COUNT(DISTINCT CASE WHEN EOSDT IS NOT NULL THEN USUBJID END) AS completed_study_subjects\n            FROM adsl\n            GROUP BY TRT01A;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "EOSDT",
+        "adsl"
+      ],
+      "actual_concept": [
+        "EOSDT",
+        "adsl"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset across 2 TRT01A: the highest was Drug X with 5011.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_disp_004",
+      "category": "disposition",
+      "question": "What percentage completed the study?",
+      "type": "sql",
+      "detected_intent": "Matches subject disposition tracking in ADSL.",
+      "detected_kpi": "SUBJECT_DISPOSITION",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT ROUND(COUNT(CASE WHEN EOSDT IS NOT NULL THEN USUBJID END) * 100.0 / COUNT(DISTINCT USUBJID), 2) AS completion_percentage_pct FROM adsl;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "EOSDT",
+        "adsl"
+      ],
+      "actual_concept": [
+        "EOSDT",
+        "adsl"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "The average age of enrolled subjects in the study is 100 years.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_disp_005",
+      "category": "disposition",
+      "question": "How many subjects were lost or discontinued?",
+      "type": "sql",
+      "detected_intent": "Matches subject disposition tracking in ADSL.",
+      "detected_kpi": "SUBJECT_DISPOSITION",
+      "selected_datasets": [
+        "adsl"
+      ],
+      "generated_sql": "SELECT COUNT(DISTINCT USUBJID) AS discontinued_subjects FROM adsl WHERE EOSDT IS NULL;",
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "EOSDT",
+        "IS NULL",
+        "adsl"
+      ],
+      "actual_concept": [
+        "EOSDT",
+        "IS NULL",
+        "adsl"
+      ],
+      "rag_topic": null,
+      "retrieved_rag_context": "Subject-Level Analysis Dataset (adsl)\nThe Subject-Level Analysis Dataset (ADSL) is the foundational CDISC ADaM dataset required in every clinical trial submission. ADSL contains exactly one record per",
+      "final_response": "Based on the verified clinical trial dataset, Discontinued Subjects is 0.",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_rag_001",
+      "category": "rag",
+      "question": "What is SDTM?",
+      "type": "rag",
+      "detected_intent": "Define CDISC Study Data Tabulation Model (SDTM)",
+      "detected_kpi": null,
+      "selected_datasets": [],
+      "generated_sql": null,
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "Study Data Tabulation Model",
+        "SDTM",
+        "submission"
+      ],
+      "actual_concept": [
+        "Study Data Tabulation Model",
+        "SDTM"
+      ],
+      "rag_topic": "SDTM",
+      "retrieved_rag_context": "CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model",
+      "final_response": "Knowledge retrieved (1179 chars): CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model...",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_rag_002",
+      "category": "rag",
+      "question": "What is ADaM used for?",
+      "type": "rag",
+      "detected_intent": "Explain CDISC Analysis Data Model (ADaM) purpose",
+      "detected_kpi": null,
+      "selected_datasets": [],
+      "generated_sql": null,
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "Analysis Data Model",
+        "ADaM",
+        "analysis"
+      ],
+      "actual_concept": [
+        "Analysis Data Model",
+        "ADaM",
+        "analysis"
+      ],
+      "rag_topic": "ADaM",
+      "retrieved_rag_context": "CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model",
+      "final_response": "Knowledge retrieved (1179 chars): CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model...",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_rag_003",
+      "category": "rag",
+      "question": "What does TRTEMFL mean?",
+      "type": "rag",
+      "detected_intent": "Define Treatment-Emergent Analysis Flag (TRTEMFL)",
+      "detected_kpi": null,
+      "selected_datasets": [],
+      "generated_sql": null,
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "Treatment-Emergent",
+        "TRTEMFL",
+        "adverse event"
+      ],
+      "actual_concept": [
+        "Treatment-Emergent",
+        "TRTEMFL",
+        "adverse event"
+      ],
+      "rag_topic": "TRTEMFL",
+      "retrieved_rag_context": "Treatment-Emergent Adverse Events (TRTEMFL)\nA Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the ",
+      "final_response": "Knowledge retrieved (1179 chars): Treatment-Emergent Adverse Events (TRTEMFL)\nA Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the ...",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_rag_004",
+      "category": "rag",
+      "question": "What is a treatment-emergent adverse event?",
+      "type": "rag",
+      "detected_intent": "Define Treatment-Emergent Adverse Event (TEAE)",
+      "detected_kpi": null,
+      "selected_datasets": [],
+      "generated_sql": null,
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "treatment-emergent",
+        "TEAE",
+        "dosing"
+      ],
+      "actual_concept": [
+        "treatment-emergent",
+        "TEAE"
+      ],
+      "rag_topic": "treatment-emergent",
+      "retrieved_rag_context": "Treatment-Emergent Adverse Events (TRTEMFL)\nA Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the ",
+      "final_response": "Knowledge retrieved (1208 chars): Treatment-Emergent Adverse Events (TRTEMFL)\nA Treatment-Emergent Adverse Event (TEAE), designated by the flag TRTEMFL = 'Y' in CDISC ADAE, is defined as any adverse event that emerges on or after the ...",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    },
+    {
+      "id": "uat_rag_005",
+      "category": "rag",
+      "question": "What is the difference between SDTM and ADaM?",
+      "type": "rag",
+      "detected_intent": "Contrast SDTM tabulation with ADaM analysis structures",
+      "detected_kpi": null,
+      "selected_datasets": [],
+      "generated_sql": null,
+      "sql_validation": true,
+      "sql_execution": true,
+      "sql_semantic": true,
+      "result_correctness": true,
+      "expected_concept": [
+        "SDTM",
+        "ADaM",
+        "tabulation",
+        "analysis"
+      ],
+      "actual_concept": [
+        "SDTM",
+        "ADaM",
+        "tabulation",
+        "analysis"
+      ],
+      "rag_topic": "SDTM",
+      "retrieved_rag_context": "CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model",
+      "final_response": "Knowledge retrieved (1179 chars): CDISC Standards Overview (SDTM vs ADaM)\nThe Clinical Data Interchange Standards Consortium (CDISC) establishes global regulatory data standards for clinical research. SDTM (Study Data Tabulation Model...",
+      "passed": true,
+      "failure_category": null,
+      "failure_reason": ""
+    }
+  ],
+  "ambiguity_reports": [
+    {
+      "id": "uat_amb_001",
+      "question": "Show the patient data.",
+      "plan_generated": false,
+      "sql_generated": false,
+      "sql_valid": false,
+      "executed": false,
+      "fallback_safe": true,
+      "behavior": "Safe error rejection",
+      "details": "Workflow safely halted with: SQL generation failed: All configured Gemini models are currently unavailable. Deterministic workflow fallbacks should be used when available."
+    },
+    {
+      "id": "uat_amb_002",
+      "question": "Show the safety results.",
+      "plan_generated": false,
+      "sql_generated": false,
+      "sql_valid": false,
+      "executed": false,
+      "fallback_safe": true,
+      "behavior": "Safe error rejection",
+      "details": "Workflow safely halted with: SQL generation failed: All configured Gemini models are currently unavailable. Deterministic workflow fallbacks should be used when available."
+    },
+    {
+      "id": "uat_amb_003",
+      "question": "What happened during the trial?",
+      "plan_generated": false,
+      "sql_generated": false,
+      "sql_valid": false,
+      "executed": false,
+      "fallback_safe": true,
+      "behavior": "Safe error rejection",
+      "details": "Workflow safely halted with: SQL generation failed: All configured Gemini models are currently unavailable. Deterministic workflow fallbacks should be used when available."
+    },
+    {
+      "id": "uat_amb_004",
+      "question": "Give me the clinical results.",
+      "plan_generated": false,
+      "sql_generated": false,
+      "sql_valid": false,
+      "executed": false,
+      "fallback_safe": true,
+      "behavior": "Safe error rejection",
+      "details": "Workflow safely halted with: SQL generation failed: All configured Gemini models are currently unavailable. Deterministic workflow fallbacks should be used when available."
+    },
+    {
+      "id": "uat_amb_005",
+      "question": "Show treatment results.",
+      "plan_generated": false,
+      "sql_generated": false,
+      "sql_valid": false,
+      "executed": false,
+      "fallback_safe": true,
+      "behavior": "Safe error rejection",
+      "details": "Workflow safely halted with: SQL generation failed: All configured Gemini models are currently unavailable. Deterministic workflow fallbacks should be used when available."
+    },
+    {
+      "id": "uat_amb_006",
+      "question": "Show the lab data.",
+      "plan_generated": true,
+      "sql_generated": true,
+      "sql_valid": true,
+      "executed": true,
+      "fallback_safe": true,
+      "behavior": "Produces reasonable broad response",
+      "details": "Executed broad schema query on verified dataset. Generated SQL: SELECT PARAMCD, PARAM, AVISIT,\n                   ROUND(AVG(AVAL), 2) AS mean_aval,\n                ..."
+    }
+  ]
+}

@@ -34,7 +34,9 @@ ERROR RESPONSE STRATEGY:
         - Unexpected exceptions (disk failure, out of memory, etc.)
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any
+import os
+import re
 from fastapi import APIRouter, File, UploadFile, HTTPException, status, Body, Form
 
 from app.ingestion.file_validator import validate_upload
@@ -43,8 +45,15 @@ from app.ingestion.metadata import extract_metadata
 from app.ingestion.quality_checker import check_quality
 from app.ingestion.analyzer import resolve_files_to_analyze, analyze_datasets
 from app.ingestion.relationship_review import set_relationship_candidates
-from app.ingestion.mysql_loader import load_dataset_to_mysql
-from app.schemas.ingestion import UploadResponse, ErrorResponse
+from app.ingestion.mysql_loader import (
+    load_dataset_to_mysql,
+    validate_and_sanitize_column_names,
+    validate_table_name,
+    sanitize_table_name,
+    map_pandas_dtype,
+    PROTECTED_METADATA_TABLES,
+)
+from app.schemas.ingestion import UploadResponse, ErrorResponse, PreviewResponse, ColumnPreview
 from app.schemas.validation import AnalyzeRequest, AnalyzeResponse
 from app.core.logging_config import get_logger
 
@@ -90,6 +99,22 @@ async def upload_dataset(
     if_exists: Optional[str] = Form(
         "append",
         description="'append' (default), 'replace', or 'fail'",
+    ),
+    is_new_table: Optional[bool] = Form(
+        False,
+        description="True if explicitly creating a new MySQL table",
+    ),
+    classification: Optional[str] = Form(
+        "CLINICAL",
+        description="Dataset classification: CLINICAL, TEST, DEMO, QUARANTINED",
+    ),
+    approval_status: Optional[str] = Form(
+        "APPROVED",
+        description="Initial approval status: APPROVED, PENDING, REJECTED",
+    ),
+    category: Optional[str] = Form(
+        None,
+        description="Optional category tag (e.g. 'SDTM', 'ADaM', 'Custom Clinical')",
     ),
 ):
     """
@@ -214,6 +239,10 @@ async def upload_dataset(
             file_path=read_result.saved_path,
             custom_table_name=target_table,
             if_exists=if_exists or "append",
+            is_new_table=bool(is_new_table),
+            classification=classification or "CLINICAL",
+            approval_status=approval_status or "APPROVED",
+            category=category,
         )
         loaded_table_name = load_result.get("table_name")
         rows_loaded = load_result.get("rows_loaded", 0)
@@ -280,6 +309,253 @@ async def upload_dataset(
         rows_skipped=rows_skipped,
         rows_failed=rows_failed,
         columns=dataset_metadata.column_count,
+    )
+
+
+# =============================================================================
+# POST /ingestion/preview
+# =============================================================================
+
+@router.post(
+    "/preview",
+    summary="Preview Upload Dataset and Inferred Schema",
+    description=(
+        "Inspects uploaded CSV or XLSX dataset file, validates column names, "
+        "infers MySQL data types, checks existing database schemas, and proposes "
+        "target MySQL table."
+    ),
+    response_model=PreviewResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def preview_dataset(
+    file: UploadFile = File(
+        ...,
+        description="Dataset file to preview (.csv or .xlsx)",
+    ),
+    target_mode: Optional[str] = Form(
+        "auto",
+        description="'auto', 'new', or 'existing'",
+    ),
+    target_table: Optional[str] = Form(
+        None,
+        description="Explicit table name override if specified",
+    ),
+):
+    """
+    Previews dataset file before committing to MySQL.
+    Infers data types, detects schema matches against existing tables,
+    and proposes either creating a new table or mapping to an existing table.
+    """
+    import pandas as pd
+    from datetime import datetime
+    filename = file.filename or "unknown"
+    logger.info(f"POST /ingestion/preview received | filename='{filename}' | mode='{target_mode}' | table='{target_table}'")
+
+    # 1. Validate file
+    validation = await validate_upload(file)
+    if not validation.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": "error",
+                "error_code": validation.error_code,
+                "message": validation.error_message,
+            },
+        )
+
+    # 2. Read file into DataFrame
+    try:
+        read_result = await read_uploaded_file(
+            file=file,
+            file_type=validation.file_type,
+            file_ext=validation.file_ext,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": "error",
+                "error_code": "PARSE_ERROR",
+                "message": str(e),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "status": "error",
+                "error_code": "READ_ERROR",
+                "message": f"Failed to read dataset file: {str(e)}",
+            },
+        )
+
+    df = read_result.dataframe
+    if len(df) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": "error",
+                "error_code": "EMPTY_DATASET",
+                "message": "Cannot preview empty dataset. Zero data rows detected.",
+            },
+        )
+
+    # 3. Validate and sanitize column headers
+    try:
+        sanitized_cols, col_mapping = validate_and_sanitize_column_names(df.columns)
+        df = df.rename(columns=col_mapping)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": "error",
+                "error_code": "INVALID_COLUMNS",
+                "message": str(e),
+            },
+        )
+
+    # 4. Infer column types and build preview
+    columns_preview: List[ColumnPreview] = []
+    for col in df.columns:
+        series = df[col]
+        sa_type, type_str = map_pandas_dtype(series)
+        non_nulls = series.dropna()
+        sample_vals = [str(x) for x in non_nulls.head(3).tolist()]
+        orig_name = next((k for k, v in col_mapping.items() if v == col), col)
+        columns_preview.append(
+            ColumnPreview(
+                name=str(col),
+                original_name=str(orig_name),
+                inferred_type=type_str,
+                null_count=int(series.isna().sum()),
+                sample_values=sample_vals,
+            )
+        )
+
+    # 5. Check MySQL existing tables
+    from app.core.database import engine
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    all_tables = inspector.get_table_names()
+    clinical_tables = [t for t in all_tables if t not in PROTECTED_METADATA_TABLES]
+
+    # Pre-compute column compatibility across all clinical tables
+    df_cols = {str(c).strip().upper() for c in df.columns}
+    table_matches: Dict[str, Dict[str, Any]] = {}
+    if df_cols and clinical_tables:
+        for t in clinical_tables:
+            try:
+                t_cols = {c["name"].strip().upper() for c in inspector.get_columns(t)}
+                if not t_cols:
+                    continue
+                intersection = df_cols.intersection(t_cols)
+                coverage = len(intersection) / len(df_cols)
+                jaccard = len(intersection) / len(df_cols.union(t_cols))
+                table_matches[t] = {
+                    "coverage": coverage,
+                    "intersection_count": len(intersection),
+                    "total_csv_cols": len(df_cols),
+                    "score": coverage * 0.7 + jaccard * 0.3,
+                }
+            except Exception:
+                pass
+
+    base = os.path.basename(filename)
+    base = os.path.splitext(base)[0]
+    clean_base = re.sub(r"^[0-9a-fA-F\-]{36}_", "", base).strip().lower()
+
+    mode_req = (target_mode or "auto").strip().lower()
+    clean_explicit = target_table.strip() if target_table and target_table.strip() else None
+
+    # Step 6: Target mode handling
+    if mode_req == "new" or clean_explicit == "__new__":
+        detected_mode = "new"
+        cand_name = clean_explicit if clean_explicit and clean_explicit != "__new__" else clean_base
+        try:
+            proposed_table = validate_table_name(cand_name or "clinical_dataset")
+        except ValueError:
+            proposed_table = sanitize_table_name(cand_name or "clinical_dataset")
+
+        table_already_exists = proposed_table.lower() in [t.lower() for t in all_tables]
+        warning = (
+            f"Table {proposed_table} already exists. Choose another name or explicitly select an existing table as the upload target."
+            if table_already_exists
+            else None
+        )
+        match_confidence = None
+        match_message = f"Proposing new table '{proposed_table}'."
+
+    elif clean_explicit and clean_explicit.lower() not in ("auto", "none"):
+        # Explicit existing target table requested
+        detected_mode = "existing"
+        proposed_table = clean_explicit
+        table_already_exists = proposed_table.lower() in [t.lower() for t in all_tables]
+        match_info = table_matches.get(proposed_table, {"coverage": 0.0})
+        match_confidence = match_info.get("coverage", 0.0)
+        warning = None
+        if not table_already_exists:
+            warning = f"Table '{proposed_table}' does not exist in MySQL."
+        elif match_confidence < 0.50:
+            warning = f"Only {match_confidence:.0%} of uploaded columns match table '{proposed_table}'."
+        match_message = f"Targeting existing table '{proposed_table}'."
+
+    else:
+        # Auto-detect mode
+        sorted_matches = sorted(table_matches.items(), key=lambda x: x[1]["score"], reverse=True) if table_matches else []
+        if sorted_matches and sorted_matches[0][1]["coverage"] >= 0.70:
+            best_tbl, best_data = sorted_matches[0]
+            if len(sorted_matches) > 1 and sorted_matches[1][1]["coverage"] >= 0.70 and abs(best_data["score"] - sorted_matches[1][1]["score"]) < 0.05:
+                detected_mode = "ambiguous"
+                proposed_table = ""
+                table_already_exists = False
+                match_confidence = best_data["coverage"]
+                warning = f"Ambiguous schema match: uploaded columns equally match '{best_tbl}' and '{sorted_matches[1][0]}'. Please choose target table."
+                match_message = warning
+            else:
+                detected_mode = "existing"
+                proposed_table = best_tbl
+                table_already_exists = True
+                match_confidence = best_data["coverage"]
+                warning = None
+                match_message = f"Schema matches existing table '{best_tbl}' ({match_confidence:.0%} column match)."
+        else:
+            # Propose new table
+            detected_mode = "new"
+            proposed_table = sanitize_table_name(clean_base or "clinical_dataset")
+            table_already_exists = proposed_table.lower() in [t.lower() for t in all_tables]
+            warning = (
+                f"Table {proposed_table} already exists. Choose another name or explicitly select an existing table as the upload target."
+                if table_already_exists
+                else None
+            )
+            match_confidence = None
+            match_message = f"No matching existing table found. Proposing new table '{proposed_table}'."
+
+    # Preview records (first 5 rows with safe conversion)
+    preview_records = []
+    for r in df.head(5).to_dict(orient="records"):
+        clean_row = {}
+        for k, v in r.items():
+            if pd.isna(v):
+                clean_row[k] = None
+            elif isinstance(v, (pd.Timestamp, datetime)):
+                clean_row[k] = str(v)
+            else:
+                clean_row[k] = v
+        preview_records.append(clean_row)
+
+    return PreviewResponse(
+        status="success",
+        detected_mode=detected_mode,
+        proposed_table=proposed_table,
+        table_already_exists=table_already_exists,
+        match_confidence=match_confidence,
+        match_message=match_message,
+        warning=warning,
+        total_rows=len(df),
+        total_columns=len(df.columns),
+        columns=columns_preview,
+        preview_rows=preview_records,
     )
 
 

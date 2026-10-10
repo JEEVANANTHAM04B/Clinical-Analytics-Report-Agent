@@ -21,6 +21,9 @@ export interface ClinicalTable {
   display_name: string;
   row_count: number;
   columns: TableColumn[];
+  classification?: string;
+  approval_status?: string;
+  category?: string;
 }
 
 export interface ListTablesResponse {
@@ -64,12 +67,20 @@ export interface ChartSpec {
   title?: string;
   x_column?: string;
   y_column?: string;
+  group_column?: string | null;
+  is_grouped?: boolean;
   [key: string]: any;
 }
 
 export interface AnalyticsResponse {
   status: string;
   question: string;
+  reason?: string | null;
+  required_tables?: string[];
+  selected_tables?: string[];
+  missing_tables?: string[];
+  message?: string | null;
+  next_action?: string | null;
   analysis_plan?: string | null;
   approval_status?: string | null;
   feedback_history?: string[] | null;
@@ -115,7 +126,7 @@ export interface OverviewResponse {
   monthly_trends: MonthlyTrendItem[];
 }
 
-export type PipelineNodeStatus = 'pending' | 'running' | 'completed' | 'waiting_approval' | 'failed';
+export type PipelineNodeStatus = 'pending' | 'running' | 'completed' | 'waiting_approval' | 'failed' | 'blocked';
 
 export interface PipelineNode {
   id: number;

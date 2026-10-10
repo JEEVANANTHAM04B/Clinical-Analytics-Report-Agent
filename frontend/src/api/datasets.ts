@@ -55,18 +55,67 @@ export interface UploadDatasetResponse {
   };
 }
 
+export interface InferredColumnPreview {
+  name: string;
+  original_name: string;
+  inferred_type: string;
+  null_count: number;
+  sample_values: string[];
+}
+
+export interface PreviewDatasetResponse {
+  status: string;
+  detected_mode: 'new' | 'existing' | 'ambiguous';
+  proposed_table: string;
+  table_already_exists: boolean;
+  match_confidence?: number;
+  match_message?: string;
+  warning?: string;
+  total_rows: number;
+  total_columns: number;
+  columns: InferredColumnPreview[];
+  preview_rows: Record<string, any>[];
+}
+
 export const datasetsApi = {
+  previewDataset: async (
+    file: File,
+    targetMode: string = 'auto',
+    targetTable?: string
+  ): Promise<PreviewDatasetResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('target_mode', targetMode);
+    if (targetTable && targetTable.trim() !== '') {
+      formData.append('target_table', targetTable.trim());
+    }
+
+    const res = await apiClient.post<PreviewDatasetResponse>('/ingestion/preview', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return res.data;
+  },
+
   uploadDataset: async (
     file: File,
     targetTable?: string,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    isNewTable: boolean = false,
+    classification: string = 'CLINICAL',
+    approvalStatus: string = 'APPROVED'
   ): Promise<UploadDatasetResponse> => {
     const formData = new FormData();
     formData.append('file', file);
     if (targetTable && targetTable !== 'auto' && targetTable.trim() !== '') {
       formData.append('target_table', targetTable.trim());
     }
-    formData.append('if_exists', 'append');
+    formData.append('if_exists', isNewTable ? 'fail' : 'append');
+    formData.append('is_new_table', String(isNewTable));
+    formData.append('classification', classification);
+    formData.append('approval_status', approvalStatus);
 
     const res = await apiClient.post<UploadDatasetResponse>('/ingestion/upload', formData, {
       headers: {

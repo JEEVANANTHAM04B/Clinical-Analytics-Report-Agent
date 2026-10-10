@@ -29,25 +29,21 @@ def get_relevant_rag_context(question: str) -> str:
     """
     Provide relevant clinical reference context from the project's clinical reference document.
     """
+    try:
+        from app.rag.insight_context import get_insight_context
+        ctx = get_insight_context(question)
+        if ctx:
+            return ctx
+    except Exception:
+        pass
     q_lower = question.lower()
-    if "length of stay" in q_lower or "los" in q_lower:
-        return (
-            "Average length of stay is the average duration of inpatient encounters, "
-            "calculated from the difference between encounter start and stop dates."
-        )
-    elif "cost" in q_lower or "coverage" in q_lower:
-        return (
-            "Total cost represents the recorded healthcare cost associated with a patient encounter."
-        )
-    elif "readmission" in q_lower:
-        return (
-            "Readmission refers to a patient being admitted to the healthcare facility again after a previous discharge."
-        )
-    elif "encounter" in q_lower or "patient" in q_lower or "demographics" in q_lower:
-        return (
-            "Clinical analytics uses structured healthcare data to identify patterns, trends, and measurable outcomes."
-        )
-    return ""
+    if "adverse event" in q_lower or "ae" in q_lower or "safety" in q_lower:
+        return "Adverse events evaluate clinical trial safety. Serious adverse events (AESER='Y') require expedited reporting."
+    elif "efficacy" in q_lower or "response" in q_lower:
+        return "Efficacy responder analysis calculates the proportion of subjects achieving clinical response (RESPFL='Y')."
+    elif "age" in q_lower or "demographics" in q_lower:
+        return "Demographic characterization evaluates baseline subject comparability across treatment arms."
+    return "Clinical trial analytics evaluates safety, efficacy, and subject disposition in accordance with CDISC standards."
 
 
 def check_fact_present(fact_def: dict, insight_text: str) -> bool:

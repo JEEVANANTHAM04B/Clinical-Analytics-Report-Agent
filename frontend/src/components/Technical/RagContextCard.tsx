@@ -8,7 +8,7 @@ interface RagContextCardProps {
 export const RagContextCard: React.FC<RagContextCardProps> = ({ ragContext }) => {
   const defaultPayload =
     ragContext ||
-    '"Table conditions links via encounter_id to encounters.start and encounters.stop. Calculate length of stay using DATEDIFF."';
+    '"CDISC Clinical Trial Context: Adverse Event incidence joins ADAE to ADSL on USUBJID. Analysis populations (SAFFL=\'Y\', ITTFL=\'Y\'), Treatment Emergent flags (TRTEMFL=\'Y\'), and treatment arms (TRT01A) govern safety analysis."';
 
   return (
     <div className="bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm space-y-3">
@@ -22,7 +22,7 @@ export const RagContextCard: React.FC<RagContextCardProps> = ({ ragContext }) =>
         </div>
 
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-100">
-          Pinecone / FAISS v3
+          FAISS Vector Store
         </span>
       </div>
 
@@ -38,7 +38,7 @@ export const RagContextCard: React.FC<RagContextCardProps> = ({ ragContext }) =>
             </span>
           </div>
           <p className="text-[10px] text-gray-500 leading-snug">
-            [Chunk #402] SNOMED-CT definition for length of stay (LOS) computation across inpatient conditions and discharge timestamps.
+            [Chunk #108] CDISC SDTM/ADaM clinical reference for Adverse Events (AE/ADAE), Subject Demographics (DM/ADSL), and Laboratory Biomarkers (LB/ADLB).
           </p>
         </div>
 
@@ -48,11 +48,11 @@ export const RagContextCard: React.FC<RagContextCardProps> = ({ ragContext }) =>
               Embedding Model & Index
             </span>
             <span className="font-mono text-[10px] font-semibold text-emerald-600">
-              1,536 dims
+              384 dims
             </span>
           </div>
           <p className="text-[10px] text-gray-500 leading-snug">
-            text-embedding-3-small vector index queried with cosine distance metric against organization schema.
+            sentence-transformers/all-MiniLM-L6-v2 vector index queried with cosine distance metric against Clinical Trial / CDISC schema.
           </p>
         </div>
       </div>

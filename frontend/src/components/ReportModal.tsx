@@ -78,7 +78,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         rag_context: ragContext || null,
         sql_query: sqlQuery || null,
         workspace_type: workspaceType || 'clinical',
-        selected_tables: Array.isArray(selectedTables) && selectedTables.length > 0 ? selectedTables : ['encounters', 'conditions', 'patients'],
+        selected_tables: Array.isArray(selectedTables) && selectedTables.length > 0
+          ? selectedTables.filter(t => !['patients', 'encounters', 'conditions', 'medications', 'observations', 'procedures'].includes(t.toLowerCase().trim()))
+          : ['study', 'sites', 'dm'],
         follow_up_answers: cleanedFollowUps,
         approved_by: 'Clinical Analyst',
       };

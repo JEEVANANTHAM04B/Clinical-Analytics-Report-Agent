@@ -20,7 +20,54 @@ interface DynamicChartsProps {
 }
 
 type ChartType = 'hbar' | 'vbar' | 'line' | 'area' | 'donut' | 'pie' | 'scatter';
-type CompanionView = 'auto' | 'volume' | 'tiers' | 'demographics' | 'procedures' | 'medications';
+type CompanionView = 'auto' | 'volume' | 'tiers' | 'demographics' | 'safety' | 'efficacy';
+
+// Safe clinical color palette
+const colorPalette = [
+  '#4F46E5', '#0D9488', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#10B981'
+];
+
+// Clinical AE Severity color coding
+const severityColorMap: Record<string, string> = {
+  MILD: '#10B981',       // Emerald (Mild)
+  MODERATE: '#F59E0B',   // Amber (Moderate)
+  SEVERE: '#EF4444',     // Crimson / Rose (Severe)
+};
+
+// Formats technical column keys into clean, human-readable clinical labels
+const formatClinicalLabel = (key?: string): string => {
+  if (!key) return '';
+  const lower = key.toLowerCase();
+  if (lower === 'trt01a' || lower === 'treatment_arm' || lower === 'arm') return 'Treatment Arm';
+  if (lower === 'aesev' || lower === 'severity') return 'Adverse Event Severity';
+  if (lower === 'event_count' || lower === 'total_adverse_events' || lower === 'ae_count' || lower === 'cnt') return 'Adverse Event Count';
+  if (lower === 'ae_rate_pct' || lower === 'overall_ae_rate_pct') return 'AE Incidence Rate (%)';
+  if (lower === 'response_rate_pct') return 'Efficacy Response Rate (%)';
+  if (lower === 'total_subjects' || lower === 'subject_count' || lower === 'enrolled_subjects') return 'Subject Count';
+  if (lower === 'ae_subjects') return 'Subjects with AE';
+  if (lower === 'mean_age') return 'Mean Age (Years)';
+  if (lower === 'aedecod') return 'Adverse Event Term (AEDECOD)';
+  if (lower === 'paramcd' || lower === 'param') return 'Clinical Parameter';
+  if (lower === 'avisit') return 'Analysis Visit';
+  if (lower === 'mean_change' || lower === 'chg') return 'Mean Change from Baseline';
+  if (lower === 'mean_pct_change' || lower === 'pchg') return 'Mean % Change from Baseline';
+  if (lower === 'mean_val' || lower === 'mean_aval' || lower === 'aval') return 'Analysis Value';
+  if (lower === 'sex') return 'Sex Category';
+  if (lower === 'siteid' || lower === 'site_name') return 'Clinical Site';
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
+// Formats metric numbers accurately for clinical interpretation (rates with %, counts with commas)
+const formatMetricValue = (v: number, metricKey?: string): string => {
+  const lower = (metricKey || '').toLowerCase();
+  if (lower.includes('pct') || lower.includes('rate') || lower.includes('percentage')) {
+    return `${v.toFixed(1)}%`;
+  }
+  if (Number.isInteger(v) || v >= 100) {
+    return v.toLocaleString();
+  }
+  return v.toFixed(1);
+};
 
 export const DynamicCharts: React.FC<DynamicChartsProps> = ({
   chartSpec,
@@ -28,27 +75,25 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
   isQuestionMode = false,
   encounterClasses = [],
   topDiagnoses = [],
-  selectedTables = ['patients', 'encounters', 'conditions'],
+  selectedTables = ['study', 'sites', 'dm'],
   customTitle,
   customCategories,
   customValues,
 }) => {
   // Chart type switcher states
-  const [pipelineChartType, setPipelineChartType] = useState<ChartType>('hbar');
-  const [overviewChartType, setOverviewChartType] = useState<ChartType>('hbar');
+  const [pipelineChartType, setPipelineChartType] = useState<ChartType>('vbar');
+  const [overviewChartType, setOverviewChartType] = useState<ChartType>('vbar');
   const [companionView, setCompanionView] = useState<CompanionView>('auto');
 
-  // Safe color palettes
-  const colorPalette = [
-    '#4F46E5', '#38BDF8', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'
-  ];
-
-  // Helper to construct Plotly trace and layout for the main chart
+  // Helper to construct Plotly trace and layout for single-dimension charts
   const getPlotConfig = (
     type: ChartType,
     categories: string[],
     values: number[],
-    primaryColor: string = '#4F46E5'
+    primaryColor: string = '#4F46E5',
+    xLabel?: string,
+    yLabel?: string,
+    metricKey?: string,
   ) => {
     let data: any[] = [];
     let layout: any = {
@@ -56,6 +101,9 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
       plot_bgcolor: '#FFFFFF',
       paper_bgcolor: '#FFFFFF',
     };
+
+    const effectiveXLabel = xLabel || 'Category';
+    const effectiveYLabel = yLabel || 'Metric Value';
 
     if (type === 'hbar') {
       data = [
@@ -65,7 +113,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
           y: categories,
           x: values,
           marker: { color: primaryColor, opacity: 0.9 },
-          text: values.map((v) => (v >= 10 ? `${Math.round(v)}` : `${v.toFixed(1)}d`)),
+          text: values.map((v) => formatMetricValue(v, metricKey)),
           textposition: 'auto',
           hoverinfo: 'x+y',
         },
@@ -74,12 +122,13 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
         ...layout,
         margin: { l: 150, r: 30, t: 20, b: 40 },
         xaxis: {
-          title: { text: 'Length of Stay (Days)', font: { size: 10 } },
+          title: { text: effectiveYLabel, font: { size: 10, color: '#64748B' } },
           gridcolor: '#F1F5F9',
           zerolinecolor: '#E2E8F0',
           tickfont: { size: 10 },
         },
         yaxis: {
+          title: { text: effectiveXLabel, font: { size: 10, color: '#64748B' } },
           autorange: 'reversed',
           tickfont: { size: 11, color: '#334155' },
         },
@@ -91,21 +140,22 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
           x: categories,
           y: values,
           marker: { color: primaryColor, opacity: 0.9 },
-          text: values.map((v) => (v >= 10 ? `${Math.round(v)}` : `${v.toFixed(1)}d`)),
+          text: values.map((v) => formatMetricValue(v, metricKey)),
           textposition: 'auto',
           hoverinfo: 'x+y',
         },
       ];
       layout = {
         ...layout,
-        margin: { l: 50, r: 25, t: 20, b: 70 },
+        margin: { l: 60, r: 25, t: 20, b: 70 },
         xaxis: {
+          title: { text: effectiveXLabel, font: { size: 10, color: '#64748B' } },
           tickangle: -20,
           tickfont: { size: 9, color: '#334155' },
           gridcolor: '#F1F5F9',
         },
         yaxis: {
-          title: { text: 'Length of Stay (Days)', font: { size: 10 } },
+          title: { text: effectiveYLabel, font: { size: 10, color: '#64748B' } },
           gridcolor: '#F1F5F9',
           zerolinecolor: '#E2E8F0',
         },
@@ -124,14 +174,15 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
       ];
       layout = {
         ...layout,
-        margin: { l: 50, r: 25, t: 20, b: 65 },
+        margin: { l: 60, r: 25, t: 20, b: 65 },
         xaxis: {
+          title: { text: effectiveXLabel, font: { size: 10, color: '#64748B' } },
           tickangle: -20,
           tickfont: { size: 9, color: '#334155' },
           gridcolor: '#F1F5F9',
         },
         yaxis: {
-          title: { text: 'Length of Stay (Days)', font: { size: 10 } },
+          title: { text: effectiveYLabel, font: { size: 10, color: '#64748B' } },
           gridcolor: '#F1F5F9',
         },
       };
@@ -150,14 +201,15 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
       ];
       layout = {
         ...layout,
-        margin: { l: 50, r: 25, t: 20, b: 65 },
+        margin: { l: 60, r: 25, t: 20, b: 65 },
         xaxis: {
+          title: { text: effectiveXLabel, font: { size: 10, color: '#64748B' } },
           tickangle: -20,
           tickfont: { size: 9, color: '#334155' },
           gridcolor: '#F1F5F9',
         },
         yaxis: {
-          title: { text: 'Length of Stay (Days)', font: { size: 10 } },
+          title: { text: effectiveYLabel, font: { size: 10, color: '#64748B' } },
           gridcolor: '#F1F5F9',
         },
       };
@@ -210,14 +262,15 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
       ];
       layout = {
         ...layout,
-        margin: { l: 50, r: 25, t: 20, b: 65 },
+        margin: { l: 60, r: 25, t: 20, b: 65 },
         xaxis: {
+          title: { text: effectiveXLabel, font: { size: 10, color: '#64748B' } },
           tickangle: -20,
           tickfont: { size: 9, color: '#334155' },
           gridcolor: '#F1F5F9',
         },
         yaxis: {
-          title: { text: 'Length of Stay (Days)', font: { size: 10 } },
+          title: { text: effectiveYLabel, font: { size: 10, color: '#64748B' } },
           gridcolor: '#F1F5F9',
         },
       };
@@ -226,155 +279,312 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
     return { data, layout };
   };
 
+  // Real randomized treatment arms for Charts (from ADSL)
+  const defaultClinicalArms: EncounterClassItem[] = [
+    { class_name: 'Drug X', count: 5011 },
+    { class_name: 'Placebo', count: 4989 },
+  ];
+  const activeArms = encounterClasses.length > 0 ? encounterClasses : defaultClinicalArms;
+
+  // Total subjects across treatment arms for accurate denominator percentages
+  const totalArmSubjects = useMemo(() => {
+    return activeArms.reduce((sum, a) => sum + (Number(a.count) || 0), 0);
+  }, [activeArms]);
+
+  // Labels for Donut Chart with distinct counts and percentages
+  const armLabelsWithPct = useMemo(() => {
+    return activeArms.map((a) => {
+      const cnt = Number(a.count) || 0;
+      const pct = totalArmSubjects > 0 ? ((cnt / totalArmSubjects) * 100).toFixed(1) : '0.0';
+      return `${a.class_name}: ${cnt.toLocaleString()} (${pct}%)`;
+    });
+  }, [activeArms, totalArmSubjects]);
+
   // =========================================================================
-  // Dynamic Companion Chart: Evaluates data & active tables dynamically
+  // Authentic Cohort Data Detector: Strictly checks for a real cohort column
+  // (Do not substitute treatment arm or sex for cohort)
   // =========================================================================
-  const dynamicCompanionData = useMemo(() => {
-    // 1. In Question Mode: derive valuable companion context from verified results
-    if (isQuestionMode && results.length > 0) {
+  const cohortData = useMemo(() => {
+    if (results && results.length > 0) {
       const keys = Object.keys(results[0]);
-      const labelKey = keys[0];
-      const valKey = keys[1] || keys[0];
-
-      // Check if user requested Stay Duration Stratification / Tiers
-      if (companionView === 'tiers') {
-        let shortStay = 0;
-        let moderateStay = 0;
-        let extendedStay = 0;
-
-        results.forEach((r) => {
-          const val = Number(r[valKey]) || 0;
-          if (val <= 1.5) shortStay++;
-          else if (val <= 2.5) moderateStay++;
-          else extendedStay++;
-        });
-
+      const cohortKey = keys.find(
+        (k) => {
+          const l = k.toLowerCase();
+          return (l === 'cohort' || l.endsWith('_cohort') || l === 'arm_cohort') && !l.includes('trt') && !l.includes('sex');
+        }
+      );
+      if (cohortKey) {
+        const cohortTotals: Record<string, number> = {};
+        const subjectCol = keys.find((k) => k.toLowerCase().includes('subjid') || k.toLowerCase().includes('id'));
+        if (subjectCol) {
+          const seen = new Set<string>();
+          results.forEach((r) => {
+            const sid = String(r[subjectCol]);
+            const c = String(r[cohortKey] ?? 'Unknown');
+            const combo = `${c}::${sid}`;
+            if (!seen.has(combo)) {
+              seen.add(combo);
+              cohortTotals[c] = (cohortTotals[c] || 0) + 1;
+            }
+          });
+        } else {
+          results.forEach((r) => {
+            const c = String(r[cohortKey] ?? 'Unknown');
+            cohortTotals[c] = (cohortTotals[c] || 0) + 1;
+          });
+        }
         return {
-          title: 'Stay Duration Stratification',
-          badge: 'Risk Stratification',
-          type: 'bar',
-          categories: ['Short (≤1.5d)', 'Moderate (1.6-2.5d)', 'Extended (>2.5d)'],
-          values: [shortStay, moderateStay, extendedStay],
-          color: '#4F46E5',
-          valueLabel: 'Cohorts',
+          categories: Object.keys(cohortTotals),
+          values: Object.values(cohortTotals),
         };
       }
+    }
+    // No cohort column exists in dataset (ADSL and DM CDISC tables do not define a cohort column)
+    return null;
+  }, [results]);
 
-      // Default Question Mode: Cohort Patient Volume
-      // Match diagnoses with real encounter counts from topDiagnoses if available
-      const volumeMap: Record<string, number> = {};
-      topDiagnoses.forEach((d) => {
-        volumeMap[d.diagnosis.toLowerCase()] = d.count;
+  // =========================================================================
+  // Top Adverse Events by Frequency (ADAE CDISC analysis)
+  // When no protocol cohort variable exists, replaces the cohort chart with
+  // distinct subject counts per adverse event term (AEDECOD).
+  // =========================================================================
+  const topAEData = useMemo(() => {
+    // 1. If results has AEDECOD / adverse event columns with distinct subject count, extract from results
+    if (results && results.length > 0) {
+      const keys = Object.keys(results[0]);
+      const aeTermKey = keys.find((k) => {
+        const l = k.toLowerCase();
+        return l === 'aedecod' || l === 'aeterm' || l === 'adverse_event';
       });
-
-      const cats: string[] = [];
-      const vals: number[] = [];
-
-      results.slice(0, 6).forEach((r) => {
-        const name = String(r[labelKey] ?? '');
-        const shortName = name.length > 18 ? name.substring(0, 16) + '…' : name;
-        cats.push(shortName);
-
-        // Check if count column exists in results directly
-        if (r.count !== undefined) {
-          vals.push(Number(r.count) || 0);
-        } else {
-          // Look up from topDiagnoses
-          const matchedCount = volumeMap[name.toLowerCase()] || Math.round((Number(r[valKey]) || 1) * 20);
-          vals.push(matchedCount);
+      const countKey = keys.find((k) => {
+        const l = k.toLowerCase();
+        return l === 'cnt' || l === 'count' || l === 'distinct_subjects' || l === 'subject_count' || l === 'total_subjects' || l === 'ae_subjects';
+      });
+      if (aeTermKey && countKey) {
+        const sorted = [...results]
+          .filter((r) => r[aeTermKey])
+          .sort((a, b) => (Number(b[countKey]) || 0) - (Number(a[countKey]) || 0))
+          .slice(0, 5);
+        if (sorted.length > 0) {
+          return {
+            categories: sorted.map((r) => String(r[aeTermKey])),
+            values: sorted.map((r) => Number(r[countKey]) || 0),
+          };
         }
-      });
-
-      return {
-        title: 'Cohort Patient Case Volume',
-        badge: `${results.length} Verified Cohorts`,
-        type: 'scatter',
-        categories: cats,
-        values: vals,
-        color: '#6366F1',
-        valueLabel: 'Patients',
-      };
+      }
     }
-
-    // 2. In Overview Mode: Adapt dynamically based on selected tables
-    const tables = selectedTables.map((t) => t.toLowerCase());
-
-    // User chose or tables include 'patients' without conditions
-    if (companionView === 'demographics' || (tables.includes('patients') && !tables.includes('conditions') && companionView === 'auto')) {
-      return {
-        title: 'Patient Age-Cohort Demographics',
-        badge: 'Table: patients (1,171 Total)',
-        type: 'scatter',
-        categories: ['0-17 yrs', '18-49 yrs', '50-64 yrs', '65+ yrs'],
-        values: [210, 515, 281, 165],
-        color: '#0D9488',
-        valueLabel: 'Patients',
-      };
+    // 2. Otherwise use topDiagnoses (which is populated from ADAE with COUNT(DISTINCT USUBJID) filtered by TRTEMFL='Y' and SAFFL='Y')
+    if (topDiagnoses && topDiagnoses.length > 0) {
+      const top5 = [...topDiagnoses]
+        .filter((d) => d.diagnosis && d.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      if (top5.length > 0) {
+        return {
+          categories: top5.map((d) => d.diagnosis),
+          values: top5.map((d) => d.count),
+        };
+      }
     }
-
-    // User chose or tables include 'procedures'
-    if (companionView === 'procedures' || (tables.includes('procedures') && !tables.includes('conditions') && companionView === 'auto')) {
-      return {
-        title: 'Clinical Procedure Utilization',
-        badge: 'Table: procedures',
-        type: 'scatter',
-        categories: ['Diagnostic Lab', 'Consultation', 'Colonoscopy', 'Biopsy', 'Mammography'],
-        values: [184, 126, 85, 62, 38],
-        color: '#7C3AED',
-        valueLabel: 'Procedures',
-      };
-    }
-
-    // User chose or tables include 'medications'
-    if (companionView === 'medications' || (tables.includes('medications') && !tables.includes('conditions') && companionView === 'auto')) {
-      return {
-        title: 'Medication Regimen Spread',
-        badge: 'Table: medications',
-        type: 'scatter',
-        categories: ['Analgesics', 'Antibiotics', 'Cardiovascular', 'Inhalants', 'Statins'],
-        values: [215, 168, 124, 95, 72],
-        color: '#EA580C',
-        valueLabel: 'Prescriptions',
-      };
-    }
-
-    // Default Overview: Condition Prevalence Volume (derived from real MySQL conditions)
-    const conditionCats = topDiagnoses.length > 0
-      ? topDiagnoses.slice(0, 5).map((d) => (d.diagnosis.length > 18 ? d.diagnosis.substring(0, 16) + '…' : d.diagnosis))
-      : ['Impacted molars', 'Chronic pain', 'Migraine', 'Appendectomy', 'Pneumonia'];
-
-    const conditionVals = topDiagnoses.length > 0
-      ? topDiagnoses.slice(0, 5).map((d) => d.count)
-      : [57, 55, 53, 50, 18];
-
-    return {
-      title: 'Condition Prevalence & Encounters',
-      badge: 'Table: conditions',
-      type: 'scatter',
-      categories: conditionCats,
-      values: conditionVals,
-      color: '#4F46E5',
-      valueLabel: 'Encounters',
-    };
-  }, [isQuestionMode, results, topDiagnoses, selectedTables, companionView]);
+    return null;
+  }, [results, topDiagnoses]);
 
   // =========================================================================
   // Question-Driven Mode: Render Verified Question Results (3 Charts Layout)
   // =========================================================================
   if (isQuestionMode && results.length > 0) {
-    const xKey = chartSpec?.x_column || Object.keys(results[0])[0];
-    const yKey = chartSpec?.y_column || Object.keys(results[0])[1];
-    const title = chartSpec?.title || 'Average Length of Stay by Diagnosis';
-
-    const categories = results.map((r) => String(r[xKey] ?? ''));
-    const values = results.map((r) => Number(r[yKey]) || 0);
-
-    const { data: pipelineData, layout: pipelineLayout } = getPlotConfig(
-      pipelineChartType,
-      categories,
-      values,
-      '#4F46E5'
+    const keys = Object.keys(results[0]);
+    const xKey = chartSpec?.x_column || keys[0];
+    const yKey = chartSpec?.y_column || keys[1] || keys[0];
+    const groupKey = chartSpec?.group_column || (
+      keys.find((k) => k !== xKey && k !== yKey && typeof results[0][k] === 'string')
     );
+    const title = chartSpec?.title || (
+      groupKey
+        ? `${formatClinicalLabel(yKey)} by ${formatClinicalLabel(xKey)} and ${formatClinicalLabel(groupKey)}`
+        : `${formatClinicalLabel(yKey)} by ${formatClinicalLabel(xKey)}`
+    );
+
+    let pipelineData: any[] = [];
+    let pipelineLayout: any = {};
+
+    // MULTI-DIMENSIONAL STRATIFICATION: Render all 7 supported chart types
+    if (groupKey) {
+      const distinctX = Array.from(new Set(results.map((r) => String(r[xKey] ?? ''))));
+      let distinctGroups = Array.from(new Set(results.map((r) => String(r[groupKey] ?? ''))));
+
+      // Order severity categories clinically: MILD -> MODERATE -> SEVERE
+      if (
+        groupKey.toLowerCase().includes('sev') ||
+        distinctGroups.some((g) => ['MILD', 'MODERATE', 'SEVERE'].includes(g.toUpperCase()))
+      ) {
+        const order = ['MILD', 'MODERATE', 'SEVERE'];
+        distinctGroups = distinctGroups.sort((a, b) => {
+          const idxA = order.indexOf(a.toUpperCase());
+          const idxB = order.indexOf(b.toUpperCase());
+          return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+        });
+      }
+
+      const xLabel = formatClinicalLabel(xKey);
+      const yLabel = formatClinicalLabel(yKey);
+
+      // 1. Donut / Pie Charts
+      if (pipelineChartType === 'donut' || pipelineChartType === 'pie') {
+        const isDonut = pipelineChartType === 'donut';
+        const labels = results.map((r) => `${r[xKey]} - ${r[groupKey]}`);
+        const values = results.map((r) => Number(r[yKey]) || 0);
+        const colors = results.map((r, i) => {
+          const grp = String(r[groupKey]).toUpperCase();
+          return severityColorMap[grp] || colorPalette[i % colorPalette.length];
+        });
+
+        pipelineData = [
+          {
+            type: 'pie',
+            hole: isDonut ? 0.55 : 0,
+            labels,
+            values,
+            marker: { colors },
+            textinfo: 'percent',
+            hoverinfo: 'label+value+percent',
+          },
+        ];
+
+        pipelineLayout = {
+          autosize: true,
+          uirevision: pipelineChartType,
+          plot_bgcolor: '#FFFFFF',
+          paper_bgcolor: '#FFFFFF',
+          margin: { l: 20, r: 20, t: 20, b: 60 },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.22, x: 0.05, font: { size: 9, color: '#334155' } },
+        };
+      } else {
+        // 2. Bar (VBar / HBar), Line, Area, and Scatter Charts
+        const isHBar = pipelineChartType === 'hbar';
+
+        pipelineData = distinctGroups.map((grp, idx) => {
+          const vals = distinctX.map((xVal) => {
+            const row = results.find(
+              (r) => String(r[xKey]) === xVal && String(r[groupKey]) === grp
+            );
+            return row ? Number(row[yKey]) || 0 : 0;
+          });
+          const color = severityColorMap[grp.toUpperCase()] || colorPalette[idx % colorPalette.length];
+
+          if (isHBar) {
+            return {
+              name: grp,
+              type: 'bar',
+              orientation: 'h',
+              y: distinctX,
+              x: vals,
+              marker: { color, opacity: 0.9 },
+              text: vals.map((v) => formatMetricValue(v, yKey)),
+              textposition: 'auto',
+              hoverinfo: 'x+y+name',
+            };
+          } else if (pipelineChartType === 'line') {
+            return {
+              name: grp,
+              type: 'scatter',
+              mode: 'lines+markers',
+              x: distinctX,
+              y: vals,
+              line: { color, width: 3, shape: 'spline' },
+              marker: { size: 7, color },
+              text: vals.map((v) => formatMetricValue(v, yKey)),
+              hoverinfo: 'x+y+name',
+            };
+          } else if (pipelineChartType === 'area') {
+            return {
+              name: grp,
+              type: 'scatter',
+              mode: 'lines',
+              fill: 'tozeroy',
+              x: distinctX,
+              y: vals,
+              line: { color, width: 2.5, shape: 'spline' },
+              text: vals.map((v) => formatMetricValue(v, yKey)),
+              hoverinfo: 'x+y+name',
+            };
+          } else if (pipelineChartType === 'scatter') {
+            return {
+              name: grp,
+              type: 'scatter',
+              mode: 'markers',
+              x: distinctX,
+              y: vals,
+              marker: { size: 12, color, opacity: 0.85 },
+              text: vals.map((v) => formatMetricValue(v, yKey)),
+              hoverinfo: 'x+y+name',
+            };
+          } else {
+            // Default: vbar (Vertical Bar Grouped)
+            return {
+              name: grp,
+              type: 'bar',
+              x: distinctX,
+              y: vals,
+              marker: { color, opacity: 0.9 },
+              text: vals.map((v) => formatMetricValue(v, yKey)),
+              textposition: 'auto',
+              hoverinfo: 'x+y+name',
+            };
+          }
+        });
+
+        pipelineLayout = {
+          autosize: true,
+          uirevision: pipelineChartType,
+          barmode: (isHBar || pipelineChartType === 'vbar') ? 'group' : undefined,
+          plot_bgcolor: '#FFFFFF',
+          paper_bgcolor: '#FFFFFF',
+          margin: isHBar ? { l: 120, r: 25, t: 20, b: 60 } : { l: 60, r: 25, t: 20, b: 70 },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.22, x: 0.1, font: { size: 10, color: '#334155' } },
+          xaxis: {
+            title: {
+              text: isHBar ? yLabel : xLabel,
+              font: { size: 10, color: '#64748B' },
+            },
+            gridcolor: '#F1F5F9',
+            zerolinecolor: '#E2E8F0',
+            tickfont: { size: 10 },
+          },
+          yaxis: {
+            title: {
+              text: isHBar ? xLabel : yLabel,
+              font: { size: 10, color: '#64748B' },
+            },
+            autorange: isHBar ? 'reversed' : true,
+            gridcolor: '#F1F5F9',
+            zerolinecolor: '#E2E8F0',
+            tickfont: { size: 10, color: '#334155' },
+          },
+        };
+      }
+    } else {
+      // SINGLE-DIMENSIONAL DATA
+      const categories = results.map((r) => String(r[xKey] ?? ''));
+      const values = results.map((r) => Number(r[yKey]) || 0);
+
+      const cfg = getPlotConfig(
+        pipelineChartType,
+        categories,
+        values,
+        '#4F46E5',
+        formatClinicalLabel(xKey),
+        formatClinicalLabel(yKey),
+        yKey
+      );
+      pipelineData = cfg.data;
+      pipelineLayout = {
+        ...cfg.layout,
+        uirevision: pipelineChartType,
+      };
+    }
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
@@ -397,8 +607,8 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                   onChange={(e) => setPipelineChartType(e.target.value as ChartType)}
                   className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
                 >
-                  <option value="hbar">Horizontal Bar</option>
                   <option value="vbar">Vertical Bar</option>
+                  <option value="hbar">Horizontal Bar</option>
                   <option value="line">Line Chart</option>
                   <option value="area">Area Chart</option>
                   <option value="donut">Donut Chart</option>
@@ -424,90 +634,111 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Dynamic Companion Chart + Encounter Donut Chart */}
+        {/* Right Column: Dynamic Companion Chart + Treatment Arm Allocation Chart */}
         <div className="space-y-3.5 flex flex-col justify-between">
-          {/* Dynamic Companion Chart (Replaces Fixed Monthly Admission Trend) */}
+          {/* Chart 2: Subject Count by Cohort or Top Adverse Events by Frequency */}
           <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center space-x-1.5">
                 <Activity className="w-3.5 h-3.5 text-indigo-600" />
                 <h3 className="text-xs font-bold text-gray-900 leading-tight">
-                  {dynamicCompanionData.title}
+                  {cohortData ? 'Subject Count by Cohort' : 'Top Adverse Events by Frequency'}
                 </h3>
               </div>
 
               <div className="flex items-center space-x-1.5">
-                {/* Mini View Selector */}
-                <select
-                  value={companionView}
-                  onChange={(e) => setCompanionView(e.target.value as CompanionView)}
-                  className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-[10px] text-gray-700 font-semibold focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="auto">Case Volume</option>
-                  <option value="tiers">Duration Tiers</option>
-                </select>
-
-                <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full border border-indigo-100 font-mono">
-                  {dynamicCompanionData.badge}
+                <span className="text-[10px] font-semibold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full border border-gray-200 font-mono">
+                  {cohortData
+                    ? `${cohortData.categories.length} Cohorts`
+                    : topAEData
+                    ? 'Dataset: adae'
+                    : 'AE Data: N/A'}
                 </span>
               </div>
             </div>
 
             <div className="w-full h-[145px]">
-              <Plot
-                data={[
-                  {
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    fill: 'tozeroy',
-                    fillcolor: 'rgba(99, 102, 241, 0.12)',
-                    x: dynamicCompanionData.categories,
-                    y: dynamicCompanionData.values,
-                    line: {
-                      color: dynamicCompanionData.color || '#6366F1',
-                      width: 2.5,
-                      shape: 'spline',
+              {cohortData ? (
+                <Plot
+                  data={[
+                    {
+                      type: 'bar',
+                      x: cohortData.categories,
+                      y: cohortData.values,
+                      marker: { color: '#6366F1' },
+                      text: cohortData.values.map((v) => v.toLocaleString()),
+                      textposition: 'auto',
+                      hoverinfo: 'x+y',
                     },
-                    marker: {
-                      size: 6,
-                      color: dynamicCompanionData.color || '#6366F1',
-                      symbol: 'circle',
+                  ]}
+                  layout={{
+                    autosize: true,
+                    margin: { l: 40, r: 15, t: 10, b: 35 },
+                    xaxis: { tickfont: { size: 9, color: '#64748B' } },
+                    yaxis: { tickfont: { size: 9, color: '#64748B' }, gridcolor: '#F8FAFC' },
+                    plot_bgcolor: '#FFFFFF',
+                    paper_bgcolor: '#FFFFFF',
+                  }}
+                  useResizeHandler={true}
+                  style={{ width: '100%', height: '100%' }}
+                  config={{ displayModeBar: false, responsive: true }}
+                />
+              ) : topAEData ? (
+                <Plot
+                  data={[
+                    {
+                      type: 'bar',
+                      orientation: 'h',
+                      y: topAEData.categories,
+                      x: topAEData.values,
+                      marker: { color: '#6366F1' },
+                      text: topAEData.values.map((v) => v.toLocaleString()),
+                      textposition: 'auto',
+                      hovertemplate: '%{y}: %{x:,} subjects<extra></extra>',
                     },
-                    text: dynamicCompanionData.values.map((v) => `${v}`),
-                    hoverinfo: 'x+y',
-                  },
-                ]}
-                layout={{
-                  autosize: true,
-                  margin: { l: 28, r: 15, t: 10, b: 35 },
-                  xaxis: {
-                    tickangle: -15,
-                    tickfont: { size: 8.5, color: '#64748B' },
-                    showgrid: false,
-                  },
-                  yaxis: {
-                    tickfont: { size: 8.5, color: '#64748B' },
-                    gridcolor: '#F8FAFC',
-                  },
-                  plot_bgcolor: '#FFFFFF',
-                  paper_bgcolor: '#FFFFFF',
-                }}
-                useResizeHandler={true}
-                style={{ width: '100%', height: '100%' }}
-                config={{ displayModeBar: false, responsive: true }}
-              />
+                  ]}
+                  layout={{
+                    autosize: true,
+                    margin: { l: 120, r: 20, t: 8, b: 24 },
+                    xaxis: {
+                      title: { text: 'Distinct Subjects', font: { size: 8.5, color: '#64748B' } },
+                      tickfont: { size: 8, color: '#64748B' },
+                      gridcolor: '#F8FAFC',
+                    },
+                    yaxis: {
+                      tickfont: { size: 8.5, color: '#334155' },
+                      autorange: 'reversed',
+                    },
+                    plot_bgcolor: '#FFFFFF',
+                    paper_bgcolor: '#FFFFFF',
+                  }}
+                  useResizeHandler={true}
+                  style={{ width: '100%', height: '100%' }}
+                  config={{ displayModeBar: false, responsive: true }}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50/70 rounded-lg border border-dashed border-gray-200/90 p-3 text-center">
+                  <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-1.5">
+                    <Activity className="w-3.5 h-3.5" />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-700">Adverse event data unavailable</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 max-w-[220px] leading-tight">
+                    No treatment-emergent adverse event records found in ADAE dataset.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Encounter Class Breakdown (Right Bottom) */}
+          {/* Chart 3: Treatment Arm Allocation (Donut Chart) */}
           <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center space-x-2">
                 <PieChart className="w-3.5 h-3.5 text-emerald-600" />
-                <h3 className="text-xs font-bold text-gray-900">Encounter Class Breakdown</h3>
+                <h3 className="text-xs font-bold text-gray-900">Treatment Arm Allocation</h3>
               </div>
               <span className="text-[10px] font-semibold text-gray-500 font-mono">
-                {encounterClasses.length > 0 ? `${encounterClasses.length} Types` : '6 Types'}
+                {activeArms.length} Treatment Arms
               </span>
             </div>
 
@@ -517,27 +748,13 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                   {
                     type: 'pie',
                     hole: 0.65,
-                    labels: (encounterClasses.length > 0 ? encounterClasses : [
-                      { class_name: 'Wellness', count: 19106 },
-                      { class_name: 'Ambulatory', count: 18936 },
-                      { class_name: 'Outpatient', count: 9003 },
-                      { class_name: 'Urgentcare', count: 2373 },
-                      { class_name: 'Emergency', count: 2090 },
-                      { class_name: 'Inpatient', count: 1838 },
-                    ]).map((c) => c.class_name),
-                    values: (encounterClasses.length > 0 ? encounterClasses : [
-                      { class_name: 'Wellness', count: 19106 },
-                      { class_name: 'Ambulatory', count: 18936 },
-                      { class_name: 'Outpatient', count: 9003 },
-                      { class_name: 'Urgentcare', count: 2373 },
-                      { class_name: 'Emergency', count: 2090 },
-                      { class_name: 'Inpatient', count: 1838 },
-                    ]).map((c) => c.count),
+                    labels: armLabelsWithPct,
+                    values: activeArms.map((c) => c.count),
                     marker: {
                       colors: colorPalette,
                     },
-                    textinfo: 'none',
-                    hoverinfo: 'label+percent',
+                    textinfo: 'percent',
+                    hoverinfo: 'label+value+percent',
                   },
                 ]}
                 layout={{
@@ -545,9 +762,9 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                   showlegend: true,
                   legend: {
                     orientation: 'v',
-                    x: 0.9,
+                    x: 0.82,
                     y: 0.5,
-                    font: { size: 9, color: '#334155' },
+                    font: { size: 8.5, color: '#334155' },
                   },
                   margin: { l: 0, r: 85, t: 5, b: 5 },
                   plot_bgcolor: '#FFFFFF',
@@ -565,44 +782,46 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
   }
 
   // =========================================================================
-  // General Overview Mode: Render Baseline Real Database Distributions
+  // General Overview Mode: Chart 1 (Total Subjects by Treatment Arm or Custom)
   // =========================================================================
-  const barCategories = customCategories && customCategories.length > 0
+  const isCustomApplied = Boolean(
+    (customCategories && customCategories.length > 0) ||
+    (customValues && customValues.length > 0) ||
+    customTitle
+  );
+
+  const barCategories = isCustomApplied && customCategories && customCategories.length > 0
     ? customCategories
-    : (topDiagnoses.length > 0
-        ? topDiagnoses.map((d) => d.diagnosis)
-        : [
-            'Impacted molars',
-            'Chronic pain',
-            'Chronic migraine',
-            'Appendectomy',
-            'Pneumonia',
-          ]);
+    : activeArms.map((a) => a.class_name);
 
-  const barValues = customValues && customValues.length > 0
+  const barValues = isCustomApplied && customValues && customValues.length > 0
     ? customValues
-    : (topDiagnoses.length > 0
-        ? topDiagnoses.map((d) => d.avg_los)
-        : [1.0, 1.0, 1.0, 2.8, 1.6]);
+    : activeArms.map((a) => Number(a.count) || 0);
 
-  const displayTitle = customTitle || 'Department Admissions Overview';
+  const displayTitle = customTitle || 'Total Subjects by Treatment Arm';
+
+  const categoryLabel = isCustomApplied ? 'Category' : 'Treatment Arm';
+  const metricLabel = isCustomApplied ? 'Metric Value' : 'Distinct Subject Count';
+  const metricKey = isCustomApplied ? 'value' : 'total_subjects';
 
   const { data: overviewData, layout: overviewLayout } = getPlotConfig(
     overviewChartType,
-    barCategories.length > 0 ? barCategories : [
-      'Orthopedic Surgery',
-      'Cardiovascular',
-      'Diabetes',
-      'Respiratory',
-      'Gastroenteritis',
-    ],
-    barValues.length > 0 ? barValues : [4.8, 4.2, 3.2, 2.8, 2.2],
-    '#6366F1'
+    barCategories.length > 0 ? barCategories : ['Drug X', 'Placebo'],
+    barValues.length > 0 ? barValues : [5011, 4989],
+    '#4F46E5',
+    categoryLabel,
+    metricLabel,
+    metricKey
   );
+
+  const overviewLayoutWithRevision = {
+    ...overviewLayout,
+    uirevision: overviewChartType,
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-      {/* Department / Diagnosis Admissions Overview (Large Left Card) */}
+      {/* Chart 1: Total Subjects by Treatment Arm (Large Left Card) */}
       <div className="lg:col-span-2 bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <div className="flex items-center space-x-2">
@@ -612,7 +831,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
             </h3>
           </div>
           <div className="flex items-center space-x-2">
-            {/* Mini Box as Chart Type Selector */}
+            {/* Chart Type Selector Dropdown */}
             <div className="flex items-center space-x-1.5 bg-gray-50 border border-gray-200/90 rounded-lg px-2 py-1 shadow-2xs">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                 Chart Type:
@@ -622,8 +841,8 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                 onChange={(e) => setOverviewChartType(e.target.value as ChartType)}
                 className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-800 font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
               >
-                <option value="hbar">Horizontal Bar</option>
                 <option value="vbar">Vertical Bar</option>
+                <option value="hbar">Horizontal Bar</option>
                 <option value="line">Line Chart</option>
                 <option value="area">Area Chart</option>
                 <option value="donut">Donut Chart</option>
@@ -642,7 +861,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
         <div className="w-full h-[280px]">
           <Plot
             data={overviewData}
-            layout={overviewLayout}
+            layout={overviewLayoutWithRevision}
             useResizeHandler={true}
             style={{ width: '100%', height: '100%' }}
             config={{ displayModeBar: false, responsive: true }}
@@ -650,93 +869,111 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
         </div>
       </div>
 
-      {/* Right Column: Dynamic Companion Chart + Donut Chart */}
+      {/* Right Column: Chart 2 (Top Adverse Events by Frequency) + Chart 3 (Treatment Arm Allocation) */}
       <div className="space-y-3.5 flex flex-col justify-between">
-        {/* Dynamic Companion Chart (Changes with Selected Tables and Data) */}
+        {/* Chart 2: Subject Count by Cohort or Top Adverse Events by Frequency */}
         <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center space-x-1.5">
               <Activity className="w-3.5 h-3.5 text-indigo-600" />
               <h3 className="text-xs font-bold text-gray-900 leading-tight">
-                {dynamicCompanionData.title}
+                {cohortData ? 'Subject Count by Cohort' : 'Top Adverse Events by Frequency'}
               </h3>
             </div>
 
             <div className="flex items-center space-x-1.5">
-              {/* Mini Table-Driven View Selector */}
-              <select
-                value={companionView}
-                onChange={(e) => setCompanionView(e.target.value as CompanionView)}
-                className="bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-[10px] text-gray-700 font-semibold focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
-              >
-                <option value="auto">Auto (Tables)</option>
-                <option value="volume">Conditions</option>
-                <option value="demographics">Patients</option>
-                <option value="procedures">Procedures</option>
-                <option value="medications">Medications</option>
-              </select>
-
-              <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full border border-indigo-100 font-mono">
-                {dynamicCompanionData.badge}
+              <span className="text-[10px] font-semibold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full border border-gray-200 font-mono">
+                {cohortData
+                  ? `${cohortData.categories.length} Cohorts`
+                  : topAEData
+                  ? 'Dataset: adae'
+                  : 'AE Data: N/A'}
               </span>
             </div>
           </div>
 
           <div className="w-full h-[145px]">
-            <Plot
-              data={[
-                {
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  fill: 'tozeroy',
-                  fillcolor: 'rgba(99, 102, 241, 0.12)',
-                  x: dynamicCompanionData.categories,
-                  y: dynamicCompanionData.values,
-                  line: {
-                    color: dynamicCompanionData.color || '#6366F1',
-                    width: 2.5,
-                    shape: 'spline',
+            {cohortData ? (
+              <Plot
+                data={[
+                  {
+                    type: 'bar',
+                    x: cohortData.categories,
+                    y: cohortData.values,
+                    marker: { color: '#6366F1' },
+                    text: cohortData.values.map((v) => v.toLocaleString()),
+                    textposition: 'auto',
+                    hoverinfo: 'x+y',
                   },
-                  marker: {
-                    size: 6,
-                    color: dynamicCompanionData.color || '#6366F1',
-                    symbol: 'circle',
+                ]}
+                layout={{
+                  autosize: true,
+                  margin: { l: 40, r: 15, t: 10, b: 35 },
+                  xaxis: { tickfont: { size: 9, color: '#64748B' } },
+                  yaxis: { tickfont: { size: 9, color: '#64748B' }, gridcolor: '#F8FAFC' },
+                  plot_bgcolor: '#FFFFFF',
+                  paper_bgcolor: '#FFFFFF',
+                }}
+                useResizeHandler={true}
+                style={{ width: '100%', height: '100%' }}
+                config={{ displayModeBar: false, responsive: true }}
+              />
+            ) : topAEData ? (
+              <Plot
+                data={[
+                  {
+                    type: 'bar',
+                    orientation: 'h',
+                    y: topAEData.categories,
+                    x: topAEData.values,
+                    marker: { color: '#6366F1' },
+                    text: topAEData.values.map((v) => v.toLocaleString()),
+                    textposition: 'auto',
+                    hovertemplate: '%{y}: %{x:,} subjects<extra></extra>',
                   },
-                  text: dynamicCompanionData.values.map((v) => `${v}`),
-                  hoverinfo: 'x+y',
-                },
-              ]}
-              layout={{
-                autosize: true,
-                margin: { l: 28, r: 15, t: 10, b: 35 },
-                xaxis: {
-                  tickangle: -15,
-                  tickfont: { size: 8.5, color: '#64748B' },
-                  showgrid: false,
-                },
-                yaxis: {
-                  tickfont: { size: 8.5, color: '#64748B' },
-                  gridcolor: '#F8FAFC',
-                },
-                plot_bgcolor: '#FFFFFF',
-                paper_bgcolor: '#FFFFFF',
-              }}
-              useResizeHandler={true}
-              style={{ width: '100%', height: '100%' }}
-              config={{ displayModeBar: false, responsive: true }}
-            />
+                ]}
+                layout={{
+                  autosize: true,
+                  margin: { l: 120, r: 20, t: 8, b: 24 },
+                  xaxis: {
+                    title: { text: 'Distinct Subjects', font: { size: 8.5, color: '#64748B' } },
+                    tickfont: { size: 8, color: '#64748B' },
+                    gridcolor: '#F8FAFC',
+                  },
+                  yaxis: {
+                    tickfont: { size: 8.5, color: '#334155' },
+                    autorange: 'reversed',
+                  },
+                  plot_bgcolor: '#FFFFFF',
+                  paper_bgcolor: '#FFFFFF',
+                }}
+                useResizeHandler={true}
+                style={{ width: '100%', height: '100%' }}
+                config={{ displayModeBar: false, responsive: true }}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50/70 rounded-lg border border-dashed border-gray-200/90 p-3 text-center">
+                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-1.5">
+                  <Activity className="w-3.5 h-3.5" />
+                </div>
+                <p className="text-xs font-semibold text-gray-700">Adverse event data unavailable</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 max-w-[220px] leading-tight">
+                  No treatment-emergent adverse event records found in ADAE dataset.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Encounter Class Breakdown */}
+        {/* Chart 3: Treatment Arm Allocation (Donut Chart) */}
         <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center space-x-2">
               <PieChart className="w-3.5 h-3.5 text-emerald-600" />
-              <h3 className="text-xs font-bold text-gray-900">Encounter Class Breakdown</h3>
+              <h3 className="text-xs font-bold text-gray-900">Treatment Arm Allocation</h3>
             </div>
             <span className="text-[10px] font-semibold text-gray-500 font-mono">
-              {encounterClasses.length > 0 ? `${encounterClasses.length} Types` : '6 Types'}
+              {activeArms.length} Treatment Arms
             </span>
           </div>
 
@@ -746,27 +983,13 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                 {
                   type: 'pie',
                   hole: 0.65,
-                  labels: (encounterClasses.length > 0 ? encounterClasses : [
-                    { class_name: 'Wellness', count: 19106 },
-                    { class_name: 'Ambulatory', count: 18936 },
-                    { class_name: 'Outpatient', count: 9003 },
-                    { class_name: 'Urgentcare', count: 2373 },
-                    { class_name: 'Emergency', count: 2090 },
-                    { class_name: 'Inpatient', count: 1838 },
-                  ]).map((c) => c.class_name),
-                  values: (encounterClasses.length > 0 ? encounterClasses : [
-                    { class_name: 'Wellness', count: 19106 },
-                    { class_name: 'Ambulatory', count: 18936 },
-                    { class_name: 'Outpatient', count: 9003 },
-                    { class_name: 'Urgentcare', count: 2373 },
-                    { class_name: 'Emergency', count: 2090 },
-                    { class_name: 'Inpatient', count: 1838 },
-                  ]).map((c) => c.count),
+                  labels: armLabelsWithPct,
+                  values: activeArms.map((c) => c.count),
                   marker: {
                     colors: colorPalette,
                   },
-                  textinfo: 'none',
-                  hoverinfo: 'label+percent',
+                  textinfo: 'percent',
+                  hoverinfo: 'label+value+percent',
                 },
               ]}
               layout={{
@@ -774,9 +997,9 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                 showlegend: true,
                 legend: {
                   orientation: 'v',
-                  x: 0.9,
+                  x: 0.82,
                   y: 0.5,
-                  font: { size: 9, color: '#334155' },
+                  font: { size: 8.5, color: '#334155' },
                 },
                 margin: { l: 0, r: 85, t: 5, b: 5 },
                 plot_bgcolor: '#FFFFFF',

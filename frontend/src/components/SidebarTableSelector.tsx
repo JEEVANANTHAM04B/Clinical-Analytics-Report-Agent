@@ -9,6 +9,30 @@ import {
 import { ClinicalTable } from '../types/analytics';
 import apiService from '../services/api';
 
+export const APPROVED_CLINICAL_TABLES = [
+  'study', 'sites', 'dm', 'ae', 'ex', 'lb', 'qs', 'vs',
+  'adsl', 'adae', 'adlb', 'advs', 'adresp'
+];
+
+export const LEGACY_EHR_TABLES = [
+  'patients', 'encounters', 'conditions', 'medications', 'observations', 'procedures'
+];
+
+export const filterApprovedClinicalTables = (tbls: string[], available?: ClinicalTable[]): string[] => {
+  const withoutLegacy = tbls.filter(
+    (t) => typeof t === 'string' && !LEGACY_EHR_TABLES.includes(t.toLowerCase().trim())
+  );
+  if (available && available.length > 0) {
+    const availableNames = new Set(
+      available
+        .filter((a) => !a.classification || a.classification === 'CLINICAL')
+        .map((a) => a.name.toLowerCase().trim())
+    );
+    return withoutLegacy.filter((t) => availableNames.has(t.toLowerCase().trim()));
+  }
+  return withoutLegacy.filter((t) => APPROVED_CLINICAL_TABLES.includes(t.toLowerCase().trim()));
+};
+
 interface SidebarTableSelectorProps {
   availableTables?: ClinicalTable[];
   selectedTables: string[];
@@ -26,20 +50,20 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   combinationError = null,
   theme = 'technical',
 }) => {
-  const [localSelected, setLocalSelected] = useState<string[]>(selectedTables);
   const [tables, setTables] = useState<ClinicalTable[]>(availableTables);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
+  const [localSelected, setLocalSelected] = useState<string[]>(() =>
+    filterApprovedClinicalTables(selectedTables, availableTables)
+  );
 
-  // Synchronize local selection when parent selection updates
+  // Synchronize local selection when parent selection or available tables updates
   useEffect(() => {
-    setLocalSelected(selectedTables);
-  }, [selectedTables]);
+    setLocalSelected(filterApprovedClinicalTables(selectedTables, tables));
+  }, [selectedTables, tables]);
 
-  // Synchronize tables with parent or self-fetch if empty
+  // Synchronize tables with parent or self-fetch if empty, and listen for updates
   useEffect(() => {
-    if (availableTables && availableTables.length > 0) {
-      setTables(availableTables);
-    } else {
+    const fetchTables = () => {
       setIsLoadingTables(true);
       apiService.getTables()
         .then((res: any) => {
@@ -54,7 +78,21 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
         .finally(() => {
           setIsLoadingTables(false);
         });
+    };
+
+    if (availableTables && availableTables.length > 0) {
+      setTables(availableTables);
+    } else {
+      fetchTables();
     }
+
+    const handleUpdate = () => {
+      fetchTables();
+    };
+    window.addEventListener('clinical-tables-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('clinical-tables-updated', handleUpdate);
+    };
   }, [availableTables]);
 
   const isTechnical = theme === 'technical';
@@ -65,6 +103,9 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   const activeItemBg = isTechnical ? 'bg-blue-50/70 border-blue-200/90' : 'bg-indigo-50/70 border-indigo-200/90';
 
   const toggleTable = (tableName: string) => {
+    const clean = tableName.toLowerCase().trim();
+    if (LEGACY_EHR_TABLES.includes(clean)) return; // Strictly prevent legacy EHR tables
+
     if (localSelected.includes(tableName)) {
       setLocalSelected(localSelected.filter((t) => t !== tableName));
     } else {
@@ -73,7 +114,11 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   };
 
   const handleSelectAll = () => {
-    setLocalSelected(tables.map((t) => t.name));
+    const allValid = tables
+      .filter((t) => !t.classification || t.classification === 'CLINICAL')
+      .map((t) => t.name)
+      .filter((name) => !LEGACY_EHR_TABLES.includes(name.toLowerCase().trim()));
+    setLocalSelected(allValid);
   };
 
   const handleClearAll = () => {
@@ -81,7 +126,8 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   };
 
   const handleApply = () => {
-    onApplySelection(localSelected);
+    const sanitized = filterApprovedClinicalTables(localSelected, tables);
+    onApplySelection(sanitized);
   };
 
   const hasUnappliedChanges = 
@@ -98,7 +144,10 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
             DATASET TABLES
           </span>
         </div>
-        <span className="text-[9px] font-mono font-bold text-gray-600 bg-white px-1 py-0.2 rounded border border-gray-200/80 shadow-2xs">
+        <span
+          data-testid="selected-count-badge"
+          className="text-[9px] font-mono font-bold text-gray-600 bg-white px-1 py-0.2 rounded border border-gray-200/80 shadow-2xs"
+        >
           {localSelected.length} selected
         </span>
       </div>
@@ -107,6 +156,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
       <div className="flex items-center justify-between text-[9px] text-gray-500 px-0.5">
         <button
           type="button"
+          data-testid="select-all-btn"
           onClick={handleSelectAll}
           className="hover:text-gray-900 hover:underline transition-colors cursor-pointer"
         >
@@ -115,6 +165,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
         <span className="text-gray-300">•</span>
         <button
           type="button"
+          data-testid="clear-all-btn"
           onClick={handleClearAll}
           className="hover:text-rose-600 hover:underline transition-colors cursor-pointer"
         >
@@ -134,11 +185,14 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
             No tables available.
           </div>
         ) : (
-          tables.map((tbl) => {
+          tables
+            .filter((t) => !t.classification || t.classification === 'CLINICAL')
+            .map((tbl) => {
             const isChecked = localSelected.includes(tbl.name);
             return (
               <label
                 key={tbl.name}
+                data-testid={`table-row-${tbl.name}`}
                 onClick={() => toggleTable(tbl.name)}
                 className={`flex items-center justify-between px-1.5 py-0.5 rounded cursor-pointer transition-all border ${
                   isChecked
@@ -149,6 +203,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
                 <div className="flex items-center space-x-1.5 min-w-0">
                   <input
                     type="checkbox"
+                    data-testid={`checkbox-${tbl.name}`}
                     checked={isChecked}
                     onChange={() => {}} // Controlled by row click
                     className={`w-3 h-3 rounded border-gray-300 ${checkboxColor} cursor-pointer`}
@@ -191,6 +246,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
       {/* Apply Selection Button */}
       <button
         type="button"
+        data-testid="apply-selection-btn"
         onClick={handleApply}
         disabled={isApplying || localSelected.length === 0}
         className={`w-full py-1 px-2.5 ${primaryBg} disabled:opacity-50 disabled:cursor-not-allowed text-white text-[11px] font-semibold rounded-md shadow-2xs flex items-center justify-center space-x-1 transition-all cursor-pointer`}

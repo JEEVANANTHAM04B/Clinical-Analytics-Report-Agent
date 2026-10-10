@@ -2,113 +2,121 @@
   {
     "id": "plan_grp_001",
     "category": "grouping_consistency",
-    "analysis_plan": "Group results by encounters.encounterclass to calculate total encounters per class.",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) AS total_encounters FROM encounters GROUP BY encounters.ENCOUNTERCLASS;",
+    "analysis_plan": "Group results by dm.arm to calculate total subjects per treatment arm.",
+    "sql": "SELECT dm.ARM, COUNT(*) AS total_subjects FROM dm GROUP BY dm.ARM;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
     "id": "plan_grp_002",
     "category": "grouping_consistency",
-    "analysis_plan": "Group results by encounters.encounterclass to compare encounter categories.",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, conditions.DESCRIPTION, COUNT(*) FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER GROUP BY conditions.DESCRIPTION;",
+    "analysis_plan": "Group results by dm.arm to compare treatment arms.",
+    "sql": "SELECT dm.ARM, ae.AESEV, COUNT(*) FROM dm JOIN ae ON dm.USUBJID = ae.USUBJID GROUP BY ae.AESEV;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL groups by diagnosis/conditions.DESCRIPTION instead of approved encounters.ENCOUNTERCLASS"
+    "expected_reason": "Plan-consistency error: SQL groups by ae.AESEV instead of approved dm.ARM"
   },
   {
     "id": "plan_grp_003",
     "category": "grouping_consistency",
-    "analysis_plan": "Group results by encounters.encounterclass to compute aggregate metrics.",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) FROM encounters;",
+    "analysis_plan": "Group results by dm.arm to compute aggregate metrics.",
+    "sql": "SELECT dm.ARM, COUNT(*) FROM dm;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL must GROUP BY encounters.ENCOUNTERCLASS as required by approved plan"
+    "expected_reason": "Plan-consistency error: SQL must GROUP BY dm.ARM as required by approved plan"
   },
   {
     "id": "plan_tbl_001",
     "category": "single_table_query_consistency",
-    "analysis_plan": "Relevant tables and columns: encounters only. Join conditions: none required (single-table analysis).",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) AS count FROM encounters GROUP BY encounters.ENCOUNTERCLASS;",
+    "analysis_plan": "Relevant tables and columns: dm only. Join conditions: none required (single-table analysis).",
+    "sql": "SELECT dm.ARM, COUNT(*) AS count FROM dm GROUP BY dm.ARM;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
     "id": "plan_tbl_002",
     "category": "single_table_query_consistency",
-    "analysis_plan": "Relevant tables and columns: encounters only. Join conditions: none required (single-table analysis).",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) AS count FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER GROUP BY encounters.ENCOUNTERCLASS;",
+    "analysis_plan": "Relevant tables and columns: dm only. Join conditions: none required (single-table analysis).",
+    "sql": "SELECT dm.ARM, COUNT(*) AS count FROM dm JOIN ae ON dm.USUBJID = ae.USUBJID GROUP BY dm.ARM;",
     "expected_valid": false,
     "expected_reason": "Plan-consistency error: SQL includes JOINs but approved plan specifies a single-table query"
   },
   {
     "id": "plan_flt_001",
-    "category": "encounter_class_filtering_consistency",
-    "analysis_plan": "Filter criteria: encounters.ENCOUNTERCLASS in ('inpatient', 'emergency').",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) FROM encounters WHERE encounters.ENCOUNTERCLASS IN ('inpatient', 'emergency') GROUP BY encounters.ENCOUNTERCLASS;",
+    "category": "safety_filtering_consistency",
+    "analysis_plan": "Filter criteria: serious adverse events with ae.AESER = 'Y'.",
+    "sql": "SELECT ae.AESEV, COUNT(*) FROM ae WHERE ae.AESER = 'Y' GROUP BY ae.AESEV;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
     "id": "plan_flt_002",
-    "category": "encounter_class_filtering_consistency",
-    "analysis_plan": "Filter criteria: encounters.ENCOUNTERCLASS in ('inpatient', 'emergency').",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) FROM encounters WHERE encounters.ENCOUNTERCLASS = 'inpatient' GROUP BY encounters.ENCOUNTERCLASS;",
+    "category": "safety_filtering_consistency",
+    "analysis_plan": "Filter criteria: serious adverse events with ae.AESER = 'Y'.",
+    "sql": "SELECT ae.AESEV, COUNT(*) FROM ae GROUP BY ae.AESEV;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL restricts to inpatient only, but approved plan requires inpatient and emergency"
+    "expected_reason": "Plan-consistency error: SQL missing AESER = 'Y' filter required by approved plan"
   },
   {
     "id": "plan_flt_003",
-    "category": "encounter_class_filtering_consistency",
-    "analysis_plan": "Filter criteria: encounters.ENCOUNTERCLASS in ('inpatient', 'emergency').",
-    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) FROM encounters GROUP BY encounters.ENCOUNTERCLASS;",
+    "category": "efficacy_filtering_consistency",
+    "analysis_plan": "Filter criteria: responders with adresp.RESPFL = 'Y'.",
+    "sql": "SELECT adresp.TRT01A, COUNT(*) FROM adresp WHERE adresp.RESPFL = 'Y' GROUP BY adresp.TRT01A;",
+    "expected_valid": true,
+    "expected_reason": "SQL query is safe"
+  },
+  {
+    "id": "plan_flt_004",
+    "category": "efficacy_filtering_consistency",
+    "analysis_plan": "Filter criteria: responders with adresp.RESPFL = 'Y'.",
+    "sql": "SELECT adresp.TRT01A, COUNT(*) FROM adresp GROUP BY adresp.TRT01A;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL missing ENCOUNTERCLASS IN ('inpatient', 'emergency') filter required by approved plan"
+    "expected_reason": "Plan-consistency error: SQL missing RESPFL = 'Y' filter required by approved plan"
   },
   {
     "id": "plan_start_001",
     "category": "start_null_consistency",
-    "analysis_plan": "Filter criteria: encounters.START is not null to ensure valid admission dates.",
-    "sql": "SELECT encounters.ID, encounters.START FROM encounters WHERE encounters.START IS NOT NULL;",
+    "analysis_plan": "Filter criteria: dm.RFSTDTC is not null to ensure valid study start dates.",
+    "sql": "SELECT dm.USUBJID, dm.RFSTDTC FROM dm WHERE dm.RFSTDTC IS NOT NULL;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
     "id": "plan_start_002",
     "category": "start_null_consistency",
-    "analysis_plan": "Filter criteria: encounters.START is not null to ensure valid admission dates.",
-    "sql": "SELECT encounters.ID, encounters.START FROM encounters;",
+    "analysis_plan": "Filter criteria: dm.RFSTDTC is not null to ensure valid study start dates.",
+    "sql": "SELECT dm.USUBJID, dm.RFSTDTC FROM dm;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL missing START IS NOT NULL filter required by approved plan"
+    "expected_reason": "Plan-consistency error: SQL missing RFSTDTC IS NOT NULL filter required by approved plan"
   },
   {
     "id": "plan_stop_001",
     "category": "stop_null_consistency",
-    "analysis_plan": "Filter criteria: encounters.STOP is not null to ensure valid discharge dates.",
-    "sql": "SELECT encounters.ID, encounters.STOP FROM encounters WHERE encounters.STOP IS NOT NULL;",
+    "analysis_plan": "Filter criteria: adsl.EOSDT is not null to ensure valid end of study dates.",
+    "sql": "SELECT adsl.USUBJID, adsl.EOSDT FROM adsl WHERE adsl.EOSDT IS NOT NULL;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
     "id": "plan_stop_002",
     "category": "stop_null_consistency",
-    "analysis_plan": "Filter criteria: encounters.STOP is not null to ensure valid discharge dates.",
-    "sql": "SELECT encounters.ID, encounters.STOP FROM encounters;",
+    "analysis_plan": "Filter criteria: adsl.EOSDT is not null to ensure valid end of study dates.",
+    "sql": "SELECT adsl.USUBJID, adsl.EOSDT FROM adsl;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL missing STOP IS NOT NULL filter required by approved plan"
+    "expected_reason": "Plan-consistency error: SQL missing EOSDT IS NOT NULL filter required by approved plan"
   },
   {
-    "id": "plan_los_001",
-    "category": "los_range_consistency",
-    "analysis_plan": "Filter criteria: length of stay between 0 and 30 days to exclude negative or extreme outlier durations.",
-    "sql": "SELECT encounters.ID, DATEDIFF(encounters.STOP, encounters.START) AS los FROM encounters WHERE DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30;",
+    "id": "plan_range_001",
+    "category": "range_consistency",
+    "analysis_plan": "Filter criteria: subject age between 18 and 65 to include adult study population.",
+    "sql": "SELECT dm.USUBJID, dm.AGE FROM dm WHERE dm.AGE BETWEEN 18 AND 65;",
     "expected_valid": true,
     "expected_reason": "SQL query is safe"
   },
   {
-    "id": "plan_los_002",
-    "category": "los_range_consistency",
-    "analysis_plan": "Filter criteria: length of stay between 0 and 30 days to exclude negative or extreme outlier durations.",
-    "sql": "SELECT encounters.ID, DATEDIFF(encounters.STOP, encounters.START) AS los FROM encounters;",
+    "id": "plan_range_002",
+    "category": "range_consistency",
+    "analysis_plan": "Filter criteria: subject age between 18 and 65 to include adult study population.",
+    "sql": "SELECT dm.USUBJID, dm.AGE FROM dm;",
     "expected_valid": false,
-    "expected_reason": "Plan-consistency error: SQL missing LOS BETWEEN 0 AND 30 filter required by approved plan"
+    "expected_reason": "Plan-consistency error: SQL missing AGE BETWEEN 18 AND 65 filter required by approved plan"
   }
 ]

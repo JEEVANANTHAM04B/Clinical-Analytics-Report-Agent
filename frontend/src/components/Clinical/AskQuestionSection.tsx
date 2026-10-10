@@ -11,7 +11,7 @@ interface AskQuestionSectionProps {
 export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
   onRunAnalysis,
   isLoading = false,
-  defaultQuestion = 'What is the average length of stay by diagnosis?',
+  defaultQuestion = 'What is the adverse event rate by treatment arm?',
   suggestedQuestions,
 }) => {
   const [question, setQuestion] = useState(defaultQuestion);
@@ -52,7 +52,7 @@ export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
             type="text"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask a clinical question (e.g., What is the average length of stay by diagnosis?)..."
+            placeholder="Ask a clinical question (e.g., What is the adverse event rate by treatment arm?)..."
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             disabled={isLoading}
           />

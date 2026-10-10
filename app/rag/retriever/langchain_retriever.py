@@ -13,7 +13,7 @@ VECTOR_STORE_DIR = (
 )
 
 
-def create_retriever():
+def create_retriever(k: int = 1):
     embeddings = HuggingFaceEmbeddings(
         model_name=MODEL_NAME,
         model_kwargs={"device": "cpu"},
@@ -26,7 +26,7 @@ def create_retriever():
     )
 
     return vector_store.as_retriever(
-        search_kwargs={"k": 1}
+        search_kwargs={"k": k}
     )
 
 

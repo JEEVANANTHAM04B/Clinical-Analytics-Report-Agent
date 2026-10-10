@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class DatasetLoadRequest(BaseModel):
     """
     Request payload to load a validated clinical dataset into MySQL.
-    
+
     Accepts either a simple filename (e.g. 'sample_clinical_data.csv' or 'analytics_patients.csv')
     or an explicit file path within the allowed directories.
     """
@@ -184,6 +184,9 @@ class TableMetadataOut(BaseModel):
     display_name: str
     row_count: int
     columns: List[TableColumnInfo]
+    classification: Optional[str] = "CLINICAL"
+    approval_status: Optional[str] = "APPROVED"
+    category: Optional[str] = None
 
 
 class ListTablesResponse(BaseModel):
@@ -191,3 +194,39 @@ class ListTablesResponse(BaseModel):
     status: str = "success"
     count: int
     tables: List[TableMetadataOut]
+
+
+# =============================================================================
+# Dataset Registry Management Schemas
+# =============================================================================
+
+class RegistryEntryOut(BaseModel):
+    """Schema representing an entry in the authoritative clinical dataset registry."""
+    id: int
+    dataset_name: str
+    display_name: str
+    classification: str
+    approval_status: str
+    category: Optional[str] = None
+    description: Optional[str] = None
+    row_count: Optional[int] = 0
+    is_present_in_db: Optional[bool] = True
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UpdateRegistryStatusRequest(BaseModel):
+    """Request to update classification or approval status of a dataset."""
+    classification: Optional[str] = None
+    approval_status: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ListRegistryResponse(BaseModel):
+    """Response containing all dataset registry entries."""
+    status: str = "success"
+    count: int
+    entries: List[RegistryEntryOut]

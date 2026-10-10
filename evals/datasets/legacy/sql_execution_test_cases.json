@@ -1,0 +1,90 @@
+[
+  {
+    "id": "exec_los_001",
+    "category": "average_length_of_stay",
+    "question": "Calculate the average length of stay by diagnosis for inpatient encounters using validated date intervals.",
+    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, AVG(DATEDIFF(encounters.STOP, encounters.START)) AS avg_los FROM encounters JOIN conditions ON encounters.ID = conditions.ENCOUNTER WHERE encounters.ENCOUNTERCLASS = 'inpatient' AND encounters.START IS NOT NULL AND encounters.STOP IS NOT NULL AND DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30 GROUP BY conditions.DESCRIPTION ORDER BY avg_los DESC;",
+    "expected_columns": [
+      "diagnosis",
+      "avg_los"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
+  },
+  {
+    "id": "exec_cnt_001",
+    "category": "encounter_counts",
+    "question": "Count total encounters grouped by encounter class across all records.",
+    "sql": "SELECT encounters.ENCOUNTERCLASS, COUNT(*) AS encounter_count FROM encounters WHERE encounters.ENCOUNTERCLASS IS NOT NULL GROUP BY encounters.ENCOUNTERCLASS ORDER BY encounter_count DESC;",
+    "expected_columns": [
+      "ENCOUNTERCLASS",
+      "encounter_count"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "count_aggregation"
+  },
+  {
+    "id": "exec_fin_001",
+    "category": "cost_and_coverage",
+    "question": "Calculate total claim cost and total payer coverage grouped by encounter class.",
+    "sql": "SELECT encounters.ENCOUNTERCLASS, SUM(encounters.TOTAL_CLAIM_COST) AS total_claim_cost, SUM(encounters.PAYER_COVERAGE) AS total_payer_coverage FROM encounters WHERE encounters.ENCOUNTERCLASS IS NOT NULL GROUP BY encounters.ENCOUNTERCLASS ORDER BY total_claim_cost DESC;",
+    "expected_columns": [
+      "ENCOUNTERCLASS",
+      "total_claim_cost",
+      "total_payer_coverage"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "numeric_aggregation"
+  },
+  {
+    "id": "exec_dem_001",
+    "category": "demographics",
+    "question": "Count patient population grouped by gender and racial demographic categories.",
+    "sql": "SELECT patients.GENDER, patients.RACE, COUNT(*) AS patient_count FROM patients WHERE patients.GENDER IS NOT NULL AND patients.RACE IS NOT NULL GROUP BY patients.GENDER, patients.RACE ORDER BY patient_count DESC;",
+    "expected_columns": [
+      "GENDER",
+      "RACE",
+      "patient_count"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "count_aggregation"
+  },
+  {
+    "id": "exec_top_001",
+    "category": "top_diagnoses",
+    "question": "List the top 10 most frequent diagnoses ordered by diagnosis volume.",
+    "sql": "SELECT conditions.DESCRIPTION AS diagnosis, COUNT(*) AS diagnosis_count FROM conditions WHERE conditions.DESCRIPTION IS NOT NULL GROUP BY conditions.DESCRIPTION ORDER BY diagnosis_count DESC LIMIT 10;",
+    "expected_columns": [
+      "diagnosis",
+      "diagnosis_count"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "ranked_aggregation"
+  },
+  {
+    "id": "exec_null_001",
+    "category": "result_validation_null_handling",
+    "question": "Retrieve encounters with null reason codes to verify safe handling of NULL column values in query results.",
+    "sql": "SELECT encounters.ID, encounters.START, encounters.STOP, encounters.REASONCODE FROM encounters WHERE encounters.REASONCODE IS NULL LIMIT 5;",
+    "expected_columns": [
+      "ID",
+      "START",
+      "STOP",
+      "REASONCODE"
+    ],
+    "expect_non_empty": true,
+    "expected_result_type": "nullable_record_set"
+  },
+  {
+    "id": "exec_empty_001",
+    "category": "result_validation_empty_set",
+    "question": "Query encounters with an impossible filter to verify result validator behavior on an empty result set.",
+    "sql": "SELECT encounters.ID, encounters.ENCOUNTERCLASS FROM encounters WHERE encounters.ENCOUNTERCLASS = 'non_existent_class';",
+    "expected_columns": [
+      "ID",
+      "ENCOUNTERCLASS"
+    ],
+    "expect_non_empty": false,
+    "expected_result_type": "empty_record_set"
+  }
+]

@@ -1,0 +1,11 @@
+SITEID,STUDYID,SITE_NAME,COUNTRY,CITY,PI_NAME,PLANNED_SUBJECTS,ACTUAL_SUBJECTS
+SITE001,STDY001,Clinical Center 1,India,Delhi,Dr. PI 1,1000,1000
+SITE002,STDY001,Clinical Center 2,India,Hyderabad,Dr. PI 2,1000,1000
+SITE003,STDY001,Clinical Center 3,India,Mumbai,Dr. PI 3,1000,1000
+SITE004,STDY001,Clinical Center 4,India,Hyderabad,Dr. PI 4,1000,1000
+SITE005,STDY001,Clinical Center 5,India,Hyderabad,Dr. PI 5,1000,1000
+SITE006,STDY001,Clinical Center 6,India,Bangalore,Dr. PI 6,1000,1000
+SITE007,STDY001,Clinical Center 7,India,Mumbai,Dr. PI 7,1000,1000
+SITE008,STDY001,Clinical Center 8,India,Mumbai,Dr. PI 8,1000,1000
+SITE009,STDY001,Clinical Center 9,India,Mumbai,Dr. PI 9,1000,1000
+SITE010,STDY001,Clinical Center 10,India,Hyderabad,Dr. PI 10,1000,1000

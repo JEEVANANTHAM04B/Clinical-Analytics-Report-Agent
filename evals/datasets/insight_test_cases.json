@@ -1,75 +1,69 @@
 [
   {
     "id": "insight_eval_001",
-    "category": "average_length_of_stay",
-    "question": "Which diagnosis has the highest average length of stay?",
+    "category": "average_age",
+    "question": "Which treatment arm has the highest average age?",
     "query_results": [
-      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
-      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
-      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+      {"ARM": "Drug X", "mean_age": 54.8},
+      {"ARM": "Placebo", "mean_age": 54.5}
     ],
     "expected_facts": [
       {
-        "fact": "Anemia has the highest average LOS",
-        "keywords": ["anemia"],
+        "fact": "Drug X has the highest average age",
+        "keywords": ["drug x"],
         "requires_highest": true
       },
       {
-        "fact": "Value is 4.0 days",
-        "keywords": ["4.0"]
+        "fact": "Value is 54.8",
+        "keywords": ["54.8"]
       }
     ],
     "requires_empty_warning": false
   },
   {
     "id": "insight_eval_002",
-    "category": "encounter_counts",
-    "question": "Compare the number of inpatient and emergency encounters.",
+    "category": "adverse_events_by_severity",
+    "question": "Compare adverse event counts by severity.",
     "query_results": [
-      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
-      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+      {"AESEV": "MILD", "ae_count": 7018},
+      {"AESEV": "MODERATE", "ae_count": 1949},
+      {"AESEV": "SEVERE", "ae_count": 1033}
     ],
     "expected_facts": [
       {
-        "fact": "Inpatient has 120 encounters",
-        "keywords": ["inpatient", "120"]
+        "fact": "MILD severity has 7018 events",
+        "keywords": ["mild", "7018"]
       },
       {
-        "fact": "Emergency has 80 encounters",
-        "keywords": ["emergency", "80"]
+        "fact": "MODERATE severity has 1949 events",
+        "keywords": ["moderate", "1949"]
       }
     ],
     "requires_empty_warning": false
   },
   {
     "id": "insight_eval_003",
-    "category": "cost_analysis",
-    "question": "Which encounter class has the highest total claim cost?",
+    "category": "efficacy_response_rate",
+    "question": "Which treatment arm has the highest efficacy response rate?",
     "query_results": [
       {
-        "ENCOUNTERCLASS": "inpatient",
-        "total_claim_cost": 50000.0,
-        "total_payer_coverage": 30000.0
+        "treatment_arm": "Drug X",
+        "response_rate_pct": 84.9
       },
       {
-        "ENCOUNTERCLASS": "emergency",
-        "total_claim_cost": 35000.0,
-        "total_payer_coverage": 20000.0
+        "treatment_arm": "Placebo",
+        "response_rate_pct": 0.0
       }
     ],
     "expected_facts": [
       {
-        "fact": "Inpatient has the highest total claim cost",
-        "keywords": ["inpatient"],
+        "fact": "Drug X has the highest response rate",
+        "keywords": ["drug x"],
         "requires_highest": true
       },
       {
-        "fact": "Inpatient total claim cost is 50000.0",
-        "keywords": ["50000"]
-      },
-      {
-        "fact": "Emergency total claim cost is 35000.0",
-        "keywords": ["35000"]
+        "fact": "Drug X response rate is 84.9",
+        "keywords": ["84.9"]
       }
     ],
     "requires_empty_warning": false
@@ -77,21 +71,20 @@
   {
     "id": "insight_eval_004",
     "category": "demographics",
-    "question": "Which gender and race combination has the highest patient count?",
+    "question": "Which sex has the highest subject count?",
     "query_results": [
-      {"GENDER": "F", "RACE": "White", "patient_count": 150},
-      {"GENDER": "M", "RACE": "White", "patient_count": 120},
-      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+      {"SEX": "F", "subject_count": 5033},
+      {"SEX": "M", "subject_count": 4967}
     ],
     "expected_facts": [
       {
-        "fact": "Female and White has the highest patient count",
-        "keywords": ["white", "150"],
+        "fact": "Female has the highest subject count",
+        "keywords": ["5033"],
         "requires_highest": true
       },
       {
-        "fact": "Value is 150",
-        "keywords": ["150"]
+        "fact": "Value is 5033",
+        "keywords": ["5033"]
       }
     ],
     "requires_empty_warning": false
@@ -99,12 +92,12 @@
   {
     "id": "insight_eval_005",
     "category": "empty_result",
-    "question": "Show encounters matching an impossible filter.",
+    "question": "Show subjects matching an impossible filter.",
     "query_results": [],
     "expected_facts": [
       {
         "fact": "Clearly state that no matching records were returned",
-        "keywords_any": ["no encounters", "no matching", "no records", "0", "row count: 0", "empty"]
+        "keywords_any": ["no subjects", "no matching", "no records", "0", "row count: 0", "empty"]
       }
     ],
     "requires_empty_warning": true

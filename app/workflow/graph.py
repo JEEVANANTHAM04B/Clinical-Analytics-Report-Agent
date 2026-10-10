@@ -20,6 +20,175 @@ from app.visualization.chart_generator import (
     create_chart_spec,
 )
 from app.audit.service import record_audit_event
+from dataclasses import asdict
+from typing import Optional, Dict, Any, List
+from app.clinical import (
+    registry as clinical_registry,
+    build_clinical_question_plan,
+    ClinicalQuestionPlan,
+)
+from app.clinical.table_validator import (
+    check_table_selection,
+    enforce_sql_table_boundaries,
+    extract_sql_tables_ast,
+)
+
+
+def _is_clinical_context(database_schema: Optional[Dict[str, Any]]) -> bool:
+    """
+    Detect whether the execution context targets CDISC clinical-trial schema
+    or legacy EHR schema. Defaults to clinical-trial schema as active.
+    """
+    if not database_schema or not database_schema.get("tables"):
+        return True
+
+    tables = {t.lower() for t in database_schema.get("tables", {})}
+    clinical_markers = {"dm", "adsl", "ae", "adae", "adlb", "advs", "adresp", "study", "sites", "lb", "ex", "qs", "vs"}
+    legacy_markers = {"encounters", "conditions", "patients", "medications", "observations", "procedures"}
+
+    if any(t in tables for t in clinical_markers):
+        return True
+    if any(t in tables for t in legacy_markers):
+        return False
+
+    return True
+
+
+def format_clinical_analysis_plan(plan: ClinicalQuestionPlan) -> str:
+    """
+    Format a ClinicalQuestionPlan into the standard 5-section markdown analysis plan
+    for the LangGraph workflow.
+    """
+    sections = ["### Clinical Analytics Analysis Plan\n"]
+
+    # Section 1: Relevant Tables and Columns
+    sections.append("#### 1. Relevant Tables and Columns")
+    for ds_name in plan.datasets:
+        ds_meta = clinical_registry.get_dataset(ds_name)
+        sections.append(f"* **`{ds_name}`**:")
+        ds_cols = []
+        for col_ref in plan.required_columns:
+            if "." in col_ref:
+                t, c = col_ref.split(".", 1)
+                if t.lower() == ds_name.lower():
+                    ds_cols.append(c)
+            else:
+                ds_cols.append(col_ref)
+        if not ds_cols and ds_meta:
+            ds_cols = list(ds_meta.primary_key)
+        for col_name in ds_cols:
+            col_meta = clinical_registry.get_column(ds_name, col_name)
+            dtype = col_meta.data_type if col_meta else "VARCHAR"
+            desc = f" ({col_meta.description})" if col_meta and col_meta.description else ""
+            sections.append(f"  * `{col_name.upper()}` ({dtype}):{desc}")
+    sections.append("")
+
+    # Section 2: Join Conditions
+    sections.append("#### 2. Join Conditions")
+    if plan.requires_join and len(plan.join_tables) >= 2:
+        for i in range(len(plan.join_tables) - 1):
+            t1, t2 = plan.join_tables[i], plan.join_tables[i + 1]
+            join_sql = clinical_registry.get_join_sql(t1, t2)
+            if join_sql:
+                sections.append(f"* Join `{t1}` and `{t2}`: `{join_sql}`")
+            else:
+                sections.append(f"* Join `{t1}` and `{t2}` on approved relational key.")
+    else:
+        primary = plan.primary_dataset or (plan.datasets[0] if plan.datasets else "primary table")
+        sections.append(f"* None (single-table query on `{primary}`).")
+    sections.append("")
+
+    # Section 3: Derived Calculations
+    metric_title = plan.metric.replace("_", " ").title()
+    sections.append("#### 3. Derived Calculations")
+    sections.append(f"* **{metric_title}**:\n  Calculate using:\n  `{plan.calculation}`")
+    sections.append("")
+
+    # Section 4: Aggregations & Grouping
+    sections.append("#### 4. Aggregations & Grouping")
+    if plan.dimensions:
+        dims_str = ", ".join(f"`{d}`" for d in plan.dimensions)
+        sections.append(f"* **Grouping**:\n  Group results by {dims_str}.")
+        sections.append(f"* **Aggregation**:\n  `{plan.calculation}`")
+    else:
+        sections.append("* **Grouping**:\n  None (overall clinical summary).")
+        sections.append(f"* **Aggregation**:\n  `{plan.calculation}`")
+    sections.append("")
+
+    # Section 5: Filtering
+    sections.append("#### 5. Filtering")
+    if plan.filter_conditions:
+        for f in plan.filter_conditions:
+            sections.append(f"* Apply filter: `{f}`")
+    else:
+        sections.append("* None.")
+
+    return "\n".join(sections).strip()
+
+
+
+# ============================================================
+# 0. VALIDATE TABLE SELECTION BOUNDARY
+# ============================================================
+
+def validate_table_selection_node(state: ClinicalAnalyticsState):
+    """
+    Strict boundary check: ensures user table selection covers all datasets
+    required to answer the clinical question. Blocks pipeline if missing.
+    """
+    question = state.get("user_question", "")
+    selected_tables = state.get("selected_tables", [])
+    current_plan = state.get("analysis_plan")
+
+    validation = check_table_selection(
+        question=question,
+        selected_tables=selected_tables,
+        current_plan=current_plan,
+    )
+
+    if validation["status"] == "blocked":
+        err_msg = validation["message"]
+        record_audit_event(
+            action="TABLE_SELECTION_BLOCKED",
+            details=f"Analysis blocked. Reason: {validation['reason']}. Missing: {', '.join(validation['missing_tables'])}",
+            user_agent="Table Boundary Guard",
+            status="BLOCKED",
+            entity_type="BOUNDARY",
+            entity_name="table_selection",
+        )
+        return {
+            "validation_status": "blocked",
+            "reason": validation["reason"],
+            "required_tables": validation["required_tables"],
+            "selected_tables": validation["selected_tables"],
+            "missing_tables": validation["missing_tables"],
+            "validation_message": validation["message"],
+            "next_action": validation["next_action"],
+            "error": err_msg,
+            "failed_node": "validate_table_selection",
+            "exception_type": "TableSelectionBoundaryError",
+        }
+
+    return {
+        "validation_status": "passed",
+        "reason": None,
+        "required_tables": validation["required_tables"],
+        "selected_tables": validation["selected_tables"],
+        "missing_tables": [],
+        "validation_message": "All required tables are selected and authorized.",
+        "next_action": None,
+        "error": "",
+    }
+
+
+def table_selection_router(state: ClinicalAnalyticsState):
+    """
+    Conditional edge router after table selection validation at the execution boundary.
+    If validation blocked, terminate immediately at END without running downstream stages.
+    """
+    if state.get("validation_status") == "blocked" or state.get("error"):
+        return END
+    return "generate_sql"
 
 
 # ============================================================
@@ -28,25 +197,16 @@ from app.audit.service import record_audit_event
 
 def load_schema(state: ClinicalAnalyticsState):
     schema = get_database_schema()
-    selected_tables = state.get("selected_tables")
-    if selected_tables:
-        selected_set = {t.strip().lower() for t in selected_tables}
-        schema = {
-            "tables": {k: v for k, v in schema.get("tables", {}).items() if k.lower() in selected_set},
-            "relationships": [
-                r for r in schema.get("relationships", [])
-                if r["parent_table"].lower() in selected_set and r["child_table"].lower() in selected_set
-            ],
-        }
-
     return {
         "database_schema": schema,
+        "clinical_question_plan": state.get("clinical_question_plan", {}),
         "human_feedback": state.get("human_feedback", ""),
         "feedback_history": state.get("feedback_history", []),
         "plan_version": state.get("plan_version", 1),
         "insight_retry_count": 0,
         "error": "",
     }
+
 
 # ============================================================
 # 2. DETERMINISTIC ANALYSIS PLAN FALLBACK
@@ -55,17 +215,197 @@ def load_schema(state: ClinicalAnalyticsState):
 def _deterministic_analysis_plan(
     question: str,
     database_schema: dict,
+    human_feedback: str = "",
 ) -> str | None:
     """
     Generate a deterministic analysis plan for a supported
-    clinical analytics pattern when the LLM is unavailable.
-
-    This fallback is intentionally limited to a known,
-    schema-supported analytics pattern.
+    clinical trial analytics pattern or legacy EHR pattern when the LLM is unavailable.
     """
-
     normalized_question = question.lower()
 
+    # Clinical trial analytics schema path
+    if _is_clinical_context(database_schema):
+        cplan = None
+        if human_feedback:
+            cplan_with_fb = build_clinical_question_plan(f"{question} {human_feedback}")
+            if cplan_with_fb and cplan_with_fb.is_supported:
+                cplan = cplan_with_fb
+        if cplan is None:
+            cplan = build_clinical_question_plan(question)
+
+        # Strengthen plan if feedback indicates treatment-arm stratification
+        if cplan and cplan.is_supported:
+            fb_lower = (human_feedback or "").lower()
+            if any(term in fb_lower for term in [
+                "treatment arm", "treatment arms", "trt01a", "treatment-arm", "adsl", "arm", "arms", "cohort", "cohorts"
+            ]):
+                if "adae" in cplan.datasets and "adsl" not in cplan.datasets:
+                    datasets = list(cplan.datasets)
+                    if "adsl" not in datasets:
+                        datasets.insert(0, "adsl")
+                    required_columns = list(cplan.required_columns)
+                    if "adsl.USUBJID" not in required_columns:
+                        required_columns.insert(0, "adsl.USUBJID")
+                    if "adsl.TRT01A" not in required_columns:
+                        required_columns.insert(1, "adsl.TRT01A")
+                    dimensions = list(cplan.dimensions)
+                    if "TRT01A" not in dimensions:
+                        dimensions.insert(0, "TRT01A")
+                    join_tables = ["adsl", "adae"]
+                    calculation = (
+                        "COUNT(*) GROUP BY adsl.TRT01A, adae.AESEV"
+                        if "AESEV" in dimensions
+                        else "COUNT(*) GROUP BY adsl.TRT01A"
+                    )
+                    cplan = ClinicalQuestionPlan(
+                        question=cplan.question,
+                        is_supported=True,
+                        question_type=cplan.question_type,
+                        matched_kpi_id="AE_SEVERITY_DISTRIBUTION" if "AESEV" in dimensions else cplan.matched_kpi_id,
+                        metric=cplan.metric,
+                        primary_dataset="adae",
+                        datasets=datasets,
+                        dimensions=dimensions,
+                        required_columns=required_columns,
+                        calculation=calculation,
+                        requires_join=True,
+                        join_tables=join_tables,
+                        filter_conditions=cplan.filter_conditions,
+                        suggested_sql="""SELECT adsl.TRT01A AS treatment_arm, adae.AESEV AS severity, COUNT(*) AS event_count
+FROM adsl
+JOIN adae ON adsl.USUBJID = adae.USUBJID
+GROUP BY adsl.TRT01A, adae.AESEV
+ORDER BY adsl.TRT01A, event_count DESC;""".strip(),
+                        confidence=cplan.confidence,
+                        explanation=f"{cplan.explanation} Updated with treatment-arm stratification from reviewer feedback."
+                    )
+            return format_clinical_analysis_plan(cplan)
+        return (
+            "### Clinical Analytics Analysis Plan (Unsupported Domain)\n\n"
+            "This question is not supported by the active Clinical Trial CDISC dataset. "
+            "Please ask a question related to enrollment, demographics, treatment arms, "
+            "adverse events, laboratory values, vital signs, efficacy, or subject disposition.\n\n"
+            "#### 1. Relevant Tables and Columns\n"
+            "* None (Question outside CDISC clinical trial schema scope)\n\n"
+            "#### 2. Join Conditions\n"
+            "* None\n\n"
+            "#### 3. Derived Calculations\n"
+            "* None\n\n"
+            "#### 4. Aggregations & Grouping\n"
+            "* None\n\n"
+            "#### 5. Filtering\n"
+            "* None"
+        )
+
+    # If the schema context is explicitly legacy EHR, check legacy EHR patterns first
+    if not _is_clinical_context(database_schema):
+        if (
+            "average length of stay" in normalized_question
+            and ("encounter class" in normalized_question or "encounterclass" in normalized_question)
+        ):
+            return """
+### Clinical Analytics Analysis Plan
+
+#### 1. Relevant Tables and Columns
+* **`encounters`**:
+  * `ID` (VARCHAR): Unique identifier for the encounter.
+  * `START` (DATE): Start date/time of the medical encounter.
+  * `STOP` (DATE): End date/time of the medical encounter.
+  * `ENCOUNTERCLASS` (VARCHAR): Class of encounter (e.g., inpatient, ambulatory, emergency, outpatient, wellness).
+
+#### 2. Join Conditions
+* None (single-table query on `encounters`).
+
+#### 3. Derived Calculations
+* **Length of Stay**:
+  Calculate using:
+  `DATEDIFF(encounters.STOP, encounters.START)`
+
+* **Average Length of Stay**:
+  Calculate using:
+  `AVG(DATEDIFF(encounters.STOP, encounters.START))`
+
+#### 4. Aggregations & Grouping
+* **Grouping**:
+  Group results by `encounters.ENCOUNTERCLASS`.
+
+* **Aggregation**:
+  Calculate the average length of stay for each encounter class:
+  `AVG(DATEDIFF(encounters.STOP, encounters.START))`
+
+#### 5. Filtering
+* **Valid Encounter Dates**:
+  * Exclude NULL START and STOP values:
+    * `encounters.START IS NOT NULL`
+    * `encounters.STOP IS NOT NULL`
+
+* **Length of Stay Range**:
+  * Include only LOS values between 0 and 30 days:
+    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`
+""".strip()
+
+        if (
+            "average length of stay" in normalized_question
+            and "diagnosis" in normalized_question
+        ):
+            return """
+### Clinical Analytics Analysis Plan
+
+#### 1. Relevant Tables and Columns
+* **`encounters`**:
+  * `ID` (VARCHAR): Unique identifier for the encounter.
+  * `START` (DATE): Start date/time of the medical encounter.
+  * `STOP` (DATE): End date/time of the medical encounter.
+  * `ENCOUNTERCLASS` (VARCHAR): Class of encounter (e.g., inpatient).
+
+* **`conditions`**:
+  * `DESCRIPTION` (VARCHAR): Human-readable diagnosis description.
+  * `ENCOUNTER` (VARCHAR): Foreign key referencing the encounter.
+
+#### 2. Join Conditions
+* Join `encounters` and `conditions` using the approved relationship:
+  * `encounters.ID = conditions.ENCOUNTER`
+
+#### 3. Derived Calculations
+* **Length of Stay**:
+  Calculate using:
+  `DATEDIFF(encounters.STOP, encounters.START)`
+
+* **Average Length of Stay**:
+  Calculate using:
+  `AVG(DATEDIFF(encounters.STOP, encounters.START))`
+
+#### 4. Aggregations & Grouping
+* **Grouping**:
+  Group results by `conditions.DESCRIPTION`.
+
+* **Aggregation**:
+  Calculate the average length of stay for each diagnosis.
+
+#### 5. Filtering
+* **Inpatient Encounters Only**:
+  * Use inpatient encounters only: `encounters.ENCOUNTERCLASS = 'inpatient'`
+
+* **Valid Encounter Dates**:
+  * Exclude NULL START and STOP values:
+    * `encounters.START IS NOT NULL`
+    * `encounters.STOP IS NOT NULL`
+
+* **Length of Stay Range**:
+  * Include only LOS values between 0 and 30 days:
+    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`
+
+* **Valid Diagnosis**:
+  * Exclude records where diagnosis description is missing:
+    * `conditions.DESCRIPTION IS NOT NULL`
+""".strip()
+
+    # 1. CDISC Clinical Trial Question Plan
+    clinical_plan = build_clinical_question_plan(question)
+    if clinical_plan.is_supported:
+        return format_clinical_analysis_plan(clinical_plan)
+
+    # 2. Legacy EHR analytics pattern fallback
     if (
         "average length of stay" in normalized_question
         and ("encounter class" in normalized_question or "encounterclass" in normalized_question)
@@ -170,28 +510,131 @@ def _deterministic_analysis_plan(
     return None
 
 
+
+
 # ============================================================
 # 3. ANALYZE USER QUESTION
 # ============================================================
 
 def analyze_question(state: ClinicalAnalyticsState):
+    if state.get("error"):
+        return {
+            "analysis_plan": "",
+            "clinical_question_plan": state.get("clinical_question_plan", {}),
+            "human_feedback": state.get("human_feedback", ""),
+            "feedback_history": state.get("feedback_history", []),
+            "plan_version": state.get("plan_version", 1),
+            "error": state["error"],
+            "failed_node": state.get("failed_node", "load_schema"),
+            "exception_type": state.get("exception_type", "WorkflowExecutionError"),
+        }
+
     question = state["user_question"]
-    database_schema = state["database_schema"]
+    database_schema = state.get("database_schema") or {}
     existing_plan = state.get("analysis_plan")
     approval_status = state.get("approval_status")
+
+    # The backend must never pass an empty schema to analysis-plan generation without an explicit error
+    if not database_schema.get("tables"):
+        err_msg = state.get("error") or "Cannot generate analysis plan: active database schema is empty or contains no valid clinical tables."
+        return {
+            "analysis_plan": "",
+            "clinical_question_plan": state.get("clinical_question_plan", {}),
+            "human_feedback": state.get("human_feedback", ""),
+            "feedback_history": state.get("feedback_history", []),
+            "plan_version": state.get("plan_version", 1),
+            "error": err_msg,
+            "failed_node": state.get("failed_node", "load_schema"),
+            "exception_type": state.get("exception_type", "SchemaValidationError"),
+        }
 
     # If an analysis plan is already provided (e.g. approving a plan or rejecting to regenerate),
     # preserve it rather than overwriting it with an uncorrected initial plan!
     if existing_plan and approval_status in ("approved", "rejected"):
         return {
             "analysis_plan": existing_plan,
+            "clinical_question_plan": state.get("clinical_question_plan", {}),
             "human_feedback": state.get("human_feedback", ""),
             "feedback_history": state.get("feedback_history", []),
             "plan_version": state.get("plan_version", 1),
             "error": "",
         }
 
-    prompt = f"""
+    is_clinical = _is_clinical_context(database_schema)
+    clinical_plan = build_clinical_question_plan(question)
+    plan_dict = asdict(clinical_plan) if (clinical_plan and clinical_plan.is_supported) else {}
+
+    if is_clinical:
+        schema_context = clinical_registry.build_schema_context_for_prompt()
+        prompt = f"""
+You are a senior clinical analytics planning assistant specialized in CDISC SDTM and ADaM clinical trials.
+
+Analyze the user's natural-language clinical analytics question and generate a structured, precise analysis plan using ONLY the approved CDISC database schema provided below.
+
+User question:
+{question}
+
+Approved clinical database schema:
+{database_schema}
+
+==================================================
+CDISC CLINICAL TRIAL DOMAIN RULES:
+
+1. Subject Population & Demographics (DM / ADSL):
+   - "subjects", "enrolled", "patients", "total subjects" refers to distinct subject count:
+     use DM table, calculate COUNT(DISTINCT dm.USUBJID).
+   - "age", "average age", "mean age" refers to subject age:
+     use DM table, calculate AVG(dm.AGE) or ROUND(AVG(dm.AGE), 2).
+   - "treatment arm", "cohort", "arm" refers to treatment group:
+     use ADSL (TRT01A) or DM (ARM).
+
+2. Safety & Adverse Events (AE / ADAE):
+   - "adverse events", "AE count", "total AEs" refers to incident adverse events:
+     use AE table, calculate COUNT(*).
+   - "serious adverse events", "serious AEs", "SAE" refers to serious events:
+     use AE table, filter WHERE ae.AESER = 'Y', calculate COUNT(*).
+   - "adverse event rate by treatment arm" refers to incidence proportion:
+     join ADSL and ADAE on USUBJID, calculate COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100 grouped by adsl.TRT01A.
+
+3. Laboratory & Biomarkers (LB / ADLB):
+   - "lab change", "change from baseline", "laboratory change to Week 8" refers to analysis laboratory results:
+     use ADLB table, calculate AVG(adlb.CHG) and AVG(adlb.PCHG) with filter adlb.AVISIT = 'WEEK 8' grouped by adlb.PARAMCD, adlb.TRT01A, adlb.AVISIT.
+
+4. Vital Signs (VS / ADVS):
+   - "vital sign change", "vital signs change from baseline" refers to analysis vitals:
+     use ADVS table, calculate AVG(advs.CHG) and AVG(advs.PCHG) with filter advs.AVISIT = 'WEEK 8' grouped by advs.PARAMCD, advs.TRT01A, advs.AVISIT.
+
+5. Efficacy & Clinical Response (ADRESP):
+   - "efficacy response rate", "response rate by treatment", "responders" refers to clinical responder rate:
+     use ADRESP table, calculate COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) / COUNT(DISTINCT USUBJID) * 100 with filter adresp.AVISIT = 'WEEK 8' grouped by adresp.TRT01A, adresp.AVISIT.
+
+6. Study Sites & Centers (SITES / DM):
+   - "site enrollment", "highest enrollment", "enrollment by site" refers to subject recruitment per site:
+     join SITES and DM on sites.SITEID = dm.SITEID, calculate COUNT(DISTINCT dm.USUBJID) grouped by sites.SITEID, sites.SITE_NAME.
+
+==================================================
+ANALYSIS PLAN REQUIREMENTS:
+
+The analysis plan must explicitly state:
+1. Relevant Tables and Columns:
+   - Exact tables and columns from the approved CDISC schema.
+2. Join Conditions:
+   - Approved clinical relationships only (e.g., sites.SITEID = dm.SITEID, adsl.USUBJID = adae.USUBJID). If single-table, state None.
+3. Derived Calculations:
+   - Explicit statistical calculation formulas.
+4. Aggregations & Grouping:
+   - Exact grouping columns and aggregations.
+5. Filtering:
+   - Explicit filtering conditions (e.g., AESER = 'Y', AVISIT = 'WEEK 8').
+
+STRICT RULES:
+- Map natural-language terms ONLY to actual CDISC schema columns.
+- NEVER invent tables or columns (do NOT use EHR tables like encounters or conditions).
+- Do NOT generate SQL.
+- Return ONLY the concise, structured analysis plan.
+"""
+    else:
+        prompt = f"""
 You are a clinical analytics planning assistant.
 
 Analyze the user's natural-language analytics question and generate a structured, precise analysis plan using ONLY the approved database schema provided below.
@@ -284,39 +727,6 @@ MOST IMPORTANT RULE:
 - Every calculation in the plan must directly correspond to
   something requested by the user.
 
-For example:
-If the user asks:
-"What is the average length of stay by diagnosis?"
-
-The plan MUST explicitly specify:
-1. Relevant Tables and Columns:
-   - conditions.DESCRIPTION
-   - conditions.ENCOUNTER
-   - encounters.ID
-   - encounters.START
-   - encounters.STOP
-   - encounters.ENCOUNTERCLASS
-2. Join Conditions:
-   - encounters.ID = conditions.ENCOUNTER
-3. Derived Calculations:
-   - Length of stay = DATEDIFF(encounters.STOP, encounters.START)
-   - Average length of stay = AVG(DATEDIFF(encounters.STOP, encounters.START))
-4. Aggregations & Grouping:
-   - Group by conditions.DESCRIPTION
-5. Filtering:
-   - Use inpatient encounters only (encounters.ENCOUNTERCLASS = 'inpatient').
-   - Exclude NULL START and STOP values.
-   - Include only LOS values between 0 and 30 days.
-
-It MUST NOT introduce:
-- median
-- IQR
-- encounter count
-- ranking
-- minimum/maximum
-- additional statistics
-- optional charts
-
 Return ONLY the concise, structured analysis plan.
 """
 
@@ -332,6 +742,7 @@ Return ONLY the concise, structured analysis plan.
 
         return {
             "analysis_plan": response,
+            "clinical_question_plan": plan_dict,
             "human_feedback": state.get("human_feedback", ""),
             "feedback_history": state.get("feedback_history", []),
             "plan_version": state.get("plan_version", 1),
@@ -360,13 +771,22 @@ Return ONLY the concise, structured analysis plan.
 
             return {
                 "analysis_plan": fallback_plan,
+                "clinical_question_plan": plan_dict,
                 "human_feedback": state.get("human_feedback", ""),
                 "feedback_history": state.get("feedback_history", []),
                 "plan_version": state.get("plan_version", 1),
                 "error": "",
             }
 
-        raise error
+        return {
+            "analysis_plan": "",
+            "clinical_question_plan": plan_dict,
+            "error": str(error),
+            "human_feedback": state.get("human_feedback", ""),
+            "feedback_history": state.get("feedback_history", []),
+            "plan_version": state.get("plan_version", 1),
+        }
+
 
 
 # ============================================================
@@ -391,6 +811,18 @@ def human_approval_node(state: ClinicalAnalyticsState):
     human_feedback = (state.get("human_feedback") or "").strip()
     feedback_history = state.get("feedback_history", [])
     plan_version = state.get("plan_version", 1)
+
+    if state.get("error"):
+        return {
+            "approval_status": "pending",
+            "approval_source": approval_source,
+            "human_feedback": "",
+            "feedback_history": feedback_history,
+            "plan_version": plan_version,
+            "error": state["error"],
+            "failed_node": state.get("failed_node", "load_schema"),
+            "exception_type": state.get("exception_type", "WorkflowExecutionError"),
+        }
 
     if approval_status == "approved":
         print("\nAnalysis plan approved.")
@@ -674,74 +1106,164 @@ def _inject_filter_into_plan(plan: str, filter_block: str) -> str:
         return plan.rstrip() + "\n\n" + filter_block + "\n"
 
 
+def _sanitize_clinical_plan(plan: str) -> str:
+    """
+    Apply clinical safety validation to an analysis plan:
+    Removes any accidentally injected legacy EHR references (encounters,
+    conditions, START, STOP, DATEDIFF, LOS) while strictly preserving CDISC content.
+    """
+    if not plan:
+        return plan
+
+    lines = plan.splitlines()
+    sanitized_lines = []
+    skip_ehr_block = False
+
+    for line in lines:
+        lower = line.lower()
+        stripped = line.strip()
+
+        # Check if line starts an EHR table block in Section 1
+        if re.search(r'^\s*[*+-]\s*\*\*`?(?:encounters|conditions)`?\*\*', lower):
+            skip_ehr_block = True
+            continue
+
+        # Check if line is an EHR filter header in Section 5
+        if re.search(r'^\s*[*+-]\s*\*\*(?:length of stay range|inpatient encounters only|valid encounter dates|valid diagnosis)\*\*', lower):
+            skip_ehr_block = True
+            continue
+
+        # Check if line is an EHR derived calculation header in Section 3
+        if re.search(r'^\s*[*+-]\s*\*\*(?:length of stay|average length of stay)\*\*', lower):
+            skip_ehr_block = True
+            continue
+
+        # If inside an EHR block, check if we exited it
+        if skip_ehr_block:
+            if line.startswith("  ") or line.startswith("\t") or stripped.startswith("* `") or stripped.startswith("- `") or stripped == "":
+                continue
+            if stripped.startswith("#") or (stripped.startswith("* ") or stripped.startswith("- ")):
+                skip_ehr_block = False
+            else:
+                continue
+
+        # Individual line checks for legacy EHR artifacts
+        if any(ehr_artifact in lower for ehr_artifact in [
+            "encounters.id = conditions.encounter",
+            "conditions.encounter = encounters.id",
+            "encounters.start",
+            "encounters.stop",
+            "encounters.encounterclass",
+            "conditions.description",
+            "conditions.code",
+            "conditions.encounter",
+            "datediff(encounters",
+            "datediff(",
+            "between 0 and 30",
+            "0 and 30 days",
+            "include only los values",
+            "use inpatient encounters only",
+            "exclude null start and stop",
+            "exclude records where diagnosis description is missing",
+        ]):
+            continue
+
+        sanitized_lines.append(line)
+
+    result = "\n".join(sanitized_lines).strip()
+
+    # Clean up empty filter or join sections if they were left blank
+    result = re.sub(
+        r'(#### 5\. Filtering\s*\n)(?:\s*\n)*(#{1,4}|\Z)',
+        r'\1* None.\n\n\2',
+        result
+    )
+    result = re.sub(
+        r'(#### 2\. Join Conditions\s*\n)(?:\s*\n)*(#{1,4}|\Z)',
+        r'\1* None.\n\n\2',
+        result
+    )
+    return result.strip()
+
+
 def _enforce_logical_consistency(
     plan: str,
     question: str,
     human_feedback: str,
     feedback_history: list[str],
+    database_schema: Optional[dict] = None,
 ) -> str:
     """
     Perform a comprehensive logical consistency check on the regenerated analysis plan:
     1. Does grouping match user feedback?
-    2. Do any filters conflict with the grouping? (e.g. grouping by encounter class conflicts with inpatient filter)
+    2. Do any filters conflict with the grouping?
     3. Are all tables and joins necessary?
-    4. Are required data-quality rules (LOS 0-30, valid dates) preserved?
+    4. Are required data-quality rules preserved?
     """
-    all_fb = " ".join(feedback_history + ([human_feedback] if human_feedback else [])).lower()
+    if database_schema is not None and _is_clinical_context(database_schema):
+        return plan.strip()
 
-    is_grouping_by_encounter_class = (
-        "encounter class" in all_fb
-        or "encounterclass" in all_fb
-        or "by encounter class" in all_fb
-        or "by encounter_class" in all_fb
+    all_fb = " ".join(feedback_history + ([human_feedback] if human_feedback else [])).lower()
+    is_ehr = (
+        not (database_schema and _is_clinical_context(database_schema))
+        and any(
+            k in plan.lower() or k in question.lower()
+            for k in ["encounter", "encounters", "encounterclass", "length of stay", "los", "datediff(", "conditions."]
+        )
     )
 
-    if is_grouping_by_encounter_class:
-        # A. Grouping must be by encounters.ENCOUNTERCLASS
-        plan = re.sub(
-            r'(?i)(group\s+(?:results\s+)?by\s+)`?conditions\.DESCRIPTION`?',
-            r'\1`encounters.ENCOUNTERCLASS`',
-            plan
-        )
-        plan = re.sub(
-            r'(?i)(group\s+(?:results\s+)?by\s+)diagnosis',
-            r'\1encounter class (`encounters.ENCOUNTERCLASS`)',
-            plan
-        )
-        plan = re.sub(
-            r'(?i)average length of stay for each diagnosis',
-            r'average length of stay for each encounter class',
-            plan
+    if is_ehr:
+        is_grouping_by_encounter_class = (
+            "encounter class" in all_fb
+            or "encounterclass" in all_fb
+            or "by encounter class" in all_fb
+            or "by encounter_class" in all_fb
         )
 
-        # B. Conflict Resolution: Remove inpatient encounters filter!
-        # Grouping by encounter class requires multiple encounter classes to remain in the dataset.
-        plan = _remove_inpatient_filter(plan)
-
-        # C. Remove unnecessary tables and joins:
-        # If diagnosis is not being filtered or grouped, conditions is unnecessary!
-        if "instead of grouping by diagnosis" in all_fb or "by encounter class" in all_fb:
-            plan = _remove_conditions_table_and_join(plan)
-
-    # D. Preserve Length of Stay Data Quality Rules (0-30 days and valid dates)
-    if not _is_explicitly_removed("los_30", all_fb):
-        if not any(k in plan.lower() for k in ["between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days", "los values between"]):
-            los_block = (
-                "* **Length of Stay Range**:\n"
-                "  * Include only LOS values between 0 and 30 days:\n"
-                "    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`"
+        if is_grouping_by_encounter_class:
+            # A. Grouping must be by encounters.ENCOUNTERCLASS
+            plan = re.sub(
+                r'(?i)(group\s+(?:results\s+)?by\s+)`?conditions\.DESCRIPTION`?',
+                r'\1`encounters.ENCOUNTERCLASS`',
+                plan
             )
-            plan = _inject_filter_into_plan(plan, los_block)
-
-    if not _is_explicitly_removed("null_dates", all_fb):
-        if not any(k in plan.lower() for k in ["start is not null", "null start", "valid encounter dates", "missing admission or discharge"]):
-            null_block = (
-                "* **Valid Encounter Dates**:\n"
-                "  * Exclude NULL START and STOP values:\n"
-                "    * `encounters.START IS NOT NULL`\n"
-                "    * `encounters.STOP IS NOT NULL`"
+            plan = re.sub(
+                r'(?i)(group\s+(?:results\s+)?by\s+)diagnosis',
+                r'\1encounter class (`encounters.ENCOUNTERCLASS`)',
+                plan
             )
-            plan = _inject_filter_into_plan(plan, null_block)
+            plan = re.sub(
+                r'(?i)average length of stay for each diagnosis',
+                r'average length of stay for each encounter class',
+                plan
+            )
+
+            # B. Conflict Resolution: Remove inpatient encounters filter!
+            plan = _remove_inpatient_filter(plan)
+
+            # C. Remove unnecessary tables and joins:
+            if "instead of grouping by diagnosis" in all_fb or "by encounter class" in all_fb:
+                plan = _remove_conditions_table_and_join(plan)
+
+        # D. Preserve Length of Stay Data Quality Rules (0-30 days and valid dates)
+        if not _is_explicitly_removed("los_30", all_fb):
+            if not any(k in plan.lower() for k in ["between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days", "los values between"]):
+                los_block = (
+                    "* **Length of Stay Range**:\n"
+                    "  * Include only LOS values between 0 and 30 days:\n"
+                    "    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`"
+                )
+                plan = _inject_filter_into_plan(plan, los_block)
+
+        if not _is_explicitly_removed("null_dates", all_fb):
+            if not any(k in plan.lower() for k in ["start is not null", "null start", "valid encounter dates", "missing admission or discharge"]):
+                null_block = (
+                    "* **Valid Encounter Dates**:\n"
+                    "  * Exclude NULL START and STOP values:\n"
+                    "    * `encounters.START IS NOT NULL`\n"
+                    "    * `encounters.STOP IS NOT NULL`"
+                )
+                plan = _inject_filter_into_plan(plan, null_block)
 
     return plan.strip()
 
@@ -752,160 +1274,169 @@ def _preserve_plan_requirements(
     human_feedback: str,
     feedback_history: list[str],
     question: str,
+    database_schema: Optional[dict] = None,
 ) -> str:
     """
     Ensure that regenerating an analysis plan preserves all valid requirements
     from the current/previous plan UNLESS the human feedback explicitly or
     logically overrides them.
-
-    Human feedback overrides conflicting parts of the previous plan.
-    Do not blindly preserve filters that conflict with the revised grouping.
     """
+    if database_schema is not None and _is_clinical_context(database_schema):
+        return revised_plan.strip()
+
     all_feedback_texts = list(feedback_history) + ([human_feedback] if human_feedback else [])
     combined_feedback = " ".join(all_feedback_texts).lower()
     current_lower = current_plan.lower()
     revised_lower = revised_plan.lower()
     question_lower = question.lower()
 
-    # Check if grouping dimension changed to encounter class
-    is_grouping_by_encounter_class = (
-        "encounter class" in combined_feedback
-        or "encounterclass" in combined_feedback
-        or "by encounter class" in combined_feedback
-        or "by encounter_class" in combined_feedback
+    is_ehr = (
+        not (database_schema and _is_clinical_context(database_schema))
+        and any(
+            k in current_lower or k in question_lower
+            for k in ["encounter", "encounters", "encounterclass", "length of stay", "los", "datediff(", "conditions."]
+        )
     )
 
-    # 1. Length of Stay Range (0 to 30 days)
-    los_explicitly_removed = _is_explicitly_removed("los_30", combined_feedback)
-    if los_explicitly_removed:
-        revised_plan = _remove_filter_from_plan(revised_plan, "los_30")
-        revised_lower = revised_plan.lower()
-    else:
-        los_in_current = any(
-            k in current_lower
-            for k in [
-                "between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days",
-                "los values between", "between 0 and 30", "0 and 30"
-            ]
-        ) or ("length of stay" in question_lower and "30" in current_lower)
-
-        los_in_revised = any(
-            k in revised_lower
-            for k in [
-                "between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days",
-                "los values between"
-            ]
+    if is_ehr:
+        # Check if grouping dimension changed to encounter class
+        is_grouping_by_encounter_class = (
+            "encounter class" in combined_feedback
+            or "encounterclass" in combined_feedback
+            or "by encounter class" in combined_feedback
+            or "by encounter_class" in combined_feedback
         )
 
-        if los_in_current and not los_in_revised:
-            los_block = (
-                "* **Length of Stay Range**:\n"
-                "  * Include only LOS values between 0 and 30 days:\n"
-                "    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`"
+        # 1. Length of Stay Range (0 to 30 days)
+        los_explicitly_removed = _is_explicitly_removed("los_30", combined_feedback)
+        if los_explicitly_removed:
+            revised_plan = _remove_filter_from_plan(revised_plan, "los_30")
+            revised_lower = revised_plan.lower()
+        else:
+            los_in_current = any(
+                k in current_lower
+                for k in [
+                    "between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days",
+                    "los values between", "between 0 and 30", "0 and 30"
+                ]
+            ) or ("length of stay" in question_lower and "30" in current_lower)
+
+            los_in_revised = any(
+                k in revised_lower
+                for k in [
+                    "between 0 and 30", "0 and 30 days", "0 to 30 days", "0–30 days",
+                    "los values between"
+                ]
             )
-            revised_plan = _inject_filter_into_plan(revised_plan, los_block)
+
+            if los_in_current and not los_in_revised:
+                los_block = (
+                    "* **Length of Stay Range**:\n"
+                    "  * Include only LOS values between 0 and 30 days:\n"
+                    "    * `DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30`"
+                )
+                revised_plan = _inject_filter_into_plan(revised_plan, los_block)
+                revised_lower = revised_plan.lower()
+
+        # 2. Inpatient Encounters Only
+        inpatient_conflicted = is_grouping_by_encounter_class
+        inpatient_explicitly_removed = _is_explicitly_removed("inpatient", combined_feedback) or inpatient_conflicted
+
+        if inpatient_explicitly_removed:
+            revised_plan = _remove_inpatient_filter(revised_plan)
             revised_lower = revised_plan.lower()
+        else:
+            inpatient_in_current = "inpatient" in current_lower or "inpatient" in combined_feedback
+            inpatient_in_revised = "inpatient" in revised_lower
 
-    # 2. Inpatient Encounters Only
-    # CONFLICT RESOLUTION: If grouping by encounter class, filtering by inpatient is contradictory!
-    inpatient_conflicted = is_grouping_by_encounter_class
-    inpatient_explicitly_removed = _is_explicitly_removed("inpatient", combined_feedback) or inpatient_conflicted
+            if inpatient_in_current and not inpatient_in_revised:
+                inpatient_block = (
+                    "* **Inpatient Encounters Only**:\n"
+                    "  * Use inpatient encounters only: `encounters.ENCOUNTERCLASS = 'inpatient'`"
+                )
+                revised_plan = _inject_filter_into_plan(revised_plan, inpatient_block)
+                revised_lower = revised_plan.lower()
 
-    if inpatient_explicitly_removed:
-        revised_plan = _remove_inpatient_filter(revised_plan)
-        revised_lower = revised_plan.lower()
-    else:
-        inpatient_in_current = "inpatient" in current_lower or "inpatient" in combined_feedback
-        inpatient_in_revised = "inpatient" in revised_lower
-
-        if inpatient_in_current and not inpatient_in_revised:
-            inpatient_block = (
-                "* **Inpatient Encounters Only**:\n"
-                "  * Use inpatient encounters only: `encounters.ENCOUNTERCLASS = 'inpatient'`"
+        # 3. Valid Encounter Dates (NULL START/STOP exclusion)
+        null_dates_explicitly_removed = _is_explicitly_removed("null_dates", combined_feedback)
+        if not null_dates_explicitly_removed:
+            null_in_current = (
+                "start is not null" in current_lower
+                or "null start" in current_lower
+                or "valid encounter dates" in current_lower
+                or "missing" in combined_feedback
+                or "null" in combined_feedback
+                or "admission or discharge" in combined_feedback
             )
-            revised_plan = _inject_filter_into_plan(revised_plan, inpatient_block)
-            revised_lower = revised_plan.lower()
-
-    # 3. Valid Encounter Dates (NULL START/STOP exclusion)
-    null_dates_explicitly_removed = _is_explicitly_removed("null_dates", combined_feedback)
-    if not null_dates_explicitly_removed:
-        null_in_current = (
-            "start is not null" in current_lower
-            or "null start" in current_lower
-            or "valid encounter dates" in current_lower
-            or "missing" in combined_feedback
-            or "null" in combined_feedback
-            or "admission or discharge" in combined_feedback
-        )
-        null_in_revised = (
-            "start is not null" in revised_lower
-            or "null start" in revised_lower
-            or "stop is not null" in revised_lower
-            or "missing admission or discharge" in revised_lower
-        )
-
-        if null_in_current and not null_in_revised:
-            null_block = (
-                "* **Valid Encounter Dates**:\n"
-                "  * Exclude NULL START and STOP values:\n"
-                "    * `encounters.START IS NOT NULL`\n"
-                "    * `encounters.STOP IS NOT NULL`"
+            null_in_revised = (
+                "start is not null" in revised_lower
+                or "null start" in revised_lower
+                or "stop is not null" in revised_lower
+                or "missing admission or discharge" in revised_lower
             )
-            revised_plan = _inject_filter_into_plan(revised_plan, null_block)
-            revised_lower = revised_plan.lower()
 
-    # 4. Valid Diagnosis Description Exclusion (only if diagnosis is used!)
-    is_diagnosis_replaced = (
-        "instead of grouping by diagnosis" in combined_feedback
-        or ("group" in combined_feedback and is_grouping_by_encounter_class)
-    )
-    if not is_diagnosis_replaced:
-        diag_null_in_current = "conditions.description is not null" in current_lower or "diagnosis description is missing" in current_lower
-        if diag_null_in_current and "conditions.description is not null" not in revised_lower:
-            diag_null_block = (
-                "* **Valid Diagnosis**:\n"
-                "  * Exclude records where diagnosis description is missing:\n"
-                "    * `conditions.DESCRIPTION IS NOT NULL`"
+            if null_in_current and not null_in_revised:
+                null_block = (
+                    "* **Valid Encounter Dates**:\n"
+                    "  * Exclude NULL START and STOP values:\n"
+                    "    * `encounters.START IS NOT NULL`\n"
+                    "    * `encounters.STOP IS NOT NULL`"
+                )
+                revised_plan = _inject_filter_into_plan(revised_plan, null_block)
+                revised_lower = revised_plan.lower()
+
+        # 4. Valid Diagnosis Description Exclusion
+        is_diagnosis_replaced = (
+            "instead of grouping by diagnosis" in combined_feedback
+            or ("group" in combined_feedback and is_grouping_by_encounter_class)
+        )
+        if not is_diagnosis_replaced:
+            diag_null_in_current = "conditions.description is not null" in current_lower or "diagnosis description is missing" in current_lower
+            if diag_null_in_current and "conditions.description is not null" not in revised_lower:
+                diag_null_block = (
+                    "* **Valid Diagnosis**:\n"
+                    "  * Exclude records where diagnosis description is missing:\n"
+                    "    * `conditions.DESCRIPTION IS NOT NULL`"
+                )
+                revised_plan = _inject_filter_into_plan(revised_plan, diag_null_block)
+                revised_lower = revised_plan.lower()
+
+        # 5. Diagnosis Grouping
+        diag_explicitly_removed = _is_explicitly_removed("diagnosis_grouping", combined_feedback) or is_diagnosis_replaced
+
+        if not diag_explicitly_removed:
+            diag_in_current = (
+                "conditions.description" in current_lower
+                or "group by diagnosis" in current_lower
+                or "diagnosis" in question_lower
+                or "diagnosis" in combined_feedback
             )
-            revised_plan = _inject_filter_into_plan(revised_plan, diag_null_block)
-            revised_lower = revised_plan.lower()
+            diag_in_revised = (
+                "conditions.description" in revised_lower
+                or ("group" in revised_lower and "diagnosis" in revised_lower)
+            )
 
-    # 5. Diagnosis Grouping
-    diag_explicitly_removed = _is_explicitly_removed("diagnosis_grouping", combined_feedback) or is_diagnosis_replaced
-
-    if not diag_explicitly_removed:
-        diag_in_current = (
-            "conditions.description" in current_lower
-            or "group by diagnosis" in current_lower
-            or "diagnosis" in question_lower
-            or "diagnosis" in combined_feedback
-        )
-        diag_in_revised = (
-            "conditions.description" in revised_lower
-            or ("group" in revised_lower and "diagnosis" in revised_lower)
-        )
-
-        if diag_in_current and not diag_in_revised:
-            group_match = re.search(r'(?i)(?:^|\n)(#{1,4}\s*(?:4[\.\s]*)?Aggregations[^\n]*|(?:\d+\.\s*)?Aggregations:?)', revised_plan)
-            if group_match:
-                g_start = group_match.end()
-                diag_group_block = "\n* **Grouping**:\n  * Group results by `conditions.DESCRIPTION`."
-                revised_plan = revised_plan[:g_start] + diag_group_block + revised_plan[g_start:]
-            else:
-                revised_plan += "\n\n#### 4. Aggregations & Grouping\n* Group results by `conditions.DESCRIPTION`."
-            revised_lower = revised_plan.lower()
-
-    # 6. Join Condition (Only keep conditions if required!)
-    if not is_diagnosis_replaced:
-        if ("conditions" in revised_lower or "diagnosis" in revised_lower) and "encounters" in revised_lower:
-            if "encounters.id = conditions.encounter" not in revised_lower and "conditions.encounter = encounters.id" not in revised_lower:
-                join_match = re.search(r'(?i)(?:^|\n)(#{1,4}\s*(?:2[\.\s]*)?Join\s*Conditions[^\n]*|(?:\d+\.\s*)?Join\s*Conditions:?)', revised_plan)
-                join_line = "\n* `encounters.ID = conditions.ENCOUNTER`"
-                if join_match:
-                    j_start = join_match.end()
-                    revised_plan = revised_plan[:j_start] + join_line + revised_plan[j_start:]
+            if diag_in_current and not diag_in_revised:
+                group_match = re.search(r'(?i)(?:^|\n)(#{1,4}\s*(?:4[\.\s]*)?Aggregations[^\n]*|(?:\d+\.\s*)?Aggregations:?)', revised_plan)
+                if group_match:
+                    g_start = group_match.end()
+                    diag_group_block = "\n* **Grouping**:\n  * Group results by `conditions.DESCRIPTION`."
+                    revised_plan = revised_plan[:g_start] + diag_group_block + revised_plan[g_start:]
                 else:
-                    revised_plan += "\n\n#### 2. Join Conditions\n* `encounters.ID = conditions.ENCOUNTER`"
+                    revised_plan += "\n\n#### 4. Aggregations & Grouping\n* Group results by `conditions.DESCRIPTION`."
+                revised_lower = revised_plan.lower()
+
+        # 6. Join Condition
+        if not is_diagnosis_replaced:
+            if ("conditions" in revised_lower or "diagnosis" in revised_lower) and "encounters" in revised_lower:
+                if "encounters.id = conditions.encounter" not in revised_lower and "conditions.encounter = encounters.id" not in revised_lower:
+                    join_match = re.search(r'(?i)(?:^|\n)(#{1,4}\s*(?:2[\.\s]*)?Join\s*Conditions[^\n]*|(?:\d+\.\s*)?Join\s*Conditions:?)', revised_plan)
+                    join_line = "\n* `encounters.ID = conditions.ENCOUNTER`"
+                    if join_match:
+                        j_start = join_match.end()
+                        revised_plan = revised_plan[:j_start] + join_line + revised_plan[j_start:]
+                    else:
+                        revised_plan += "\n\n#### 2. Join Conditions\n* `encounters.ID = conditions.ENCOUNTER`"
 
     # Enforce overall logical consistency
     revised_plan = _enforce_logical_consistency(
@@ -913,6 +1444,7 @@ def _preserve_plan_requirements(
         question=question,
         human_feedback=human_feedback,
         feedback_history=feedback_history,
+        database_schema=database_schema,
     )
 
     return revised_plan.strip()
@@ -926,17 +1458,6 @@ def regenerate_analysis_plan(state: ClinicalAnalyticsState):
     - Current analysis plan (draft)
     - Approved database schema & relationships
     - Human feedback (current + cumulative history)
-
-    CRITICAL RULES:
-    1. Human feedback OVERRIDES CONFLICTING PARTS of the previous analysis plan.
-    2. Treat original analysis plan as a draft, not as fixed instructions.
-    3. If feedback changes the grouping dimension, replace the old grouping dimension.
-    4. If feedback conflicts with an existing filter (e.g. grouping by encounter class
-       conflicts with filtering by inpatient), remove the conflicting filter!
-    5. Do not blindly preserve filters from the previous plan.
-    6. Keep valid data-quality bounds (e.g. LOS 0-30 days, valid START/STOP dates).
-    7. Only keep tables and joins actually required by the revised analysis.
-    8. Perform a logical consistency check before returning.
     """
 
     question = state["user_question"]
@@ -966,7 +1487,40 @@ def regenerate_analysis_plan(state: ClinicalAnalyticsState):
     else:
         feedback_prompt_section = "Human feedback:\n(No specific correction text provided. Refine and enhance the plan for clinical accuracy and strict schema adherence.)\n"
 
-    prompt = f"""
+    is_clinical = _is_clinical_context(database_schema)
+
+    if is_clinical:
+        prompt = f"""
+You are a senior clinical analytics planning architect specializing in CDISC SDTM and ADaM clinical trials.
+
+The human reviewer reviewed the previous analysis plan and requested revisions.
+Generate a REVISED, COMPLETE, AND INTERNALLY CONSISTENT clinical analysis plan that implements the human reviewer's feedback.
+
+User clinical question:
+{question}
+
+Approved database schema & relationships:
+{database_schema}
+
+Current analysis plan (draft):
+{current_plan}
+
+{feedback_prompt_section}
+
+CRITICAL RULES:
+1. Apply the human reviewer's feedback to update tables, columns, grouping, or filters.
+2. Use ONLY tables and columns from the approved CDISC schema.
+3. Do NOT invent non-existent column or table names. Do NOT use EHR tables (e.g. encounters, conditions).
+4. Do NOT generate SQL.
+5. Return ONLY the revised analysis plan with these sections:
+   - 1. Relevant Tables and Columns
+   - 2. Join Conditions
+   - 3. Derived Calculations
+   - 4. Aggregations & Grouping
+   - 5. Filtering
+"""
+    else:
+        prompt = f"""
 You are a senior clinical analytics planning architect.
 
 The human reviewer reviewed the previous analysis plan and rejected it, providing specific feedback.
@@ -990,34 +1544,17 @@ CRITICAL RULES FOR REGENERATION:
 
 1. HUMAN FEEDBACK OVERRIDES CONFLICTING PARTS OF THE PREVIOUS PLAN:
    - Treat the original analysis plan as a draft, NOT as fixed instructions.
-   - Carefully interpret the human feedback.
-   - If the feedback changes the grouping dimension (e.g., 'Instead of grouping by diagnosis, group the results by encounter class and calculate the average length of stay for each encounter class'), REPLACE the old grouping dimension with the new grouping dimension.
-   - If the feedback conflicts with an existing filter, REMOVE OR MODIFY THE CONFLICTING FILTER. Do NOT blindly preserve conflicting filters!
-   - For example: Grouping by encounter class requires multiple encounter classes to remain in the dataset. Therefore, do NOT restrict encounters.ENCOUNTERCLASS to 'inpatient'! REMOVE the inpatient filter when grouping by encounter class, so the result can contain multiple encounter classes.
+   - If the feedback changes the grouping dimension, REPLACE the old grouping dimension.
+   - If the feedback conflicts with an existing filter, REMOVE OR MODIFY THE CONFLICTING FILTER.
 
 2. KEEP DATA-QUALITY RULES:
    - Preserve valid data-quality bounds:
-     * DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30 (unless the user explicitly asked to remove the 30-day LOS restriction).
+     * DATEDIFF(encounters.STOP, encounters.START) BETWEEN 0 AND 30
      * Exclude NULL START and STOP values: encounters.START IS NOT NULL AND encounters.STOP IS NOT NULL.
 
-3. ONLY KEEP NECESSARY TABLES AND JOINS:
-   - Only keep tables and columns that are actually required by the revised analysis.
-   - For example: If diagnosis is replaced with encounter class, and diagnosis is no longer needed, REMOVE conditions.DESCRIPTION, conditions.ENCOUNTER, and the join encounters.ID = conditions.ENCOUNTER. Set join conditions to: None (single-table query on encounters).
-   - Do NOT include unnecessary tables or joins.
-
-4. LOGICAL CONSISTENCY CHECK BEFORE RETURNING:
-   - Does the grouping match the user's request?
-   - Do filters conflict with the grouping? (Ensure no filter restricts the grouping column to a single value).
-   - Are all selected tables/columns necessary?
-   - Does the calculation answer the user's requested metric?
-
-5. SCHEMA INTEGRITY:
-   - Use ONLY tables and columns from the approved schema. Never invent non-existent column or table names.
-
-6. DO NOT GENERATE SQL:
-   - Do NOT generate SQL during analysis plan regeneration.
-
-7. RETURN ONLY THE REVISED ANALYSIS PLAN with these sections:
+3. ONLY KEEP NECESSARY TABLES AND JOINS.
+4. DO NOT GENERATE SQL.
+5. RETURN ONLY THE REVISED ANALYSIS PLAN with these sections:
    - 1. Relevant Tables and Columns
    - 2. Join Conditions
    - 3. Derived Calculations
@@ -1030,19 +1567,11 @@ CRITICAL RULES FOR REGENERATION:
 
     except RuntimeError as error:
         print("LLM analysis-plan regeneration unavailable. Using deterministic fallback.")
-
-        # Check if feedback requested grouping by encounter class
-        combined_fb = " ".join(feedback_history + [human_feedback]).lower()
-        if "encounter class" in combined_fb or "encounterclass" in combined_fb:
-            fallback_plan = _deterministic_analysis_plan(
-                question="What is the average length of stay by encounter class?",
-                database_schema=database_schema,
-            )
-        else:
-            fallback_plan = _deterministic_analysis_plan(
-                question=question,
-                database_schema=database_schema,
-            )
+        fallback_plan = _deterministic_analysis_plan(
+            question=question,
+            database_schema=database_schema,
+            human_feedback=human_feedback,
+        )
 
         if fallback_plan is not None:
             revised_plan = fallback_plan
@@ -1050,13 +1579,19 @@ CRITICAL RULES FOR REGENERATION:
             raise error
 
     # Deterministically enforce preservation and logical consistency
-    revised_plan = _preserve_plan_requirements(
-        current_plan=current_plan,
-        revised_plan=revised_plan,
-        human_feedback=human_feedback,
-        feedback_history=feedback_history,
-        question=question,
-    )
+    if not is_clinical:
+        revised_plan = _preserve_plan_requirements(
+            current_plan=current_plan,
+            revised_plan=revised_plan,
+            human_feedback=human_feedback,
+            feedback_history=feedback_history,
+            question=question,
+            database_schema=database_schema,
+        )
+    else:
+        # Clinical plans must remain completely clinical.
+        # Apply clinical safety validation to reject/remove any legacy EHR references.
+        revised_plan = _sanitize_clinical_plan(revised_plan)
 
     print("\nRevised Analysis Plan:")
     print(revised_plan)
@@ -1071,10 +1606,24 @@ CRITICAL RULES FOR REGENERATION:
         entity_name=f"plan_v{plan_version}",
     )
 
+    # Update clinical_question_plan if in clinical context
+    if is_clinical:
+        combined_q = f"{question} {human_feedback}" if human_feedback else question
+        cplan_regen = build_clinical_question_plan(combined_q)
+        if not cplan_regen or not cplan_regen.is_supported:
+            cplan_regen = build_clinical_question_plan(question)
+        if cplan_regen and cplan_regen.is_supported:
+            plan_dict = asdict(cplan_regen)
+        else:
+            plan_dict = state.get("clinical_question_plan", {})
+    else:
+        plan_dict = state.get("clinical_question_plan", {})
+
     return {
         "user_question": question,
         "database_schema": database_schema,
         "analysis_plan": revised_plan,
+        "clinical_question_plan": plan_dict,
         "approval_status": "pending",
         "approval_source": approval_source,
         "human_feedback": human_feedback,
@@ -1110,9 +1659,11 @@ def regeneration_router(state: ClinicalAnalyticsState):
 # ============================================================
 
 def approval_router(state: ClinicalAnalyticsState):
+    if state.get("error"):
+        return END
 
     if state.get("approval_status") == "approved":
-        return "generate_sql"
+        return "validate_table_selection"
 
     if state.get("approval_status") == "rejected":
         return "regenerate_analysis_plan"
@@ -1126,24 +1677,121 @@ def approval_router(state: ClinicalAnalyticsState):
 # 7. GENERATE SQL
 # ============================================================
 
+def _resolve_authorized_clinical_schema(state: ClinicalAnalyticsState) -> Dict[str, Any]:
+    """
+    Derives the authorized database schema scope for SQL generation and validation.
+    For a clinical question, derives authorization scope from the approved clinical analysis plan
+    and clinical question plan, validating all required datasets against ClinicalSchemaRegistry.
+    Preserves custom selected tables while preventing stale/default UI selections from
+    incorrectly overriding the approved analysis plan.
+    """
+    current_schema = dict(state.get("database_schema") or {})
+    if not _is_clinical_context(current_schema):
+        return current_schema
+
+    required_datasets: List[str] = []
+
+    # 1. Datasets from clinical_question_plan
+    cplan_state = state.get("clinical_question_plan")
+    if isinstance(cplan_state, dict):
+        required_datasets.extend(cplan_state.get("datasets", []))
+    elif hasattr(cplan_state, "datasets"):
+        required_datasets.extend(getattr(cplan_state, "datasets", []))
+
+    # 2. Datasets from analysis_plan
+    plan_text = state.get("analysis_plan", "")
+    if plan_text:
+        from app.analytics.sql_validator import _extract_plan_datasets
+        required_datasets.extend(_extract_plan_datasets(plan_text))
+
+    # 3. Fallback to question planner if not yet extracted
+    if not required_datasets and state.get("user_question"):
+        q_plan = build_clinical_question_plan(state["user_question"])
+        if q_plan.is_supported:
+            required_datasets.extend(q_plan.datasets)
+
+    # 4. Strict validation against ClinicalSchemaRegistry and selected_tables boundary
+    selected_tables = state.get("selected_tables", [])
+    selected_set = {t.lower().strip() for t in selected_tables if t and t.strip()}
+
+    if not selected_set:
+        return {"tables": {}, "relationships": []}
+
+    req_set = {ds.lower().strip() for ds in required_datasets if ds and isinstance(ds, str)}
+
+    # A dataset is AUTHORIZED if and only if:
+    # 1. It is approved in ClinicalSchemaRegistry
+    # 2. It is explicitly selected by the user (selected_set)
+    # 3. It is required by the question/analysis plan (or in the approved selection)
+    authorized_clinical_datasets = [
+        ds for ds in selected_set
+        if clinical_registry.has_dataset(ds) and (not req_set or ds in req_set)
+    ]
+
+    # 5. Build enriched schema with live database columns & relationships strictly within boundary
+    full_db_schema = get_database_schema()
+    existing_tables = {}
+
+    for ds in authorized_clinical_datasets:
+        if ds in full_db_schema.get("tables", {}):
+            existing_tables[ds] = full_db_schema["tables"][ds]
+        else:
+            ds_meta = clinical_registry.get_dataset(ds)
+            if ds_meta:
+                existing_tables[ds] = [
+                    {"name": col, "type": "VARCHAR", "nullable": True}
+                    for col in ds_meta.important_columns
+                ]
+
+    # Include relationships between all authorized tables
+    all_auth_tables = {k.lower() for k in existing_tables}
+    relationships = [
+        r for r in full_db_schema.get("relationships", [])
+        if r["parent_table"].lower() in all_auth_tables and r["child_table"].lower() in all_auth_tables
+    ]
+
+    return {
+        "tables": existing_tables,
+        "relationships": relationships,
+    }
+
+
 def generate_sql_node(state: ClinicalAnalyticsState):
 
     if state.get("error"):
         return {}
+
+    authorized_schema = _resolve_authorized_clinical_schema(state)
+
+    # Safety check: do not generate SQL for unsupported clinical questions or out-of-scope plans
+    cplan = build_clinical_question_plan(state["user_question"])
+    if _is_clinical_context(authorized_schema) and not cplan.is_supported:
+        return {
+            "sql_query": None,
+            "error": (
+                "SQL generation stopped: This question is not supported by the active "
+                "Clinical Trial CDISC dataset. Please ask a question related to enrollment, "
+                "demographics, treatment arms, adverse events, laboratory values, vital signs, "
+                "efficacy, or subject disposition."
+            ),
+            "failed_node": "generate_sql",
+            "exception_type": "UnsupportedClinicalQuestionError",
+        }
 
     # If SQL query already exists (e.g. during query execution retry) and regenerate_sql is not requested, preserve it!
     if state.get("sql_query") and not state.get("regenerate_sql"):
         print("\nPreserving existing SQL query for execution retry:")
         print(state["sql_query"])
         return {
-            "sql_query": state["sql_query"]
+            "sql_query": state["sql_query"],
+            "database_schema": authorized_schema,
         }
 
     try:
         sql = generate_sql(
             user_question=state["user_question"],
             analysis_plan=state["analysis_plan"],
-            database_schema=state["database_schema"],
+            database_schema=authorized_schema,
         )
         record_audit_event(
             action="SQL_GENERATED",
@@ -1153,7 +1801,8 @@ def generate_sql_node(state: ClinicalAnalyticsState):
             entity_name="sql_query",
         )
         return {
-            "sql_query": sql
+            "sql_query": sql,
+            "database_schema": authorized_schema,
         }
     except Exception as exc:
         import traceback
@@ -1177,10 +1826,33 @@ def validate_sql_node(state: ClinicalAnalyticsState):
     if state.get("error"):
         return {}
 
+    # Strict AST table boundary check against selected_tables
+    selected_tables = state.get("selected_tables", [])
+    if selected_tables:
+        is_auth, unauth = enforce_sql_table_boundaries(state["sql_query"], selected_tables)
+        if not is_auth:
+            err_msg = f"SQL validation failed: Query references unauthorized/unselected table(s): {', '.join(sorted(unauth))}. Allowed tables: {', '.join(sorted(selected_tables))}."
+            record_audit_event(
+                action="SQL_VALIDATED",
+                details=err_msg[:120],
+                user_agent="SQL Validator",
+                status="FAILED",
+                entity_type="QUERY",
+                entity_name="sql_query",
+            )
+            return {
+                "error": err_msg,
+                "failed_node": "validate_sql",
+                "exception_type": "UnauthorizedTableAccessError",
+            }
+
+    authorized_schema = _resolve_authorized_clinical_schema(state)
+
     is_valid, message = validate_sql(
         state["sql_query"],
-        approved_schema=state["database_schema"],
+        approved_schema=authorized_schema,
         analysis_plan=state.get("analysis_plan"),
+        clinical_question_plan=state.get("clinical_question_plan"),
     )
 
     if not is_valid:
@@ -1207,7 +1879,8 @@ def validate_sql_node(state: ClinicalAnalyticsState):
         entity_name="sql_query",
     )
     return {
-        "error": ""
+        "error": "",
+        "database_schema": authorized_schema,
     }
 
 
@@ -1219,6 +1892,16 @@ def execute_sql_node(state: ClinicalAnalyticsState):
 
     if state.get("error"):
         return {}
+
+    selected_tables = state.get("selected_tables", [])
+    if selected_tables:
+        is_auth, unauth = enforce_sql_table_boundaries(state["sql_query"], selected_tables)
+        if not is_auth:
+            return {
+                "error": f"Query execution stopped: Unauthorized table access attempt for: {', '.join(sorted(unauth))}",
+                "failed_node": "execute_sql",
+                "exception_type": "UnauthorizedTableAccessError",
+            }
 
     try:
         results = execute_query(
@@ -1334,6 +2017,7 @@ def retrieve_rag_node(state: ClinicalAnalyticsState):
         context = get_insight_context(
             user_question=state["user_question"],
             analysis_plan=state.get("analysis_plan"),
+            clinical_plan=state.get("clinical_question_plan"),
             k=2,
         )
         record_audit_event(
@@ -1371,6 +2055,8 @@ def generate_insight_node(state: ClinicalAnalyticsState):
             "insight_evidence",
             {},
         ),
+        clinical_plan=state.get("clinical_question_plan"),
+        analysis_plan=state.get("analysis_plan"),
     )
 
     record_audit_event(
@@ -1593,8 +2279,11 @@ def generate_chart_node(state: ClinicalAnalyticsState):
         }
 
     try:
+        clinical_plan = state.get("clinical_question_plan") or {}
         chart_spec = create_chart_spec(
             results=validated_rows,
+            target_metric=clinical_plan.get("metric"),
+            question=state.get("user_question"),
         )
         record_audit_event(
             action="CHART_GENERATED",
@@ -1613,7 +2302,10 @@ def generate_chart_node(state: ClinicalAnalyticsState):
         first_row = validated_rows[0]
         cols = list(first_row.keys())
         x_col = cols[0] if cols else "category"
-        y_col = cols[1] if len(cols) > 1 else x_col
+        other_cols = [c for c in cols if c != x_col]
+        # Prefer rate/pct or analytical metric over denominator
+        rate_cols = [c for c in other_cols if any(k in c.lower() for k in ["rate", "pct"])]
+        y_col = rate_cols[0] if rate_cols else (other_cols[0] if other_cols else x_col)
         fallback_spec = {
             "chart_type": "bar",
             "title": f"{y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}",
@@ -1648,6 +2340,11 @@ def build_graph():
     # --------------------------------------------------------
     # NODES
     # --------------------------------------------------------
+
+    workflow.add_node(
+        "validate_table_selection",
+        validate_table_selection_node
+    )
 
     workflow.add_node(
         "load_schema",
@@ -1715,17 +2412,13 @@ def build_graph():
     )
 
     # --------------------------------------------------------
-    # START
+    # START & QUESTION ANALYSIS
     # --------------------------------------------------------
 
     workflow.add_edge(
         START,
         "load_schema"
     )
-
-    # --------------------------------------------------------
-    # QUESTION ANALYSIS
-    # --------------------------------------------------------
 
     workflow.add_edge(
         "load_schema",
@@ -1749,8 +2442,21 @@ def build_graph():
         "human_approval",
         approval_router,
         {
-            "generate_sql": "generate_sql",
+            "validate_table_selection": "validate_table_selection",
             "regenerate_analysis_plan": "regenerate_analysis_plan",
+            END: END,
+        },
+    )
+
+    # --------------------------------------------------------
+    # EXECUTION BOUNDARY: TABLE SELECTION VALIDATION
+    # --------------------------------------------------------
+
+    workflow.add_conditional_edges(
+        "validate_table_selection",
+        table_selection_router,
+        {
+            "generate_sql": "generate_sql",
             END: END,
         },
     )

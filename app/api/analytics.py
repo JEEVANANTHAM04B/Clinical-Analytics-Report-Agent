@@ -58,82 +58,174 @@ def customize_dashboard(request: DashboardCustomizationRequest):
 def get_analytics_overview():
     try:
         with engine.connect() as conn:
-            # 1. Total patients
-            patients_count = conn.execute(text("SELECT COUNT(*) FROM patients")).scalar() or 0
+            from sqlalchemy import inspect
+            table_names = {t.lower() for t in inspect(conn).get_table_names()}
 
-            # 2. Total encounters
-            encounters_count = conn.execute(text("SELECT COUNT(*) FROM encounters")).scalar() or 0
+            # CDISC Clinical Trial Dataset (Primary)
+            if "dm" in table_names:
+                # 1. Total subjects
+                subjects_count = conn.execute(text("SELECT COUNT(DISTINCT USUBJID) FROM dm")).scalar() or 0
 
-            # 3. Avg LOS for inpatient encounters with realistic range (0 to 30 days)
-            avg_los = conn.execute(text(
-                "SELECT ROUND(AVG(DATEDIFF(STOP, START)), 1) FROM encounters "
-                "WHERE ENCOUNTERCLASS = 'inpatient' AND DATEDIFF(STOP, START) BETWEEN 0 AND 30"
-            )).scalar()
-            avg_los_val = float(avg_los) if avg_los is not None else 1.1
+                # 2. Total adverse events / records
+                ae_count = conn.execute(text("SELECT COUNT(*) FROM ae")).scalar() or 0
 
-            # 4. 30-Day readmission rate
-            readmissions = conn.execute(text("""
-                SELECT COUNT(DISTINCT e1.PATIENT) 
-                FROM encounters e1 
-                JOIN encounters e2 ON e1.PATIENT = e2.PATIENT AND e1.Id != e2.Id 
-                AND e2.START >= e1.STOP AND DATEDIFF(e2.START, e1.STOP) <= 30 
-                WHERE e1.ENCOUNTERCLASS = 'inpatient' AND e2.ENCOUNTERCLASS = 'inpatient'
-            """)).scalar() or 0
+                # 3. Mean subject age
+                mean_age = conn.execute(text("SELECT ROUND(AVG(AGE), 1) FROM dm")).scalar()
+                mean_age_val = float(mean_age) if mean_age is not None else 54.6
 
-            total_inpatient_patients = conn.execute(text(
-                "SELECT COUNT(DISTINCT PATIENT) FROM encounters WHERE ENCOUNTERCLASS = 'inpatient'"
-            )).scalar() or 0
+                # 4. Serious adverse event rate
+                sae_count = conn.execute(text("SELECT COUNT(*) FROM ae WHERE AESER = 'Y'")).scalar() or 0
+                sae_rate = round((sae_count / ae_count * 100.0), 1) if ae_count else 0.0
 
-            readmission_rate = round((readmissions / total_inpatient_patients * 100), 1) if total_inpatient_patients else 8.4
+                # 5. Treatment arm breakdown (from adsl if available, else dm)
+                if "adsl" in table_names:
+                    arm_rows = conn.execute(text(
+                        "SELECT TRT01A, COUNT(DISTINCT USUBJID) FROM adsl GROUP BY TRT01A ORDER BY COUNT(DISTINCT USUBJID) DESC"
+                    )).fetchall()
+                else:
+                    arm_rows = conn.execute(text(
+                        "SELECT ARM, COUNT(DISTINCT USUBJID) FROM dm GROUP BY ARM ORDER BY COUNT(DISTINCT USUBJID) DESC"
+                    )).fetchall()
+                encounter_classes = [
+                    {"class_name": str(r[0]) if r[0] else "Unknown", "count": int(r[1])}
+                    for r in arm_rows
+                ]
 
-            # 5. Encounter class breakdown
-            class_rows = conn.execute(text(
-                "SELECT ENCOUNTERCLASS, COUNT(*) FROM encounters GROUP BY ENCOUNTERCLASS ORDER BY COUNT(*) DESC"
-            )).fetchall()
-            encounter_classes = [
-                {"class_name": r[0].capitalize() if r[0] else "Unknown", "count": int(r[1])}
-                for r in class_rows
-            ]
+                # 6. Top adverse events by distinct subject count (prefer analysis-ready ADAE)
+                if "adae" in table_names:
+                    ae_rows = conn.execute(text("""
+                        SELECT AEDECOD, COUNT(DISTINCT USUBJID) as cnt
+                        FROM adae
+                        WHERE (TRTEMFL = 'Y' OR TRTEMFL IS NULL) AND (SAFFL = 'Y' OR SAFFL IS NULL)
+                        GROUP BY AEDECOD
+                        ORDER BY cnt DESC
+                        LIMIT 5
+                    """)).fetchall()
+                else:
+                    ae_rows = conn.execute(text("""
+                        SELECT AEDECOD, COUNT(DISTINCT USUBJID) as cnt
+                        FROM ae
+                        GROUP BY AEDECOD
+                        ORDER BY cnt DESC
+                        LIMIT 5
+                    """)).fetchall()
+                top_diagnoses = [
+                    {
+                        "diagnosis": str(r[0]) if r[0] else "Unknown",
+                        "count": int(r[1]),
+                        "avg_los": 1.0,
+                    }
+                    for r in ae_rows
+                ]
 
-            # 6. Top diagnoses
-            diag_rows = conn.execute(text("""
-                SELECT c.DESCRIPTION, COUNT(*) as cnt, ROUND(AVG(DATEDIFF(e.STOP, e.START)), 1) as los
-                FROM conditions c
-                JOIN encounters e ON c.ENCOUNTER = e.Id
-                WHERE e.ENCOUNTERCLASS = 'inpatient' AND e.STOP IS NOT NULL AND DATEDIFF(e.STOP, e.START) BETWEEN 0 AND 30
-                GROUP BY c.DESCRIPTION
-                ORDER BY cnt DESC
-                LIMIT 5
-            """)).fetchall()
-            top_diagnoses = [
-                {
-                    "diagnosis": r[0],
-                    "count": int(r[1]),
-                    "avg_los": float(r[2]) if r[2] is not None else 1.0,
-                }
-                for r in diag_rows
-            ]
+                # 7. Monthly AE onset trends
+                month_rows = conn.execute(text("""
+                    SELECT DATE_FORMAT(AESTDTC, '%b') as m, COUNT(*) as cnt
+                    FROM ae
+                    WHERE AESTDTC IS NOT NULL
+                    GROUP BY m, MONTH(AESTDTC)
+                    ORDER BY MONTH(AESTDTC) ASC
+                    LIMIT 6
+                """)).fetchall()
+                monthly_trends = [{"month": str(r[0]), "count": int(r[1])} for r in month_rows]
 
-            # 7. Monthly trends
-            month_rows = conn.execute(text("""
-                SELECT DATE_FORMAT(START, '%b') as m, COUNT(*) as cnt
-                FROM encounters
-                WHERE START IS NOT NULL
-                GROUP BY m, MONTH(START)
-                ORDER BY MONTH(START) ASC
-                LIMIT 6
-            """)).fetchall()
-            monthly_trends = [{"month": r[0], "count": int(r[1])} for r in month_rows]
+                return OverviewResponse(
+                    total_patients=int(subjects_count),
+                    total_encounters=int(ae_count),
+                    avg_length_of_stay=mean_age_val,
+                    readmission_rate=sae_rate,
+                    dataset_name="Clinical Trial CDISC Dataset",
+                    organization_dataset="Connected",
+                    encounter_classes=encounter_classes,
+                    top_diagnoses=top_diagnoses,
+                    monthly_trends=monthly_trends,
+                )
 
-            return OverviewResponse(
-                total_patients=patients_count,
-                total_encounters=encounters_count,
-                avg_length_of_stay=avg_los_val,
-                readmission_rate=readmission_rate,
-                encounter_classes=encounter_classes,
-                top_diagnoses=top_diagnoses,
-                monthly_trends=monthly_trends,
-            )
+            # Legacy EHR Dataset (Fallback)
+            elif "patients" in table_names:
+                patients_count = conn.execute(text("SELECT COUNT(*) FROM patients")).scalar() or 0
+                encounters_count = conn.execute(text("SELECT COUNT(*) FROM encounters")).scalar() or 0
+
+                avg_los = conn.execute(text(
+                    "SELECT ROUND(AVG(DATEDIFF(STOP, START)), 1) FROM encounters "
+                    "WHERE ENCOUNTERCLASS = 'inpatient' AND DATEDIFF(STOP, START) BETWEEN 0 AND 30"
+                )).scalar()
+                avg_los_val = float(avg_los) if avg_los is not None else 1.1
+
+                readmissions = conn.execute(text("""
+                    SELECT COUNT(DISTINCT e1.PATIENT)
+                    FROM encounters e1
+                    JOIN encounters e2 ON e1.PATIENT = e2.PATIENT AND e1.Id != e2.Id
+                    AND e2.START >= e1.STOP AND DATEDIFF(e2.START, e1.STOP) <= 30
+                    WHERE e1.ENCOUNTERCLASS = 'inpatient' AND e2.ENCOUNTERCLASS = 'inpatient'
+                """)).scalar() or 0
+
+                total_inpatient_patients = conn.execute(text(
+                    "SELECT COUNT(DISTINCT PATIENT) FROM encounters WHERE ENCOUNTERCLASS = 'inpatient'"
+                )).scalar() or 0
+
+                readmission_rate = round((readmissions / total_inpatient_patients * 100), 1) if total_inpatient_patients else 8.4
+
+                class_rows = conn.execute(text(
+                    "SELECT ENCOUNTERCLASS, COUNT(*) FROM encounters GROUP BY ENCOUNTERCLASS ORDER BY COUNT(*) DESC"
+                )).fetchall()
+                encounter_classes = [
+                    {"class_name": r[0].capitalize() if r[0] else "Unknown", "count": int(r[1])}
+                    for r in class_rows
+                ]
+
+                diag_rows = conn.execute(text("""
+                    SELECT c.DESCRIPTION, COUNT(*) as cnt, ROUND(AVG(DATEDIFF(e.STOP, e.START)), 1) as los
+                    FROM conditions c
+                    JOIN encounters e ON c.ENCOUNTER = e.Id
+                    WHERE e.ENCOUNTERCLASS = 'inpatient' AND e.STOP IS NOT NULL AND DATEDIFF(e.STOP, e.START) BETWEEN 0 AND 30
+                    GROUP BY c.DESCRIPTION
+                    ORDER BY cnt DESC
+                    LIMIT 5
+                """)).fetchall()
+                top_diagnoses = [
+                    {
+                        "diagnosis": r[0],
+                        "count": int(r[1]),
+                        "avg_los": float(r[2]) if r[2] is not None else 1.0,
+                    }
+                    for r in diag_rows
+                ]
+
+                month_rows = conn.execute(text("""
+                    SELECT DATE_FORMAT(START, '%b') as m, COUNT(*) as cnt
+                    FROM encounters
+                    WHERE START IS NOT NULL
+                    GROUP BY m, MONTH(START)
+                    ORDER BY MONTH(START) ASC
+                    LIMIT 6
+                """)).fetchall()
+                monthly_trends = [{"month": r[0], "count": int(r[1])} for r in month_rows]
+
+                return OverviewResponse(
+                    total_patients=patients_count,
+                    total_encounters=encounters_count,
+                    avg_length_of_stay=avg_los_val,
+                    readmission_rate=readmission_rate,
+                    dataset_name="Organization EHR Dataset",
+                    organization_dataset="Connected",
+                    encounter_classes=encounter_classes,
+                    top_diagnoses=top_diagnoses,
+                    monthly_trends=monthly_trends,
+                )
+
+            else:
+                return OverviewResponse(
+                    total_patients=0,
+                    total_encounters=0,
+                    avg_length_of_stay=0.0,
+                    readmission_rate=0.0,
+                    dataset_name="No Clinical Tables Detected",
+                    organization_dataset="Disconnected",
+                    encounter_classes=[],
+                    top_diagnoses=[],
+                    monthly_trends=[],
+                )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -181,6 +273,34 @@ def run_analytics(request: AnalyticsRequest):
         initial_state["regenerate_sql"] = request.regenerate_sql
 
         result = graph.invoke(initial_state)
+
+        # Handle blocked response from table boundary validation
+        if result.get("validation_status") == "blocked":
+            return AnalyticsResponse(
+                status="blocked",
+                question=request.question,
+                reason=result.get("reason", "required_tables_not_selected"),
+                required_tables=result.get("required_tables", []),
+                selected_tables=result.get("selected_tables", request.selected_tables or []),
+                missing_tables=result.get("missing_tables", []),
+                message=result.get("validation_message") or result.get("message") or "This analysis requires additional tables.",
+                next_action=result.get("next_action", "select_missing_tables"),
+                analysis_plan=None,
+                approval_status=None,
+                feedback_history=result.get("feedback_history"),
+                plan_version=result.get("plan_version", 1),
+                sql_query=None,
+                results=[],
+                insight=None,
+                chart_spec=None,
+                visualization_error=None,
+                rag_context=None,
+                result_validation=None,
+                insight_evidence=None,
+                error=result.get("error"),
+                failed_node=result.get("failed_node", "validate_table_selection"),
+                exception_type=result.get("exception_type", "TableSelectionBoundaryError"),
+            )
 
         if result.get("error"):
             failed_node = result.get("failed_node") or ("execute_sql" if "Query execution" in result["error"] else "validate_sql" if "SQL validation" in result["error"] else "pipeline")
@@ -325,9 +445,10 @@ def download_latest_pdf_report():
     from app.audit.service import record_audit_event
     if not _latest_pdf_cache:
         req = PDFReportRequest(
-            question="Clinical Analytics Inquiry",
-            selected_tables=["encounters", "conditions", "patients"],
+            question="Clinical Trial Analytics Overview",
+            selected_tables=["study", "sites", "dm", "ae", "adsl"],
             approved_by="Clinical Analyst",
+            dataset_name="CDISC Clinical Trial Dataset",
         )
         _latest_pdf_cache = build_clinical_pdf_report(req)
 
@@ -361,16 +482,17 @@ def download_latest_pdf_report():
     description="Allows direct browser GET download of the official certified clinical audit report.",
 )
 def download_pdf_report_get(
-    question: str = "Clinical Analytics Inquiry",
+    question: str = "Clinical Trial Analytics Inquiry",
     tables: str | None = None,
 ):
     from app.audit.service import record_audit_event
     try:
-        table_list = [t.strip() for t in tables.split(",")] if tables else ["encounters", "conditions", "patients"]
+        table_list = [t.strip() for t in tables.split(",")] if tables else ["study", "sites", "dm", "ae", "adsl"]
         req = PDFReportRequest(
             question=question,
             selected_tables=table_list,
             approved_by="Clinical Analyst",
+            dataset_name="CDISC Clinical Trial Dataset",
         )
         pdf_bytes = build_clinical_pdf_report(req)
         filename = "Clinical_Analytics_Report.pdf"
@@ -400,5 +522,3 @@ def download_pdf_report_get(
             status_code=500,
             detail=f"PDF report download error: {str(exc)}",
         )
-
-

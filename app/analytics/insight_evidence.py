@@ -11,8 +11,17 @@ def _find_category_key(query_results: list[dict[str, Any]]) -> str | None:
     if not query_results:
         return None
     sample = query_results[0]
-    for k in ("encounter_class", "encounterclass", "diagnosis", "description", "category"):
+    clinical_dimensions = (
+        "treatment_arm", "trt01a", "arm", "site_name", "siteid",
+        "param", "paramcd", "avisit", "visit", "aesev", "severity",
+        "aebodsys", "aedecod", "sex", "race", "ethnic", "respfl",
+        "encounter_class", "encounterclass", "diagnosis", "description", "category"
+    )
+    for k in clinical_dimensions:
         if k in sample:
+            return k
+    for k in sample:
+        if any(dim in k.lower() for dim in ("treatment", "arm", "site", "param", "visit", "class", "diagnosis", "desc")):
             return k
     for k, v in sample.items():
         if isinstance(v, str):
@@ -58,11 +67,19 @@ def build_insight_evidence(
         "minimum": None,
     }
 
-    metric_key = (
-        "average_length_of_stay"
-        if "average_length_of_stay" in numeric_columns
-        else (numeric_columns[0] if numeric_columns else None)
+    priority_metrics = (
+        "adverse_event_rate_pct", "response_rate_pct", "mean_change",
+        "enrolled_subjects", "subject_count", "average_age",
+        "average_length_of_stay", "total_subjects", "total_safety_subjects",
+        "subjects_with_ae", "cnt", "count"
     )
+    metric_key = None
+    for pm in priority_metrics:
+        if pm in numeric_columns:
+            metric_key = pm
+            break
+    if not metric_key and numeric_columns:
+        metric_key = numeric_columns[0]
 
     if metric_key:
         valid_rows = [

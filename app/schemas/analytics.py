@@ -77,6 +77,12 @@ class AnalyticsResponse(BaseModel):
 
     status: str
     question: str
+    reason: str | None = None
+    required_tables: list[str] = Field(default_factory=list)
+    selected_tables: list[str] = Field(default_factory=list)
+    missing_tables: list[str] = Field(default_factory=list)
+    message: str | None = None
+    next_action: str | None = None
     analysis_plan: str | None = None
     approval_status: str | None = None
     feedback_history: list[str] | None = None

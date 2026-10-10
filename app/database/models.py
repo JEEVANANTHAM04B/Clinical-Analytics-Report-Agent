@@ -164,3 +164,42 @@ class AuditLog(Base):
             f"<AuditLog(id={self.id}, action='{self.action}', entity='{self.entity_name}', "
             f"user_agent='{self.user_agent}', status='{self.status}')>"
         )
+
+
+# =============================================================================
+# Model 5: ClinicalDatasetRegistry
+# =============================================================================
+
+class ClinicalDatasetRegistry(Base):
+    """
+    Tracks clinical dataset registration, approval status, and classification.
+    Distinguishes approved CDISC/clinical datasets from temporary test/demo tables.
+
+    Classifications:
+      - CLINICAL: Approved clinical dataset for analytical queries and planning.
+      - TEST: Synthetic or unit/integration test dataset.
+      - DEMO: Synthetic demonstration or mock dataset.
+      - QUARANTINED: Unverified, unapproved, or isolated dataset.
+
+    Approval statuses:
+      - APPROVED: Authorized for clinical analytics and table selection.
+      - PENDING: Uploaded, awaiting analyst review / registration.
+      - REJECTED: Denied from analytical queries.
+    """
+    __tablename__ = "clinical_dataset_registry"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    classification: Mapped[str] = mapped_column(String(50), nullable=False, default="CLINICAL")
+    approval_status: Mapped[str] = mapped_column(String(50), nullable=False, default="APPROVED")
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return (
+            f"<ClinicalDatasetRegistry(id={self.id}, name='{self.dataset_name}', "
+            f"classification='{self.classification}', status='{self.approval_status}')>"
+        )

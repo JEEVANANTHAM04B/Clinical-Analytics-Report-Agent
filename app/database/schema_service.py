@@ -9,13 +9,14 @@ METADATA_TABLES = {
     "dataset_columns",
     "approved_relationships",
     "audit_logs",
+    "clinical_dataset_registry",
 }
 
 
-def get_database_schema() -> dict:
+def get_database_schema(approved_only: bool = True) -> dict:
     """
-    Build the analytical database schema using only
-    human-approved relationships.
+    Build the analytical database schema using only approved clinical datasets
+    from the authoritative dataset registry.
     """
 
     inspector = inspect(engine)
@@ -29,7 +30,6 @@ def get_database_schema() -> dict:
             status="APPROVED",
         )
 
-        # Convert ORM objects to plain dictionaries immediately.
         relationships = [
             {
                 "parent_table": relationship.parent_table,
@@ -41,16 +41,22 @@ def get_database_schema() -> dict:
         ]
 
     # ---------------------------------------------------------
-    # 2. Determine approved clinical tables
+    # 2. Determine approved clinical tables from authoritative registry
     # ---------------------------------------------------------
-    approved_tables = set()
+    from app.clinical.dataset_registry_service import get_approved_clinical_tables
 
-    for relationship in relationships:
-        approved_tables.add(relationship["parent_table"])
-        approved_tables.add(relationship["child_table"])
+    all_db_tables = inspector.get_table_names()
 
-    # Never expose metadata tables to the LLM.
-    approved_tables -= METADATA_TABLES
+    if approved_only:
+        approved_tables = set(get_approved_clinical_tables())
+    else:
+        approved_tables = {
+            tbl.lower() for tbl in all_db_tables
+            if tbl.lower() not in METADATA_TABLES and not tbl.lower().startswith("alembic_")
+        }
+
+    # Never expose metadata tables to analytical queries
+    approved_tables -= {t.lower() for t in METADATA_TABLES}
 
     # ---------------------------------------------------------
     # 3. Build schema from actual MySQL columns
@@ -61,17 +67,17 @@ def get_database_schema() -> dict:
     }
 
     for table_name in sorted(approved_tables):
-
-        if table_name not in inspector.get_table_names():
+        actual_name = next((t for t in all_db_tables if t.lower() == table_name.lower()), None)
+        if not actual_name:
             continue
 
-        columns = inspector.get_columns(table_name)
+        columns = inspector.get_columns(actual_name)
 
-        schema["tables"][table_name] = [
+        schema["tables"][actual_name] = [
             {
                 "name": column["name"],
                 "type": str(column["type"]),
-                "nullable": column["nullable"],
+                "nullable": column.get("nullable", True),
             }
             for column in columns
         ]

@@ -1,64 +1,61 @@
 [
   {
     "id": "insight_deepeval_001",
-    "category": "average_length_of_stay",
-    "question": "Which diagnosis has the highest average length of stay?",
+    "category": "average_age",
+    "question": "Which treatment arm has the highest average age?",
     "query_results": [
-      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
-      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
-      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+      {"ARM": "Drug X", "mean_age": 54.8},
+      {"ARM": "Placebo", "mean_age": 54.5}
     ],
-    "expected_answer": "The diagnosis with the highest average length of stay is Anemia (disorder), with an average length of stay of 4.0 days.",
-    "rag_context": "Average length of stay is the average duration of inpatient encounters, calculated from the difference between encounter start and stop dates."
+    "expected_answer": "The treatment arm with the highest average age is Drug X with an average age of 54.8 years.",
+    "rag_context": "Demographic characterization evaluates baseline subject comparability across treatment arms."
   },
   {
     "id": "insight_deepeval_002",
-    "category": "encounter_counts",
-    "question": "Compare the number of inpatient and emergency encounters.",
+    "category": "adverse_events_by_severity",
+    "question": "Compare adverse event counts by severity.",
     "query_results": [
-      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
-      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+      {"AESEV": "MILD", "ae_count": 7018},
+      {"AESEV": "MODERATE", "ae_count": 1949},
+      {"AESEV": "SEVERE", "ae_count": 1033}
     ],
-    "expected_answer": "Inpatient encounters (120) are higher than emergency encounters (80).",
-    "rag_context": "Clinical analytics uses structured healthcare data to compare encounter volume across encounter classes."
+    "expected_answer": "Adverse events by severity show MILD (7018 events) as the most frequent, followed by MODERATE (1949 events) and SEVERE (1033 events).",
+    "rag_context": "Adverse event severity is classified as MILD, MODERATE, or SEVERE according to protocol criteria."
   },
   {
     "id": "insight_deepeval_003",
-    "category": "cost_analysis",
-    "question": "Which encounter class has the highest total claim cost?",
+    "category": "efficacy_response_rate",
+    "question": "Which treatment arm has the highest efficacy response rate?",
     "query_results": [
       {
-        "ENCOUNTERCLASS": "inpatient",
-        "total_claim_cost": 50000.0,
-        "total_payer_coverage": 30000.0
+        "treatment_arm": "Drug X",
+        "response_rate_pct": 84.9
       },
       {
-        "ENCOUNTERCLASS": "emergency",
-        "total_claim_cost": 35000.0,
-        "total_payer_coverage": 20000.0
+        "treatment_arm": "Placebo",
+        "response_rate_pct": 0.0
       }
     ],
-    "expected_answer": "The inpatient encounter class has the highest total claim cost at 50000.0, compared to emergency at 35000.0.",
-    "rag_context": "Total cost represents the recorded healthcare cost associated with a patient encounter."
+    "expected_answer": "The treatment arm with the highest efficacy response rate is Drug X at 84.9%, compared to Placebo at 0.0%.",
+    "rag_context": "Efficacy responder analysis calculates the proportion of subjects achieving clinical response (RESPFL='Y')."
   },
   {
     "id": "insight_deepeval_004",
     "category": "demographics",
-    "question": "Which gender and race combination has the highest patient count?",
+    "question": "Which sex category has the highest subject count?",
     "query_results": [
-      {"GENDER": "F", "RACE": "White", "patient_count": 150},
-      {"GENDER": "M", "RACE": "White", "patient_count": 120},
-      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+      {"SEX": "F", "subject_count": 5033},
+      {"SEX": "M", "subject_count": 4967}
     ],
-    "expected_answer": "Female (F) and White has the highest patient count with 150 patients.",
-    "rag_context": "Clinical analytics uses structured healthcare data to identify patterns, demographic trends, and measurable outcomes."
+    "expected_answer": "Female (F) subjects represent the higher count with 5033 subjects compared to Male (M) with 4967 subjects.",
+    "rag_context": "Clinical trial demographics summarize baseline subject characteristics including sex and race."
   },
   {
     "id": "insight_deepeval_005",
     "category": "empty_result",
-    "question": "Show encounters matching an impossible filter.",
+    "question": "Show subjects matching an impossible filter.",
     "query_results": [],
-    "expected_answer": "No matching records were returned.",
-    "rag_context": ""
+    "expected_answer": "No subject records were found matching the query criteria.",
+    "rag_context": "Clinical trial analytics evaluates safety and efficacy across enrolled subjects."
   }
 ]

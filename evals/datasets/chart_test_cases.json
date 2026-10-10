@@ -1,67 +1,58 @@
 [
   {
     "id": "chart_eval_001",
-    "category": "average_los_by_diagnosis",
-    "description": "Average length of stay by diagnosis",
+    "category": "average_age_by_arm",
+    "description": "Average age by treatment arm",
     "input_rows": [
-      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
-      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
-      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+      {"ARM": "Drug X", "mean_age": 54.8},
+      {"ARM": "Placebo", "mean_age": 54.5}
     ],
     "expect_spec": true,
-    "expected_x_columns": ["diagnosis"],
-    "expected_y_columns": ["average_length_of_stay"],
+    "expected_x_columns": ["ARM"],
+    "expected_y_columns": ["mean_age"],
     "valid_chart_types": ["bar", "line", "scatter"],
     "require_non_empty_title": true
   },
   {
     "id": "chart_eval_002",
-    "category": "encounter_counts",
-    "description": "Encounter counts comparison",
+    "category": "adverse_events_by_severity",
+    "description": "Adverse event counts by severity",
     "input_rows": [
-      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
-      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+      {"AESEV": "MILD", "ae_count": 7018},
+      {"AESEV": "MODERATE", "ae_count": 1949},
+      {"AESEV": "SEVERE", "ae_count": 1033}
     ],
     "expect_spec": true,
-    "expected_x_columns": ["ENCOUNTERCLASS"],
-    "expected_y_columns": ["encounter_count"],
+    "expected_x_columns": ["AESEV"],
+    "expected_y_columns": ["ae_count"],
     "valid_chart_types": ["bar", "line", "scatter"],
     "require_non_empty_title": true
   },
   {
     "id": "chart_eval_003",
-    "category": "cost_analysis",
-    "description": "Total claim cost and payer coverage by encounter class",
+    "category": "efficacy_response_rate",
+    "description": "Efficacy response rate by treatment arm",
     "input_rows": [
-      {
-        "ENCOUNTERCLASS": "inpatient",
-        "total_claim_cost": 50000.0,
-        "total_payer_coverage": 30000.0
-      },
-      {
-        "ENCOUNTERCLASS": "emergency",
-        "total_claim_cost": 35000.0,
-        "total_payer_coverage": 20000.0
-      }
+      {"treatment_arm": "Drug X", "response_rate_pct": 84.9},
+      {"treatment_arm": "Placebo", "response_rate_pct": 0.0}
     ],
     "expect_spec": true,
-    "expected_x_columns": ["ENCOUNTERCLASS"],
-    "expected_y_columns": ["total_claim_cost", "total_payer_coverage"],
+    "expected_x_columns": ["treatment_arm"],
+    "expected_y_columns": ["response_rate_pct"],
     "valid_chart_types": ["bar", "line", "scatter"],
     "require_non_empty_title": true
   },
   {
     "id": "chart_eval_004",
-    "category": "demographics",
-    "description": "Patient count by gender and race",
+    "category": "demographics_sex",
+    "description": "Subject count by sex category",
     "input_rows": [
-      {"GENDER": "F", "RACE": "White", "patient_count": 150},
-      {"GENDER": "M", "RACE": "White", "patient_count": 120},
-      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+      {"SEX": "F", "subject_count": 5033},
+      {"SEX": "M", "subject_count": 4967}
     ],
     "expect_spec": true,
-    "expected_x_columns": ["GENDER", "RACE"],
-    "expected_y_columns": ["patient_count"],
+    "expected_x_columns": ["SEX"],
+    "expected_y_columns": ["subject_count"],
     "valid_chart_types": ["bar", "line", "scatter"],
     "require_non_empty_title": true
   },
@@ -79,11 +70,11 @@
     "category": "column_containment_validation",
     "description": "Validate that generated specification references only columns actually present in the result rows",
     "input_rows": [
-      {"diagnosis": "Anemia", "average_length_of_stay": 4.0}
+      {"AETERM": "Serious Infection", "event_count": 2518}
     ],
     "expect_spec": true,
-    "expected_x_columns": ["diagnosis"],
-    "expected_y_columns": ["average_length_of_stay"],
+    "expected_x_columns": ["AETERM"],
+    "expected_y_columns": ["event_count"],
     "valid_chart_types": ["bar", "line", "scatter"],
     "require_non_empty_title": true,
     "strict_column_containment": true

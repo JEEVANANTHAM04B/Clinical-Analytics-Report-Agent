@@ -2,10 +2,10 @@
   {
     "id": "e2e_001",
     "category": "complete_workflow",
-    "name": "Complete approved analysis - Average LOS by diagnosis",
-    "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+    "name": "Complete approved analysis - Average age by treatment arm",
+    "question": "What is the average age of subjects by treatment arm?",
     "initial_state": {
-      "user_question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "user_question": "What is the average age of subjects by treatment arm?",
       "approval_status": "approved",
       "approval_source": "api"
     },
@@ -24,9 +24,9 @@
     "id": "e2e_002",
     "category": "human_approval",
     "name": "Pending human approval enforcement",
-    "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+    "question": "What is the average age of subjects by treatment arm?",
     "initial_state": {
-      "user_question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "user_question": "What is the average age of subjects by treatment arm?",
       "approval_status": "pending",
       "approval_source": "api"
     },
@@ -44,12 +44,12 @@
     "id": "e2e_003",
     "category": "human_approval",
     "name": "Rejected plan and analysis plan regeneration",
-    "question": "Show the average length of stay by diagnosis for inpatient encounters.",
+    "question": "Show adverse event counts by severity across subjects.",
     "initial_state": {
-      "user_question": "Show the average length of stay by diagnosis for inpatient encounters.",
+      "user_question": "Show adverse event counts by severity across subjects.",
       "approval_status": "rejected",
       "approval_source": "api",
-      "human_feedback": "Also include emergency encounters.",
+      "human_feedback": "Also filter for serious adverse events with ae.AESER = 'Y'.",
       "feedback_history": [],
       "plan_version": 1
     },
@@ -58,17 +58,17 @@
       "expect_plan": true,
       "expect_approval_status": "pending",
       "expect_version_increment": true,
-      "expect_feedback_history": ["Also include emergency encounters."],
+      "expect_feedback_history": ["Also filter for serious adverse events with ae.AESER = 'Y'."],
       "disallow_sql": true
     }
   },
   {
     "id": "e2e_004",
     "category": "complete_workflow",
-    "name": "Complete cost analysis pipeline",
-    "question": "Show total claim cost and payer coverage by encounter class.",
+    "name": "Complete safety analysis pipeline",
+    "question": "How many serious adverse events occurred?",
     "initial_state": {
-      "user_question": "Show total claim cost and payer coverage by encounter class.",
+      "user_question": "How many serious adverse events occurred?",
       "approval_status": "approved",
       "approval_source": "api"
     },
@@ -87,12 +87,12 @@
     "id": "e2e_005",
     "category": "safety_path",
     "name": "Empty result safety path",
-    "question": "Query encounters matching an impossible filter.",
+    "question": "Query subjects matching an impossible filter.",
     "initial_state": {
-      "user_question": "Query encounters matching an impossible filter.",
+      "user_question": "Query subjects matching an impossible filter.",
       "approval_status": "approved",
       "approval_source": "api",
-      "sql_query": "SELECT encounters.ID, encounters.ENCOUNTERCLASS FROM encounters WHERE encounters.ENCOUNTERCLASS = 'non_existent_class';"
+      "sql_query": "SELECT dm.USUBJID, dm.ARM FROM dm WHERE dm.ARM = 'non_existent_arm';"
     },
     "expected_checks": {
       "expect_error": false,
@@ -108,7 +108,7 @@
     "name": "Invalid SQL safety path and router termination",
     "question": "Test unauthorized or destructive query rejection",
     "initial_state": {
-      "sql_query": "DROP TABLE encounters;",
+      "sql_query": "DROP TABLE dm;",
       "analysis_plan": "Mock analysis plan"
     },
     "expected_checks": {
@@ -121,16 +121,16 @@
     "id": "e2e_007",
     "category": "recovery",
     "name": "Invalid insight deterministic recovery and retry limit",
-    "question": "Which diagnosis has the highest average length of stay?",
+    "question": "Which treatment arm has the highest average age?",
     "initial_state": {
-      "user_question": "Which diagnosis has the highest average length of stay?",
-      "query_result": [{"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0}],
+      "user_question": "Which treatment arm has the highest average age?",
+      "query_result": [{"ARM": "Drug X", "mean_age": 54.8}],
       "insight_evidence": {
         "row_count": 1,
-        "numeric_columns": ["average_length_of_stay"],
-        "maximum": {"metric": "average_length_of_stay", "value": 4.0, "category": "Anemia (disorder)"}
+        "numeric_columns": ["mean_age"],
+        "maximum": {"metric": "mean_age", "value": 54.8, "category": "Drug X"}
       },
-      "insight": "The highest average length of stay was 999.0 days for Anemia.",
+      "insight": "The highest average age was 999.0 years for Drug X.",
       "insight_retry_count": 0
     },
     "expected_checks": {

@@ -94,3 +94,6 @@ temperary image/
 test_*.pdf
 test_*.html
 .deepeval/
+# --- Clinical Trial Raw Archive & RAG Backup ---
+Dataset.zip
+app/rag/vector_store/langchain_store_bak/
