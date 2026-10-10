@@ -84,18 +84,21 @@ def evidence_metric() -> EvidenceQualityMetric:
     return EvidenceQualityMetric()
 
 
-@pytest.fixture(scope="session")
-def deepeval_gemini_judge():
+@pytest.fixture
+def deepeval_gemini_judge(request):
     """
     Returns a rate-limited Gemini model for DeepEval evaluation.
-    Skips if GEMINI_API_KEY is not available.
+    Skips if --run-deepeval-judge is not enabled or GEMINI_API_KEY is not available.
     """
+    if not request.config.getoption("--run-deepeval-judge"):
+        pytest.skip("Pass --run-deepeval-judge to execute DeepEval LLM-as-a-judge evaluations.")
+
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         pytest.skip("GEMINI_API_KEY / GOOGLE_API_KEY not configured. Skipping LLM-judge tests.")
 
-    from deepeval.models import GeminiModel
     try:
+        from deepeval.models import GeminiModel
         # Use active gemini-3.1-flash-lite as judge
         model_name = os.getenv("DEEPEVAL_JUDGE_MODEL", "gemini-3.1-flash-lite")
         return GeminiModel(model=model_name, api_key=api_key)

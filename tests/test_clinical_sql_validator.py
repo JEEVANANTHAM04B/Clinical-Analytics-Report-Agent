@@ -162,6 +162,31 @@ def test_unapproved_relationship_rejected():
     assert "Unauthorized relationship: dm.STUDYID = ae.STUDYID" in reason
 
 
+def test_adsl_adae_approved_usubjid_relationship_accepted():
+    """Verifies the verified relationship adsl.USUBJID = adae.USUBJID is approved and passes."""
+    sql = (
+        "SELECT adsl.TRT01A, COUNT(DISTINCT adsl.USUBJID) AS total_subjs, "
+        "COUNT(DISTINCT adae.USUBJID) AS ae_subjs "
+        "FROM adsl LEFT JOIN adae ON adsl.USUBJID = adae.USUBJID "
+        "GROUP BY adsl.TRT01A;"
+    )
+    is_valid, reason = validate_sql(sql)
+    assert is_valid, f"Expected adsl.USUBJID = adae.USUBJID to pass, got: {reason}"
+    assert "safe" in reason.lower()
+
+
+def test_adsl_adae_unapproved_studyid_relationship_rejected():
+    """Verifies unapproved relationship adsl.STUDYID = adae.STUDYID is blocked as unauthorized."""
+    sql = (
+        "SELECT adsl.TRT01A, COUNT(DISTINCT adae.USUBJID) "
+        "FROM adsl JOIN adae ON adsl.STUDYID = adae.STUDYID "
+        "GROUP BY adsl.TRT01A;"
+    )
+    is_valid, reason = validate_sql(sql)
+    assert not is_valid
+    assert "Unauthorized relationship: adsl.STUDYID = adae.STUDYID" in reason
+
+
 def test_disconnected_tables_rejected():
     """Verifies joining tables that cannot connect is rejected."""
     sql = "SELECT * FROM dm JOIN lb ON dm.SITEID = lb.SITEID;"

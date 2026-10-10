@@ -22,6 +22,7 @@ class ClinicalAnalyticsState(TypedDict, total=False):
     # Schema & Plan
     database_schema: dict[str, Any]
     analysis_plan: str
+    current_plan: str
     clinical_question_plan: Any
 
     sql_query: str

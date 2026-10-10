@@ -531,7 +531,7 @@ def analyze_question(state: ClinicalAnalyticsState):
 
     question = state["user_question"]
     database_schema = state.get("database_schema") or {}
-    existing_plan = state.get("analysis_plan")
+    existing_plan = state.get("analysis_plan") or state.get("current_plan")
     approval_status = state.get("approval_status")
 
     # The backend must never pass an empty schema to analysis-plan generation without an explicit error
@@ -553,6 +553,7 @@ def analyze_question(state: ClinicalAnalyticsState):
     if existing_plan and approval_status in ("approved", "rejected"):
         return {
             "analysis_plan": existing_plan,
+            "current_plan": existing_plan,
             "clinical_question_plan": state.get("clinical_question_plan", {}),
             "human_feedback": state.get("human_feedback", ""),
             "feedback_history": state.get("feedback_history", []),
@@ -620,6 +621,7 @@ The analysis plan must explicitly state:
    - Exact tables and columns from the approved CDISC schema.
 2. Join Conditions:
    - Approved clinical relationships only (e.g., sites.SITEID = dm.SITEID, adsl.USUBJID = adae.USUBJID). If single-table, state None.
+   - For joins between subject-level clinical tables (e.g. ADSL and ADAE), specify ONLY USUBJID (adsl.USUBJID = adae.USUBJID). NEVER specify or suggest STUDYID in join conditions.
 3. Derived Calculations:
    - Explicit statistical calculation formulas.
 4. Aggregations & Grouping:
@@ -630,6 +632,7 @@ The analysis plan must explicitly state:
 STRICT RULES:
 - Map natural-language terms ONLY to actual CDISC schema columns.
 - NEVER invent tables or columns (do NOT use EHR tables like encounters or conditions).
+- For clinical joins, join ONLY on approved foreign keys (e.g. USUBJID). Do NOT include STUDYID in join conditions.
 - Do NOT generate SQL.
 - Return ONLY the concise, structured analysis plan.
 """

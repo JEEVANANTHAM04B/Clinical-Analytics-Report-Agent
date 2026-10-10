@@ -412,6 +412,237 @@ def resolve_target_table_name(
 
 
 # =============================================================================
+# Helper 1c: Primary Key Inspection & Duplicate Validation
+# =============================================================================
+
+class DuplicatePrimaryKeyError(ValueError):
+    """
+    Raised when an uploaded dataset contains duplicate primary-key values
+    with existing MySQL table records or within the uploaded file itself.
+    """
+    def __init__(
+        self,
+        table_name: str,
+        pk_columns: List[str],
+        total_records: int,
+        duplicate_count: int,
+        eligible_count: int,
+        sample_duplicates: List[Dict[str, Any]],
+        message: Optional[str] = None,
+    ):
+        self.table_name = table_name
+        self.pk_columns = pk_columns
+        self.total_records = total_records
+        self.duplicate_count = duplicate_count
+        self.eligible_count = eligible_count
+        self.sample_duplicates = sample_duplicates
+        msg = message or (
+            f"Duplicate primary key records detected for target table '{table_name}'. "
+            f"{duplicate_count} of {total_records} records conflict with existing primary keys ({', '.join(pk_columns)})."
+        )
+        super().__init__(msg)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status": "error",
+            "error_code": "DUPLICATE_KEY_DETECTED",
+            "message": str(self),
+            "target_table": self.table_name,
+            "primary_key_columns": self.pk_columns,
+            "total_records": self.total_records,
+            "duplicate_count": self.duplicate_count,
+            "eligible_count": self.eligible_count,
+            "sample_duplicates": self.sample_duplicates,
+        }
+
+
+def get_table_primary_keys(table_name: str, con: Any = None) -> List[str]:
+    """
+    Retrieves the actual primary key columns defined in MySQL for a target table.
+    Does not assume USUBJID or any specific column is the primary key.
+    Handles single-column, composite, or absent primary keys.
+    """
+    target_engine = con or engine
+    try:
+        inspector = inspect(target_engine)
+        pk_constraint = inspector.get_pk_constraint(table_name)
+        if pk_constraint and "constrained_columns" in pk_constraint:
+            return [str(c) for c in pk_constraint["constrained_columns"] if c]
+    except Exception as e:
+        logger.warning(f"Could not inspect primary key for table '{table_name}': {e}")
+    return []
+
+
+def _normalize_pk_val(val: Any) -> str:
+    """Safely normalizes primary key cell values for deterministic comparison."""
+    if pd.isna(val) or val is None:
+        return ""
+    if isinstance(val, float) and val.is_integer():
+        return str(int(val))
+    return str(val).strip()
+
+
+def identify_duplicate_records(
+    df: pd.DataFrame,
+    table_name: str,
+    con: Any = None,
+) -> Dict[str, Any]:
+    """
+    Identifies duplicate primary-key values between an uploaded DataFrame and an existing table.
+    Validates duplicates using actual MySQL primary-key constraints (single or composite).
+    Detects both intra-file duplicates and records that already exist in the database.
+    """
+    target_engine = con or engine
+
+    if df is None or len(df) == 0:
+        return {
+            "has_pk": False,
+            "pk_columns": [],
+            "total_records": 0,
+            "duplicate_count": 0,
+            "eligible_count": 0,
+            "duplicate_indices": [],
+            "sample_duplicates": [],
+            "has_duplicates": False,
+        }
+
+    # Verify table existence
+    try:
+        inspector = inspect(target_engine)
+        tables = [t.lower() for t in inspector.get_table_names()]
+        if table_name.lower() not in tables:
+            return {
+                "has_pk": False,
+                "pk_columns": [],
+                "total_records": len(df),
+                "duplicate_count": 0,
+                "eligible_count": len(df),
+                "duplicate_indices": [],
+                "sample_duplicates": [],
+                "has_duplicates": False,
+            }
+    except Exception as e:
+        logger.warning(f"Error checking table existence for '{table_name}': {e}")
+
+    pk_cols = get_table_primary_keys(table_name, target_engine)
+    if not pk_cols:
+        return {
+            "has_pk": False,
+            "pk_columns": [],
+            "total_records": len(df),
+            "duplicate_count": 0,
+            "eligible_count": len(df),
+            "duplicate_indices": [],
+            "sample_duplicates": [],
+            "has_duplicates": False,
+        }
+
+    # Match DataFrame columns to table PK columns case-insensitively
+    df_col_map = {str(c).strip().upper(): c for c in df.columns}
+    matched_pk_cols = []
+    for pk in pk_cols:
+        upper_pk = pk.strip().upper()
+        if upper_pk in df_col_map:
+            matched_pk_cols.append(df_col_map[upper_pk])
+        else:
+            logger.warning(f"Target table '{table_name}' PK column '{pk}' not found in uploaded dataset columns.")
+            return {
+                "has_pk": True,
+                "pk_columns": pk_cols,
+                "total_records": len(df),
+                "duplicate_count": 0,
+                "eligible_count": len(df),
+                "duplicate_indices": [],
+                "sample_duplicates": [],
+                "has_duplicates": False,
+            }
+
+    # 1. Detect intra-file duplicates on PK columns
+    if len(matched_pk_cols) == 1:
+        norm_series = df[matched_pk_cols[0]].apply(_normalize_pk_val)
+        file_dup_mask = norm_series.duplicated(keep="first")
+    else:
+        norm_tuples = df[matched_pk_cols].apply(lambda r: tuple(_normalize_pk_val(x) for x in r), axis=1)
+        file_dup_mask = norm_tuples.duplicated(keep="first")
+
+    intra_file_dup_indices = set(df[file_dup_mask].index.tolist())
+
+    # 2. Query MySQL database for existing primary keys
+    db_dup_indices = set()
+    try:
+        with target_engine.connect() as conn:
+            if len(pk_cols) == 1:
+                pk_name = pk_cols[0]
+                df_col = matched_pk_cols[0]
+                candidates = list(dict.fromkeys(
+                    _normalize_pk_val(x) for x in df[df_col] if pd.notna(x) and _normalize_pk_val(x)
+                ))
+                existing_keys = set()
+                for i in range(0, len(candidates), 1000):
+                    batch = candidates[i:i+1000]
+                    placeholders = ", ".join([f":id_{j}" for j in range(len(batch))])
+                    params = {f"id_{j}": val for j, val in enumerate(batch)}
+                    q = text(f"SELECT `{pk_name}` FROM `{table_name}` WHERE `{pk_name}` IN ({placeholders})")
+                    res = conn.execute(q, params)
+                    for r in res.fetchall():
+                        existing_keys.add(_normalize_pk_val(r[0]))
+
+                for idx, val in df[df_col].items():
+                    norm_val = _normalize_pk_val(val)
+                    if norm_val and norm_val in existing_keys:
+                        db_dup_indices.add(idx)
+
+            else:
+                lead_col = pk_cols[0]
+                df_lead_col = matched_pk_cols[0]
+                lead_candidates = list(dict.fromkeys(
+                    _normalize_pk_val(x) for x in df[df_lead_col] if pd.notna(x) and _normalize_pk_val(x)
+                ))
+                existing_tuples = set()
+                sel_cols = ", ".join([f"`{c}`" for c in pk_cols])
+                for i in range(0, len(lead_candidates), 1000):
+                    batch = lead_candidates[i:i+1000]
+                    placeholders = ", ".join([f":lead_{j}" for j in range(len(batch))])
+                    params = {f"lead_{j}": val for j, val in enumerate(batch)}
+                    q = text(f"SELECT {sel_cols} FROM `{table_name}` WHERE `{lead_col}` IN ({placeholders})")
+                    res = conn.execute(q, params)
+                    for r in res.fetchall():
+                        existing_tuples.add(tuple(_normalize_pk_val(x) for x in r))
+
+                for idx, row in df.iterrows():
+                    row_tuple = tuple(_normalize_pk_val(row[c]) for c in matched_pk_cols)
+                    if row_tuple in existing_tuples:
+                        db_dup_indices.add(idx)
+
+    except Exception as e:
+        logger.error(f"Error checking existing primary keys in table '{table_name}': {e}")
+        raise
+
+    all_dup_indices = sorted(list(db_dup_indices.union(intra_file_dup_indices)))
+    dup_count = len(all_dup_indices)
+    eligible_count = len(df) - dup_count
+
+    # Build safe sample duplicates (max 5)
+    sample_dups = []
+    for idx in all_dup_indices[:5]:
+        sample_dict = {}
+        for db_pk, df_pk in zip(pk_cols, matched_pk_cols):
+            sample_dict[db_pk] = _normalize_pk_val(df.loc[idx, df_pk])
+        sample_dups.append(sample_dict)
+
+    return {
+        "has_pk": True,
+        "pk_columns": pk_cols,
+        "total_records": len(df),
+        "duplicate_count": dup_count,
+        "eligible_count": eligible_count,
+        "duplicate_indices": all_dup_indices,
+        "sample_duplicates": sample_dups,
+        "has_duplicates": dup_count > 0,
+    }
+
+
+# =============================================================================
 # Helper 2: Safe File Path Resolver
 # =============================================================================
 
@@ -660,6 +891,7 @@ def load_dataset_to_mysql(
     classification: str = "CLINICAL",
     approval_status: str = "APPROVED",
     category: Optional[str] = None,
+    duplicate_action: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Validates, profiles, and loads a clinical dataset into MySQL.
@@ -774,43 +1006,31 @@ def load_dataset_to_mysql(
     rows_skipped = 0
     rows_failed = 0
 
-    # Deduplicate candidate IDs if appending to existing table with an ID column
-    id_col = None
-    for cand in ("ID", "id", "Id"):
-        if cand in df.columns:
-            id_col = cand
-            break
-
-    if id_col:
-        file_dup_count = int(df.duplicated(subset=[id_col]).sum())
-        if file_dup_count > 0:
-            logger.info(f"Filtering out {file_dup_count} duplicate rows within uploaded file on column '{id_col}'")
-            rows_skipped += file_dup_count
-            df = df.drop_duplicates(subset=[id_col], keep="last")
-
-        if table_exists and if_exists == "append":
-            try:
-                candidate_ids = [str(x).strip() for x in df[id_col].dropna().unique() if str(x).strip()]
-                if candidate_ids:
-                    with engine.connect() as conn:
-                        existing_ids = set()
-                        for i in range(0, len(candidate_ids), 1000):
-                            batch = candidate_ids[i:i+1000]
-                            placeholders = ", ".join([f":id_{j}" for j in range(len(batch))])
-                            params = {f"id_{j}": val for j, val in enumerate(batch)}
-                            q = text(f"SELECT `{id_col}` FROM `{table_name}` WHERE `{id_col}` IN ({placeholders})")
-                            res = conn.execute(q, params)
-                            for r in res.fetchall():
-                                existing_ids.add(str(r[0]).strip())
-
-                        if existing_ids:
-                            logger.info(
-                                f"Skipping {len(existing_ids)} rows because IDs already exist in '{table_name}'"
-                            )
-                            rows_skipped += len(existing_ids)
-                            df = df[~df[id_col].astype(str).str.strip().isin(existing_ids)]
-            except Exception as e:
-                logger.warning(f"Could not check existing IDs for table '{table_name}': {e}")
+    # ── Step 5b: Identify and handle primary-key duplicates ──────────────────
+    if table_exists and if_exists == "append":
+        dup_info = identify_duplicate_records(df, table_name, engine)
+        if dup_info["has_duplicates"]:
+            if duplicate_action == "insert_new_only":
+                duplicate_indices = dup_info["duplicate_indices"]
+                rows_skipped = len(duplicate_indices)
+                df = df.drop(index=duplicate_indices)
+                logger.info(
+                    f"duplicate_action='insert_new_only': skipping {rows_skipped} duplicate rows; "
+                    f"{len(df)} new rows eligible for insertion into '{table_name}'"
+                )
+            else:
+                logger.warning(
+                    f"Duplicate primary key conflict in table '{table_name}': "
+                    f"{dup_info['duplicate_count']} duplicate records detected."
+                )
+                raise DuplicatePrimaryKeyError(
+                    table_name=table_name,
+                    pk_columns=dup_info["pk_columns"],
+                    total_records=rows_received,
+                    duplicate_count=dup_info["duplicate_count"],
+                    eligible_count=dup_info["eligible_count"],
+                    sample_duplicates=dup_info["sample_duplicates"],
+                )
 
     rows_inserted = len(df)
 
@@ -918,11 +1138,17 @@ def load_dataset_to_mysql(
         )
 
         # 3. Platform AuditLog entry
-        audit_msg = (
-            f"Upload completed. Target table: '{table_name}'. "
-            f"Rows received: {rows_received}, Rows inserted: {rows_inserted}, "
-            f"Rows skipped: {rows_skipped}, Rows failed: {rows_failed}."
-        )
+        if rows_inserted == 0 and rows_skipped > 0:
+            audit_msg = (
+                f"Upload completed. All {rows_received} records already exist in '{table_name}'. "
+                f"0 records inserted, {rows_skipped} records skipped."
+            )
+        else:
+            audit_msg = (
+                f"Upload completed. Target table: '{table_name}'. "
+                f"Rows received: {rows_received}, Rows inserted: {rows_inserted}, "
+                f"Rows skipped: {rows_skipped}, Rows failed: {rows_failed}."
+            )
         create_audit_log(
             db=db,
             action="DATASET_LOAD",

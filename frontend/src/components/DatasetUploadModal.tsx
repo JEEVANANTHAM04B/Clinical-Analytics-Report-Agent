@@ -4,6 +4,7 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   X,
   Loader2,
   Database,
@@ -42,6 +43,15 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
   const [uploadResult, setUploadResult] = useState<UploadDatasetResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [approveForClinical, setApproveForClinical] = useState<boolean>(true);
+  const [insertNewOnly, setInsertNewOnly] = useState<boolean>(true);
+  const [duplicateConflict, setDuplicateConflict] = useState<{
+    targetTable: string;
+    pkColumns: string[];
+    totalRecords: number;
+    duplicateCount: number;
+    eligibleCount: number;
+    sampleDuplicates: Record<string, any>[];
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Ingestion Result Popup ────────────────────────────────────────────────
@@ -101,6 +111,9 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
       setSelectedFile(file);
       setErrorMessage(null);
       setUploadResult(null);
+      setDuplicateConflict(null);
+      setInsertNewOnly(true);
+      setPreviewData(null);
 
       const defaultName = sanitizeName(file.name);
       if (!newTableName || targetTable === '__new__') {
@@ -118,6 +131,9 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
       setSelectedFile(file);
       setErrorMessage(null);
       setUploadResult(null);
+      setDuplicateConflict(null);
+      setInsertNewOnly(true);
+      setPreviewData(null);
 
       const defaultName = sanitizeName(file.name);
       if (!newTableName || targetTable === '__new__') {
@@ -135,6 +151,8 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
   const handleTargetTableChange = (val: string) => {
     setTargetTable(val);
     setErrorMessage(null);
+    setDuplicateConflict(null);
+    setInsertNewOnly(true);
 
     if (selectedFile) {
       const defaultName = sanitizeName(selectedFile.name);
@@ -188,6 +206,23 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
       return;
     }
 
+    const isDuplicateCase = previewData?.has_duplicates || !!duplicateConflict;
+    const effectiveEligible = previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0;
+
+    if (isDuplicateCase && effectiveEligible === 0) {
+      setErrorMessage(
+        'All records in this dataset already exist in target table. No new records can be inserted.'
+      );
+      return;
+    }
+
+    if (isDuplicateCase && !insertNewOnly) {
+      setErrorMessage(
+        'Duplicate records detected. Please select "Insert New Records Only" to proceed safely.'
+      );
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
     setErrorMessage(null);
@@ -204,6 +239,8 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
       finalTarget = targetTable;
     }
 
+    const dupAction = isDuplicateCase && insertNewOnly ? 'insert_new_only' : undefined;
+
     try {
       const response = await datasetsApi.uploadDataset(
         selectedFile,
@@ -213,7 +250,8 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
         },
         isNew,
         'CLINICAL',
-        approveForClinical ? 'APPROVED' : 'PENDING'
+        approveForClinical ? 'APPROVED' : 'PENDING',
+        dupAction
       );
 
       setUploadResult(response);
@@ -227,6 +265,21 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
     } catch (err: any) {
       console.error('Upload failed:', err);
       const detail = err.response?.data?.detail;
+      if (err.response?.status === 409 || detail?.error_code === 'DUPLICATE_KEY_DETECTED') {
+        const dupInfo = {
+          targetTable: detail?.target_table || finalTarget || 'target table',
+          pkColumns: detail?.primary_key_columns || ['PRIMARY KEY'],
+          totalRecords: detail?.total_records || 0,
+          duplicateCount: detail?.duplicate_count || 0,
+          eligibleCount: detail?.eligible_count || 0,
+          sampleDuplicates: detail?.sample_duplicates || [],
+        };
+        setDuplicateConflict(dupInfo);
+        const userMsg = detail?.message || 'Duplicate primary key records detected in target table.';
+        setErrorMessage(userMsg);
+        setIngestionError(userMsg);
+        return;
+      }
       const msg =
         typeof detail === 'string'
           ? detail
@@ -249,6 +302,8 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
     setUploadProgress(0);
     setShowIngestionResult(false);
     setIngestionError(null);
+    setInsertNewOnly(true);
+    setDuplicateConflict(null);
     onClose();
   };
 
@@ -421,6 +476,100 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
                 </div>
               )}
 
+              {/* Duplicate Primary Key Warning & Action Card */}
+              {(previewData?.has_duplicates || !!duplicateConflict) && (
+                <div data-testid="duplicate-warning-card" className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-xs animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 font-bold text-amber-900">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span>Duplicate Records Detected</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 font-mono text-[10px] font-bold">
+                      {(previewData?.duplicate_count ?? duplicateConflict?.duplicateCount ?? 0).toLocaleString()} duplicates
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Target table <strong className="font-mono text-gray-900">{previewData?.proposed_table || duplicateConflict?.targetTable}</strong> already contains records with matching primary key values
+                    {(previewData?.primary_key_columns || duplicateConflict?.pkColumns)?.length ? (
+                      <> (<code className="font-mono font-semibold">{(previewData?.primary_key_columns || duplicateConflict?.pkColumns)?.join(', ')}</code>)</>
+                    ) : null}. Existing clinical records will not be overwritten.
+                  </p>
+
+                  {/* Duplicate stats breakdown */}
+                  <div className="grid grid-cols-3 gap-2 py-1 text-center font-mono text-[10px]">
+                    <div className="bg-white/90 p-1.5 rounded border border-amber-200">
+                      <span className="text-gray-500 block text-[9px] uppercase">Uploaded</span>
+                      <span className="font-bold text-gray-800">
+                        {(previewData?.total_rows ?? duplicateConflict?.totalRecords ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-white/90 p-1.5 rounded border border-amber-200">
+                      <span className="text-amber-600 block text-[9px] uppercase">Duplicates</span>
+                      <span className="font-bold text-amber-700">
+                        {(previewData?.duplicate_count ?? duplicateConflict?.duplicateCount ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-white/90 p-1.5 rounded border border-amber-200">
+                      <span className="text-emerald-600 block text-[9px] uppercase">Eligible</span>
+                      <span className="font-bold text-emerald-700">
+                        {(previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Sample duplicate values */}
+                  {((previewData?.sample_duplicates && previewData.sample_duplicates.length > 0) ||
+                    (duplicateConflict?.sampleDuplicates && duplicateConflict.sampleDuplicates.length > 0)) && (
+                    <div className="pt-0.5">
+                      <span className="text-[10px] text-amber-700 font-semibold block mb-1">
+                        Sample conflicting keys:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {(previewData?.sample_duplicates || duplicateConflict?.sampleDuplicates || []).map((sample, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-white px-2 py-0.5 rounded border border-amber-200 font-mono text-[10px] text-amber-900 font-medium"
+                          >
+                            {Object.entries(sample)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(', ')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Explicit user action selector */}
+                  {(previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0) > 0 ? (
+                    <div className="pt-2 border-t border-amber-200/80">
+                      <label className="flex items-start space-x-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          data-testid="insert-new-only-checkbox"
+                          checked={insertNewOnly}
+                          onChange={(e) => setInsertNewOnly(e.target.checked)}
+                          disabled={isUploading || !!uploadResult}
+                          className="w-3.5 h-3.5 mt-0.5 text-indigo-600 rounded border-amber-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <div className="text-[11px] text-amber-900">
+                          <span className="font-semibold block">
+                            Insert {(previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0).toLocaleString()} new records only (skip duplicates)
+                          </span>
+                          <span className="text-[10px] text-amber-700">
+                            Preserves existing clinical records unchanged and skips duplicate rows safely.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="pt-1.5 border-t border-amber-200/80 text-[11px] text-amber-900 font-semibold">
+                      All records in this dataset already exist in the database. No new records can be inserted.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Auto-detect info message */}
               {targetTable === 'auto' && previewData.match_message && !tableAlreadyExists && (
                 <div className="p-2 bg-indigo-50/80 border border-indigo-100 rounded-lg text-indigo-800 text-[10px] flex items-center space-x-1.5 font-medium">
@@ -539,12 +688,15 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
           {!uploadResult && (
             <button
               onClick={handleUpload}
+              data-testid="upload-submit-btn"
               disabled={
                 !selectedFile ||
                 isUploading ||
                 isPreviewing ||
                 tableAlreadyExists ||
-                (targetTable === '__new__' && !newTableName.trim())
+                (targetTable === '__new__' && !newTableName.trim()) ||
+                ((previewData?.has_duplicates || !!duplicateConflict) &&
+                  ((previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0) === 0 || !insertNewOnly))
               }
               className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-sm flex items-center space-x-1.5 transition-all cursor-pointer"
             >
@@ -553,6 +705,17 @@ export const DatasetUploadModal: React.FC<DatasetUploadModalProps> = ({
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   <span>Ingesting...</span>
                 </>
+              ) : (previewData?.has_duplicates || !!duplicateConflict) ? (
+                (previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0) === 0 ? (
+                  <span>All Records Already Exist</span>
+                ) : (
+                  <>
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>
+                      Insert {(previewData?.eligible_count ?? duplicateConflict?.eligibleCount ?? 0).toLocaleString()} New Records
+                    </span>
+                  </>
+                )
               ) : (
                 <>
                   <UploadCloud className="w-3.5 h-3.5" />

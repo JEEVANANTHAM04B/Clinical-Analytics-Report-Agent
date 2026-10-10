@@ -139,6 +139,7 @@ class UploadResponse(BaseModel):
     rows_skipped: Optional[int] = Field(default=None, description="Existing duplicate rows skipped")
     rows_failed: Optional[int] = Field(default=0, description="Rows that failed to insert")
     columns: Optional[int] = Field(default=None, description="Total column count (convenience shortcut for dataset.column_count)")
+    duplicate_action_applied: Optional[str] = Field(default=None, description="Action applied to duplicate records, if any ('insert_new_only')")
 
 
 # =============================================================================
@@ -183,3 +184,8 @@ class PreviewResponse(BaseModel):
     total_columns: int = Field(description="Total columns in uploaded file")
     columns: List[ColumnPreview] = Field(description="Column schema preview")
     preview_rows: List[Dict[str, Any]] = Field(default_factory=list, description="First rows of dataset for preview")
+    has_duplicates: bool = Field(default=False, description="Whether duplicate primary key records were detected")
+    duplicate_count: int = Field(default=0, description="Count of duplicate records detected")
+    eligible_count: Optional[int] = Field(default=None, description="Count of records eligible for insertion")
+    primary_key_columns: List[str] = Field(default_factory=list, description="Primary key columns for target table")
+    sample_duplicates: List[Dict[str, Any]] = Field(default_factory=list, description="Sample duplicate primary key values")

@@ -28,6 +28,7 @@ export interface UploadDatasetResponse {
   rows_skipped?: number;
   rows_failed?: number;
   columns?: number;
+  duplicate_action_applied?: string;
   dataset?: {
     original_filename?: string;
     saved_filename?: string;
@@ -75,6 +76,11 @@ export interface PreviewDatasetResponse {
   total_columns: number;
   columns: InferredColumnPreview[];
   preview_rows: Record<string, any>[];
+  has_duplicates?: boolean;
+  duplicate_count?: number;
+  eligible_count?: number;
+  primary_key_columns?: string[];
+  sample_duplicates?: Record<string, any>[];
 }
 
 export const datasetsApi = {
@@ -105,7 +111,8 @@ export const datasetsApi = {
     onProgress?: (percent: number) => void,
     isNewTable: boolean = false,
     classification: string = 'CLINICAL',
-    approvalStatus: string = 'APPROVED'
+    approvalStatus: string = 'APPROVED',
+    duplicateAction?: string
   ): Promise<UploadDatasetResponse> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -116,6 +123,9 @@ export const datasetsApi = {
     formData.append('is_new_table', String(isNewTable));
     formData.append('classification', classification);
     formData.append('approval_status', approvalStatus);
+    if (duplicateAction) {
+      formData.append('duplicate_action', duplicateAction);
+    }
 
     const res = await apiClient.post<UploadDatasetResponse>('/ingestion/upload', formData, {
       headers: {

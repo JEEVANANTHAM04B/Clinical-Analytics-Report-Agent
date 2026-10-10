@@ -199,6 +199,7 @@ RULES FOR CLINICAL SQL GENERATION:
    - When a Clinical Question Plan is provided, adhere strictly to the Required Datasets, Required Columns, Dimensions, and Calculation.
    - If single-table query is specified (join_required=false), query ONLY that single dataset without unnecessary joins.
    - If join is required, join ONLY using approved relationships (e.g., sites.SITEID = dm.SITEID, dm.USUBJID = adsl.USUBJID, adsl.USUBJID = adae.USUBJID).
+   - For joins between subject-level clinical tables (such as ADSL and ADAE, ADSL and ADLB, ADSL and ADVS), join strictly ON USUBJID (e.g. adsl.USUBJID = adae.USUBJID). NEVER join subject-level tables on STUDYID (e.g. do NOT write adsl.STUDYID = adae.STUDYID).
 
 3. Statistical & Metric Accuracy:
    - Adverse Event Rate: Numerator is distinct subjects with AE (from adae), Denominator is total subjects in trial or treatment arm (from adsl).
@@ -220,7 +221,7 @@ RULES FOR CLINICAL SQL GENERATION:
    - Do NOT use window functions (OVER / PARTITION BY).
    - Do NOT use non-standard functions like STDDEV or MEDIAN (use standard AVG, COUNT, MIN, MAX, SUM).
    - Do NOT use UNION or subquery derived tables in JOIN clauses (e.g. JOIN (SELECT ...)).
-   - Join tables directly using approved primary foreign key relationships (e.g. adsl.USUBJID = adae.USUBJID).
+   - Join tables directly using approved primary foreign key relationships (e.g. adsl.USUBJID = adae.USUBJID). Do NOT join on STUDYID between subject-level tables.
 """
 
 
@@ -279,6 +280,13 @@ def _check_sql_vs_clinical_plan(sql: str, plan: Optional[ClinicalQuestionPlan]) 
         return False, "SQL uses unauthorized UNION construct"
     if "join (" in sql_l or "join (select" in sql_l or "join\n(" in sql_l:
         return False, "SQL uses unapproved subquery derived table in JOIN"
+
+    # Check for unauthorized STUDYID joins between subject-level tables (e.g. adsl.STUDYID = adae.STUDYID)
+    studyid_join_match = re.search(r"\b([a-zA-Z0-9_]+)\.studyid\s*=\s*([a-zA-Z0-9_]+)\.studyid\b", sql_l)
+    if studyid_join_match:
+        t1, t2 = studyid_join_match.group(1).lower(), studyid_join_match.group(2).lower()
+        if t1 != "study" and t2 != "study":
+            return False, f"SQL uses unauthorized relationship {t1}.STUDYID = {t2}.STUDYID (subject-level tables must join on USUBJID)"
 
     return True, ""
 

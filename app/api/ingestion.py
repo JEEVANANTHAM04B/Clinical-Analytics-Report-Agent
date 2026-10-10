@@ -52,6 +52,8 @@ from app.ingestion.mysql_loader import (
     sanitize_table_name,
     map_pandas_dtype,
     PROTECTED_METADATA_TABLES,
+    DuplicatePrimaryKeyError,
+    identify_duplicate_records,
 )
 from app.schemas.ingestion import UploadResponse, ErrorResponse, PreviewResponse, ColumnPreview
 from app.schemas.validation import AnalyzeRequest, AnalyzeResponse
@@ -115,6 +117,10 @@ async def upload_dataset(
     category: Optional[str] = Form(
         None,
         description="Optional category tag (e.g. 'SDTM', 'ADaM', 'Custom Clinical')",
+    ),
+    duplicate_action: Optional[str] = Form(
+        None,
+        description="Duplicate primary key action: 'insert_new_only' or None (rejection)",
     ),
 ):
     """
@@ -243,6 +249,7 @@ async def upload_dataset(
             classification=classification or "CLINICAL",
             approval_status=approval_status or "APPROVED",
             category=category,
+            duplicate_action=duplicate_action,
         )
         loaded_table_name = load_result.get("table_name")
         rows_loaded = load_result.get("rows_loaded", 0)
@@ -264,6 +271,12 @@ async def upload_dataset(
             entity_type="TABLE",
             entity_name=loaded_table_name or filename,
         )
+    except DuplicatePrimaryKeyError as e:
+        logger.warning(f"Duplicate primary key conflict detected during upload | table='{target_table}': {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=e.to_dict(),
+        )
     except ValueError as e:
         logger.warning(f"Validation / schema mismatch error during upload: {e}")
         raise HTTPException(
@@ -276,6 +289,17 @@ async def upload_dataset(
         )
     except Exception as e:
         logger.exception(f"Failed to load dataset into MySQL | filename='{filename}' | error='{e}'")
+        err_str = str(e)
+        if "1062" in err_str or "Duplicate entry" in err_str:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "status": "error",
+                    "error_code": "DUPLICATE_KEY_DETECTED",
+                    "message": "Duplicate primary key entry detected in database.",
+                    "detail": "One or more records violate primary key uniqueness constraints.",
+                },
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -309,6 +333,7 @@ async def upload_dataset(
         rows_skipped=rows_skipped,
         rows_failed=rows_failed,
         columns=dataset_metadata.column_count,
+        duplicate_action_applied=duplicate_action if rows_skipped > 0 else None,
     )
 
 
@@ -544,6 +569,30 @@ async def preview_dataset(
                 clean_row[k] = v
         preview_records.append(clean_row)
 
+    # Check for primary-key duplicates if proposed table already exists in MySQL
+    has_duplicates = False
+    duplicate_count = 0
+    eligible_count = len(df)
+    primary_key_columns: List[str] = []
+    sample_duplicates: List[Dict[str, Any]] = []
+
+    if table_already_exists and proposed_table:
+        try:
+            dup_info = identify_duplicate_records(df, proposed_table, engine)
+            has_duplicates = dup_info.get("has_duplicates", False)
+            duplicate_count = dup_info.get("duplicate_count", 0)
+            eligible_count = dup_info.get("eligible_count", len(df))
+            primary_key_columns = dup_info.get("pk_columns", [])
+            sample_duplicates = dup_info.get("sample_duplicates", [])
+            if has_duplicates and not warning:
+                pk_desc = ", ".join(primary_key_columns) if primary_key_columns else "PRIMARY KEY"
+                warning = (
+                    f"{duplicate_count} of {len(df)} records already exist in table '{proposed_table}' "
+                    f"based on primary key ({pk_desc})."
+                )
+        except Exception as dup_err:
+            logger.warning(f"Error checking duplicates during preview for '{proposed_table}': {dup_err}")
+
     return PreviewResponse(
         status="success",
         detected_mode=detected_mode,
@@ -556,6 +605,11 @@ async def preview_dataset(
         total_columns=len(df.columns),
         columns=columns_preview,
         preview_rows=preview_records,
+        has_duplicates=has_duplicates,
+        duplicate_count=duplicate_count,
+        eligible_count=eligible_count,
+        primary_key_columns=primary_key_columns,
+        sample_duplicates=sample_duplicates,
     )
 
 
