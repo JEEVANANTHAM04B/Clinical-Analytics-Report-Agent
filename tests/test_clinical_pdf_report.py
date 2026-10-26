@@ -13,7 +13,7 @@ Verifies:
 6. Chart and visual evidence generation.
 7. Clinical insight integration and non-causal language safety.
 8. Backward compatibility for legacy EHR report requests.
-9. FastAPI analytics reporting endpoints (/report/pdf, /report/pdf/latest, /report/pdf/download, /report/approve).
+9. PDF endpoint behavior and retired history routes.
 """
 
 import io
@@ -23,9 +23,11 @@ sys.path.insert(0, os.path.abspath("."))
 
 import pytest
 from pypdf import PdfReader
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
+from sqlalchemy import create_engine, text
 
 from app.main import app
+from app.api.analytics import _top_adverse_events
 from app.reporting.pdf_generator import build_clinical_pdf_report, generate_chart_image, _is_clinical_context
 from app.schemas.reports import PDFReportRequest
 
@@ -56,7 +58,7 @@ def test_report_total_subjects_enrollment():
     )
     pdf = build_clinical_pdf_report(req)
     assert pdf.startswith(b"%PDF-")
-    assert len(pdf) > 5000
+    assert len(pdf) > 2000
 
     text = extract_pdf_text(pdf)
     assert "CLINICAL TRIAL ANALYTICS REPORT" in text
@@ -68,6 +70,22 @@ def test_report_total_subjects_enrollment():
     # Absence of EHR terms
     assert "length of stay" not in text.lower()
     assert "inpatient encounter" not in text.lower()
+    assert "SQL was not stored" not in text
+    assert "SELECT COUNT(DISTINCT USUBJID)" not in text
+    assert "End of report." not in text
+    assert req.sql_query == "SELECT COUNT(DISTINCT USUBJID) AS total_subjects FROM dm;"
+    assert "100%" not in text
+    assert "CERTIFIED BY" not in text
+
+
+def test_report_without_sql_does_not_invent_query_or_certification():
+    req = PDFReportRequest(question="How many subjects are enrolled?", selected_tables=["dm"],
+                           results=[{"total_subjects": 1053}])
+    text = extract_pdf_text(build_clinical_pdf_report(req))
+    assert "SQL was not stored with this report" not in text
+    assert "End of report." not in text
+    assert "source execution not established" in text.lower()
+    assert "CERTIFIED" not in text
 
 
 def test_report_adverse_event_count():
@@ -137,6 +155,177 @@ def test_report_ae_rate_by_treatment():
     assert "53.1%" in text or "53.1" in text
     assert "treatment arm" in text.lower() or "safety population" in text.lower()
     assert "length of stay" not in text.lower()
+
+
+def test_report_plan_formula_multiplication_does_not_break_pdf_markup():
+    """Inline SQL-style formulas must not be interpreted as Markdown italics."""
+    plan = (
+        "#### 3. Derived Calculations\n"
+        "* **Adverse Event Incidence Rate (%)**:\n"
+        "  `COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100`"
+    )
+    req = PDFReportRequest(
+        question="Compare adverse event rates between treatment groups",
+        analysis_plan=plan,
+        selected_tables=["adsl", "adae"],
+        results=[
+            {"treatment_arm": "Drug X", "subjects": 20, "adverse_event_rate_pct": 25.0},
+            {"treatment_arm": "Placebo", "subjects": 20, "adverse_event_rate_pct": 15.0},
+        ],
+        insight="The submitted rates were 25.0% and 15.0%.",
+    )
+
+    pdf = build_clinical_pdf_report(req)
+    text = extract_pdf_text(pdf)
+    assert "Population and Analysis Rules" in text
+    assert "Participant percentage" in text
+    assert "COUNT(DISTINCT adae.USUBJID)" not in text.split("4. Submitted Results")[0]
+
+
+def test_report_cover_study_facts_plain_language_rules_and_second_chart():
+    req = PDFReportRequest(
+        question="What is the adverse event rate by treatment arm?",
+        dataset_name="Clinical Trial CDISC Dataset",
+        selected_tables=["study", "adsl", "adae"],
+        analysis_plan=("Join adsl.USUBJID = adae.USUBJID without STUDYID. "
+                       "Group by adsl.TRT01A; use COUNT(DISTINCT adae.USUBJID) / "
+                       "COUNT(DISTINCT adsl.USUBJID) * 100. "
+                       "SAFFL = 'Y' if applicable; TRTEMFL = 'Y' if applicable."),
+        results=[
+            {"treatment_arm": "Drug X", "total_subjects": 5011, "ae_subjects": 5011,
+             "adverse_event_rate_pct": 100.0},
+            {"treatment_arm": "Placebo", "total_subjects": 4989, "ae_subjects": 4989,
+             "adverse_event_rate_pct": 100.0},
+        ],
+        insight="Both groups had a reported adverse event rate of 100%.",
+        analysis_metadata={"result_validation": {"valid": True}, "study": {
+            "studyid": "STDY001", "phase": "Phase 3",
+            "study_title": "Phase 3 Study of Drug X", "indication": "Rheumatoid Arthritis",
+            "start_date": "2025-01-15", "end_date": "2026-06-30",
+        }},
+    )
+    pages = PdfReader(io.BytesIO(build_clinical_pdf_report(req))).pages
+    cover = pages[0].extract_text()
+    text = "\n".join(page.extract_text() for page in pages)
+    assert "Study ID: STDY001" in cover
+    assert "Phase: Phase 3" in cover
+    assert "Study dates: 2025-01-15 to 2026-06-30" in cover
+    assert "Figure 2. Participant counts by treatment group" in text
+    assert "Verified Results" in text
+    assert "Clinical Insights and Follow-up" in text
+    assert "optional restriction" in text
+    assert "COUNT(DISTINCT" not in text
+    assert "End of report." not in text
+
+
+def test_pdf_adds_top_adae_events_as_separate_dataset_context():
+    req = PDFReportRequest(
+        question="What is the adverse event rate by treatment arm?",
+        dataset_name="Clinical Trial CDISC Dataset",
+        selected_tables=["adsl", "adae"],
+        results=[
+            {"treatment_arm": "Drug X", "adverse_event_rate_pct": 62.0},
+            {"treatment_arm": "Placebo", "adverse_event_rate_pct": 48.0},
+        ],
+        analysis_metadata={"result_validation": {"valid": True}, "top_adverse_events": [
+            {"term": "Headache", "subject_count": 2571},
+            {"term": "Nausea", "subject_count": 1984},
+        ]},
+    )
+    pdf = build_clinical_pdf_report(req)
+    text_content = extract_pdf_text(pdf)
+    assert "Top Adverse Events by Frequency" in text_content
+    assert "Supplemental ADAE dataset view" in text_content
+    assert "Distinct participants with each adverse-event term" in text_content
+    assert "Headache" in text_content and "2,571" in text_content
+    assert "Nausea" in text_content and "1,984" in text_content
+    assert "counts must not be added together" in text_content
+    assert any(
+        "Top Adverse Events by Frequency" in (page.extract_text() or "")
+        and "Figure 3. Distinct participants" in (page.extract_text() or "")
+        for page in PdfReader(io.BytesIO(pdf)).pages
+    )
+    assert any(
+        "5. Clinical Insights and Follow-up" in (page.extract_text() or "")
+        and "What cannot be concluded" in (page.extract_text() or "")
+        for page in PdfReader(io.BytesIO(pdf)).pages
+    )
+
+
+def test_long_pdf_keeps_result_rows_and_insights_without_sql_appendix():
+    req = PDFReportRequest(
+        question="How do clinical outcomes vary across categories?",
+        selected_tables=["adsl"],
+        results=[{"category": f"Category {index:03d}", "subject_count": index * 10,
+                  "rate_pct": index / 2} for index in range(1, 81)],
+        insight="\n".join(f"Finding {index}: Review this descriptive outcome with the study plan."
+                          for index in range(1, 16)),
+        follow_up_answers=[{"question": f"Follow-up {index}?", "answer": "Clinical review is required."}
+                           for index in range(1, 11)],
+        sql_query="SELECT INTERNAL_QUERY_SENTINEL FROM adsl;",
+    )
+    pages = PdfReader(io.BytesIO(build_clinical_pdf_report(req))).pages
+    text = "\n".join(page.extract_text() or "" for page in pages)
+
+    assert len(pages) > 3
+    assert "Category 001" in text and "Category 080" in text
+    assert "Finding 1:" in text and "Finding 15:" in text
+    assert "Follow-up 1?" in text and "Follow-up 10?" in text
+    assert "INTERNAL_QUERY_SENTINEL" not in text
+    assert "End of report." not in text
+
+
+def test_pdf_does_not_infer_top_events_from_other_results():
+    req = PDFReportRequest(
+        question="What is the mean age in each treatment group?",
+        selected_tables=["adsl", "dm"],
+        results=[{"treatment_arm": "Drug X", "mean_age": 54.2}],
+    )
+    assert "Top Adverse Events by Frequency" not in extract_pdf_text(build_clinical_pdf_report(req))
+
+
+def test_top_adverse_events_match_dashboard_distinct_subject_definition():
+    test_engine = create_engine("sqlite+pysqlite:///:memory:")
+    with test_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE adae (AEDECOD TEXT, USUBJID TEXT, TRTEMFL TEXT, SAFFL TEXT)"))
+        connection.execute(text("INSERT INTO adae VALUES (:term, :subject, :emergent, :safety)"), [
+            {"term": "Headache", "subject": "01", "emergent": "Y", "safety": "Y"},
+            {"term": "Headache", "subject": "01", "emergent": "Y", "safety": "Y"},
+            {"term": "Headache", "subject": "02", "emergent": None, "safety": "Y"},
+            {"term": "Nausea", "subject": "01", "emergent": "Y", "safety": None},
+            {"term": "Headache", "subject": "03", "emergent": "N", "safety": "Y"},
+        ])
+        items = _top_adverse_events(connection)
+    assert items == [
+        {"term": "Headache", "subject_count": 2},
+        {"term": "Nausea", "subject_count": 1},
+    ]
+
+
+def test_safety_template_has_three_sections_pages_without_sample_study_facts():
+    req = PDFReportRequest(
+        question="Compare serious adverse events between Drug A and Placebo",
+        dataset_name="Current clinical dataset",
+        selected_tables=["adsl", "adae"],
+        results=[
+            {"treatment_arm": "Drug A", "safety_population": 40, "serious_ae_rate_pct": 2.5},
+            {"treatment_arm": "Placebo", "safety_population": 42, "serious_ae_rate_pct": 0.0},
+        ],
+        insight="Observed serious adverse event rates were 2.5% and 0.0%, respectively.",
+        analysis_plan="Compare the supplied treatment groups using the selected datasets.",
+    )
+
+    pdf = build_clinical_pdf_report(req)
+    pages = PdfReader(io.BytesIO(pdf)).pages
+    text = extract_pdf_text(pdf)
+    assert len(pages) >= 3
+    for heading in ("1. Executive Summary", "2. Results Visualization",
+                    "3. Population and Analysis Rules", "4. Submitted Results",
+                    "5. Clinical Insights and Follow-up", "6. Data Quality, Limitations, and Traceability",
+                    "7. Agent Execution Record"):
+        assert heading in text
+    assert "Drug A" in text and "2.5%" in text and "0.0%" in text
+    assert "STDY001" not in text
 
 
 def test_report_lab_change_from_baseline():
@@ -361,45 +550,30 @@ def test_legacy_ehr_report_backward_compatibility():
 # 4. FASTAPI ENDPOINT INTEGRATION TESTS
 # =============================================================================
 
-@pytest.fixture
-def client():
-    return TestClient(app)
+def test_api_generate_pdf_endpoint():
+    """Report generation is open, but still requires validated result rows."""
+    from app.api.analytics import generate_pdf_report
+    with pytest.raises(HTTPException) as error:
+        generate_pdf_report(PDFReportRequest(question="How many subjects are enrolled?"))
+    assert error.value.status_code == 422
 
 
-def test_api_generate_pdf_endpoint(client):
-    """Test POST /analytics/report/pdf endpoint with clinical trial payload."""
-    payload = {
-        "question": "How many subjects are enrolled?",
-        "selected_tables": ["dm"],
-        "results": [{"total_subjects": 1053}],
-        "sql_query": "SELECT COUNT(DISTINCT USUBJID) AS total_subjects FROM dm;",
-        "insight": "Verified total enrollment of 1,053 subjects in the clinical trial.",
-        "dataset_name": "CDISC Clinical Trial Dataset",
-    }
-    response = client.post("/analytics/report/pdf", json=payload)
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "application/pdf"
-    assert response.content.startswith(b"%PDF-")
+def test_api_download_latest_pdf():
+    """The unsafe process-global latest PDF endpoint is retired."""
+    from app.api.analytics import download_latest_pdf_report
+    with pytest.raises(HTTPException) as error:
+        download_latest_pdf_report()
+    assert error.value.status_code == 410
 
 
-def test_api_download_latest_pdf(client):
-    """Test GET /analytics/report/pdf/latest endpoint."""
-    response = client.get("/analytics/report/pdf/latest")
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "application/pdf"
-    assert response.content.startswith(b"%PDF-")
+def test_api_download_pdf_get():
+    """Downloads cannot generate a new report."""
+    from app.api.analytics import download_pdf_report_get
+    with pytest.raises(HTTPException) as error:
+        download_pdf_report_get()
+    assert error.value.status_code == 410
 
 
-def test_api_download_pdf_get(client):
-    """Test GET /analytics/report/pdf/download endpoint."""
-    response = client.get("/analytics/report/pdf/download?question=How+many+subjects+are+enrolled%3F")
-    assert response.status_code == 200
-    assert response.headers["Content-Type"] == "application/pdf"
-    assert response.content.startswith(b"%PDF-")
-
-
-def test_api_approve_pdf_report(client):
-    """Test POST /analytics/report/approve certification endpoint."""
-    response = client.post("/analytics/report/approve")
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
+def test_api_approve_pdf_report():
+    """Persistent report review acknowledgement is not an active API feature."""
+    assert "/analytics/report/approve" not in app.openapi()["paths"]

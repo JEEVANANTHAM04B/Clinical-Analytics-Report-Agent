@@ -3,7 +3,7 @@ tests/evaluation/metrics/evidence_quality.py
 ============================================
 Evidence quality and factual grounding evaluation metric.
 Verifies that generated clinical insights and narrative answers cite actual numbers
-from verified query results and retrieved RAG context without fabrication.
+from verified query results and deterministic evidence without fabrication.
 """
 
 from typing import Dict, Any, List, Optional
@@ -21,12 +21,11 @@ class EvidenceQualityMetric:
         insight_text: str,
         query_results: List[Dict[str, Any]],
         deterministic_evidence: Optional[Dict[str, Any]] = None,
-        rag_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Inspects all numerical claims in the insight text and validates that each
         number can be traced back to the query results, calculated percentages,
-        row count, or retrieved evidence context.
+        or deterministic evidence.
         """
         if not insight_text or not insight_text.strip():
             return {
@@ -106,9 +105,6 @@ class EvidenceQualityMetric:
                 and rounded_0 not in ground_truth_numbers
                 and int(num) not in ground_truth_numbers
             ):
-                # Also allow if it appears directly in RAG context
-                if rag_context and str(int(num)) in rag_context:
-                    continue
                 unsupported.append(num)
 
         # Allow small percentage of rounding differences

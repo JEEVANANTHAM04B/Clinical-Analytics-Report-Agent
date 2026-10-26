@@ -4,11 +4,12 @@ app/api/analytics.py
 Clinical Analytics API
 """
 
-import io
-from datetime import datetime
 from fastapi import APIRouter, HTTPException, Response
-from fastapi.responses import StreamingResponse
+from datetime import datetime
+from uuid import uuid4
+
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.database import engine
 from app.schemas.analytics import (
@@ -22,7 +23,7 @@ from app.schemas.analytics import (
 )
 from app.schemas.reports import PDFReportRequest
 from app.reporting.pdf_generator import build_clinical_pdf_report
-from app.workflow.graph import build_graph
+from app.reporting.validation import validate_pdf
 from app.analytics.dashboard_service import generate_custom_dashboard
 from app.analytics.followup_service import process_followup_question
 
@@ -31,6 +32,20 @@ router = APIRouter(
     prefix="/analytics",
     tags=["Clinical Analytics"],
 )
+
+
+def _top_adverse_events(connection):
+    """Use the dashboard's distinct-subject definition for ADAE event terms."""
+    rows = connection.execute(text("""
+        SELECT AEDECOD, COUNT(DISTINCT USUBJID) AS cnt
+        FROM adae
+        WHERE (TRTEMFL = 'Y' OR TRTEMFL IS NULL) AND (SAFFL = 'Y' OR SAFFL IS NULL)
+        GROUP BY AEDECOD
+        ORDER BY cnt DESC
+        LIMIT 5
+    """)).fetchall()
+    return [{"term": str(row[0]) if row[0] else "Unknown", "subject_count": int(row[1])}
+            for row in rows]
 
 
 @router.post(
@@ -93,14 +108,8 @@ def get_analytics_overview():
 
                 # 6. Top adverse events by distinct subject count (prefer analysis-ready ADAE)
                 if "adae" in table_names:
-                    ae_rows = conn.execute(text("""
-                        SELECT AEDECOD, COUNT(DISTINCT USUBJID) as cnt
-                        FROM adae
-                        WHERE (TRTEMFL = 'Y' OR TRTEMFL IS NULL) AND (SAFFL = 'Y' OR SAFFL IS NULL)
-                        GROUP BY AEDECOD
-                        ORDER BY cnt DESC
-                        LIMIT 5
-                    """)).fetchall()
+                    top_ae = _top_adverse_events(conn)
+                    ae_rows = [(item["term"], item["subject_count"]) for item in top_ae]
                 else:
                     ae_rows = conn.execute(text("""
                         SELECT AEDECOD, COUNT(DISTINCT USUBJID) as cnt
@@ -246,14 +255,13 @@ def run_analytics(request: AnalyticsRequest):
         if not request.resume_from and request.approval_status != "approved":
             record_audit_event(
                 action="ANALYSIS_STARTED",
-                details=f"Clinical analysis initiated for question: '{request.question[:150]}'",
+                details="Clinical analysis initiated.",
                 user_agent="Clinical Analyst",
                 status="SUCCESS",
                 entity_type="QUESTION",
-                entity_name=request.question[:100],
+                entity_name="clinical_analysis",
             )
 
-        graph = build_graph()
 
         initial_state = {
             "user_question": request.question,
@@ -272,7 +280,8 @@ def run_analytics(request: AnalyticsRequest):
             initial_state["resume_from"] = request.resume_from
         initial_state["regenerate_sql"] = request.regenerate_sql
 
-        result = graph.invoke(initial_state)
+        from app.workflow.recovery import execute
+        result = execute(request, engine, initial_state)
 
         # Handle blocked response from table boundary validation
         if result.get("validation_status") == "blocked":
@@ -294,7 +303,6 @@ def run_analytics(request: AnalyticsRequest):
                 insight=None,
                 chart_spec=None,
                 visualization_error=None,
-                rag_context=None,
                 result_validation=None,
                 insight_evidence=None,
                 error=result.get("error"),
@@ -302,16 +310,28 @@ def run_analytics(request: AnalyticsRequest):
                 exception_type=result.get("exception_type", "TableSelectionBoundaryError"),
             )
 
+        extra = {k: result.get(k) for k in ("analysis_id", "state_version", "stage_status", "eda_findings")}
+        extra["validation_attempts"] = result.get("validation_attempts", [])
+        if result.get("cancelled"):
+            return AnalyticsResponse(status="cancelled", question=request.question, **extra)
         if result.get("error"):
             failed_node = result.get("failed_node") or ("execute_sql" if "Query execution" in result["error"] else "validate_sql" if "SQL validation" in result["error"] else "pipeline")
             exception_type = result.get("exception_type") or "WorkflowExecutionError"
+            error_msg = (
+                result.get("validation_feedback")
+                or result.get("insight_validation", {}).get("message")
+                or result.get("stage_status", {}).get("message")
+                or result.get("error")
+                or "The analysis could not pass validation. Review the failed stage."
+            )
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "message": result["error"],
+                    **extra,
+                    "message": error_msg,
                     "failed_node": failed_node,
                     "exception_type": exception_type,
-                    "sql_query": result.get("sql_query") or request.sql_query,
+
                     "analysis_plan": result.get("analysis_plan") or request.current_plan,
                 },
             )
@@ -323,9 +343,11 @@ def run_analytics(request: AnalyticsRequest):
         if not validated_rows and result.get("query_result"):
             validated_rows = result.get("query_result", [])
 
-        status_val = "success" if not result.get("visualization_error") else "partial_success"
+        status_val = ("awaiting_approval" if result.get("approval_status") == "pending"
+                      else "partial_success" if result.get("visualization_error") else "success")
 
         return AnalyticsResponse(
+            **extra,
             status=status_val,
             question=request.question,
             analysis_plan=result.get("analysis_plan"),
@@ -337,7 +359,6 @@ def run_analytics(request: AnalyticsRequest):
             insight=result.get("insight"),
             chart_spec=result.get("chart_spec"),
             visualization_error=result.get("visualization_error"),
-            rag_context=result.get("rag_context"),
             result_validation=result.get("result_validation"),
             insight_evidence=result.get("insight_evidence"),
             error=None,
@@ -349,7 +370,7 @@ def run_analytics(request: AnalyticsRequest):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=str(exc),
+            detail="The analytics service could not complete this request. Check the configured database and services.",
         )
 
 
@@ -365,31 +386,93 @@ def answer_followup(request: FollowUpRequest):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Follow-up analysis error: {str(exc)}",
+            detail="Follow-up validation or execution failed. Review the current result context and retry if the service was unavailable.",
         )
-
-
-_latest_pdf_cache: bytes | None = None
 
 
 @router.post(
     "/report/pdf",
-    summary="Generate certified publication-grade A4 PDF report",
-    description="Generates an official, paginated A4 clinical analytics audit report using ReportLab with verified data.",
+    summary="Generate an evidence-scoped A4 PDF report",
+    description="Generates a clinical analytics PDF for human review. The PDF is saved only after acknowledgement.",
 )
 def generate_pdf_report(request: PDFReportRequest):
-    global _latest_pdf_cache
     from app.audit.service import record_audit_event
     try:
-        pdf_bytes = build_clinical_pdf_report(request)
-        _latest_pdf_cache = pdf_bytes
-        filename = "Clinical_Analytics_Report.pdf"
+        from app.analytics.result_validator import validate_results
+        if request.analysis_run_id:
+            from app.workflow.store import Store
+            try:
+                store = Store(engine=engine)
+                store.get(request.analysis_run_id)
+                saved = store.latest_artifact(request.analysis_run_id, "main_state")
+            except KeyError:
+                raise HTTPException(404, "Analysis not found.")
+            if (saved.get("error") or not saved.get("result_validation", {}).get("valid")
+                    or not saved.get("chart_validation", {}).get("valid")):
+                raise HTTPException(409, "The saved analysis has not completed validation.")
+            # Use validated saved results instead of client-provided replacements.
+            request.question = saved["user_question"]
+            request.analysis_plan = saved.get("analysis_plan")
+            request.results = saved["result_validation"]["rows"]
+            request.sql_query = saved.get("sql_query")
+            request.insight = saved.get("insight")
+            request.selected_tables = saved.get("selected_tables") or []
+        result_check = validate_results(request.results or [])
+        if not result_check["valid"]:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "A PDF report requires validated result rows. Complete the analysis before generating the report.",
+                    "code": result_check["code"],
+                },
+            )
+        request.analysis_metadata = {"result_validation": {"valid": result_check["valid"], "code": result_check["code"],
+                                     "row_count": result_check.get("row_count", 0)}, "validation_version": "result-quality-v1",
+            "provenance": (f"Saved analysis {request.analysis_run_id}; verified stages: SQL, result, insight and chart."
+                           if request.analysis_run_id else "Submitted report rows; source execution provenance requires a saved analysis.")}
+        # Include protocol facts only when this report explicitly uses the active study
+        # dataset and that dataset contains a single, unambiguous study record.
+        if (request.dataset_name == "Clinical Trial CDISC Dataset"
+                and "study" in {table.lower() for table in request.selected_tables or []}):
+            try:
+                with engine.connect() as connection:
+                    studies = connection.execute(text(
+                        "SELECT STUDYID, STUDY_TITLE, PHASE, INDICATION, STUDY_STATUS, "
+                        "START_DATE, END_DATE FROM study LIMIT 2"
+                    )).mappings().all()
+                if len(studies) == 1:
+                    request.analysis_metadata["study"] = {
+                        key.lower(): value.isoformat() if hasattr(value, "isoformat") else value
+                        for key, value in studies[0].items()
+                    }
+            except SQLAlchemyError:
+                # Report generation remains available if optional study metadata is absent.
+                pass
+        if (request.dataset_name == "Clinical Trial CDISC Dataset"
+                and "adae" in {table.lower() for table in request.selected_tables or []}):
+            try:
+                with engine.connect() as connection:
+                    request.analysis_metadata["top_adverse_events"] = _top_adverse_events(connection)
+            except SQLAlchemyError:
+                request.analysis_metadata["top_adverse_events_unavailable"] = True
+        from app.workflow.reliability import retry_limit
+        for attempt in range(retry_limit() + 1):
+            try:
+                pdf_bytes = build_clinical_pdf_report(request)
+                validate_pdf(pdf_bytes)
+                break
+            except OSError:
+                if attempt >= retry_limit():
+                    raise
+                record_audit_event(action="REPORT_RENDER_RETRY", details=f"Attempt {attempt + 1}",
+                                   status="RETRYING", entity_type="REPORT", entity_name="clinical_pdf")
+        report_id = str(uuid4())
+        filename = f"clinical-report-{report_id}.pdf"
+        study_id = str(request.analysis_metadata.get("study", {}).get("studyid", ""))
 
-        # Record real audit event
         record_audit_event(
             action="REPORT_GENERATED",
-            details=f"Compiled 5-page publication-grade A4 clinical audit report via ReportLab for: '{request.question[:100]}'",
-            user_agent="ReportLab Engine",
+            details="Generated A4 PDF report.",
             status="SUCCESS",
             entity_type="REPORT",
             entity_name=filename,
@@ -401,124 +484,50 @@ def generate_pdf_report(request: PDFReportRequest):
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Content-Type": "application/pdf",
-                "Access-Control-Expose-Headers": "Content-Disposition",
+                "X-Report-ID": report_id,
+                "X-Report-Generated-At": datetime.utcnow().isoformat() + "Z",
+                "X-Report-Study-ID": study_id,
+                "Access-Control-Expose-Headers": "Content-Disposition, X-Report-ID, X-Report-Generated-At, X-Report-Study-ID",
                 "Cache-Control": "no-cache",
             },
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"PDF report generation error: {str(exc)}",
+            detail={"message": "The report could not be generated. No PDF is available.", "failed_node": "report"},
         )
 
 
-@router.post(
-    "/report/approve",
-    summary="Record certification of official clinical PDF report",
-    description="Records human reviewer certification of the 5-page publication report in the MySQL audit trail.",
-)
-def approve_pdf_report():
-    from app.audit.service import record_audit_event
-    record_audit_event(
-        action="REPORT_APPROVED",
-        details="Official 5-page clinical analytics audit report certified for publication by Clinical Analyst.",
-        user_agent="Clinical Analyst",
-        status="SUCCESS",
-        entity_type="REPORT",
-        entity_name="Clinical_Analytics_Report.pdf",
-    )
-    return {"status": "success", "message": "Report certification recorded in audit trail."}
-
-
-@router.get(
-    "/report/pdf/Clinical_Analytics_Report.pdf",
-    summary="Direct file download for Clinical_Analytics_Report.pdf",
-    description="Direct browser attachment download of the latest generated clinical analytics report with exact filename in URL path.",
-)
-@router.get(
-    "/report/pdf/latest",
-    summary="Download latest generated Certified Clinical PDF Report",
-    description="Direct native browser attachment download of the latest generated clinical analytics report.",
-)
+@router.get("/report/pdf/latest", summary="Deprecated latest-report download")
+@router.get("/report/pdf/Clinical_Analytics_Report.pdf", include_in_schema=False)
 def download_latest_pdf_report():
-    global _latest_pdf_cache
-    from app.audit.service import record_audit_event
-    if not _latest_pdf_cache:
-        req = PDFReportRequest(
-            question="Clinical Trial Analytics Overview",
-            selected_tables=["study", "sites", "dm", "ae", "adsl"],
-            approved_by="Clinical Analyst",
-            dataset_name="CDISC Clinical Trial Dataset",
-        )
-        _latest_pdf_cache = build_clinical_pdf_report(req)
-
-    filename = "Clinical_Analytics_Report.pdf"
-
-    # Record real audit event
-    record_audit_event(
-        action="REPORT_DOWNLOADED",
-        details="Official certified PDF report binary stream downloaded by Clinical Analyst.",
-        user_agent="Clinical Analyst",
-        status="SUCCESS",
-        entity_type="REPORT",
-        entity_name=filename,
-    )
-
-    return Response(
-        content=_latest_pdf_cache,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Type": "application/pdf",
-            "Access-Control-Expose-Headers": "Content-Disposition",
-            "Cache-Control": "no-cache",
-        },
+    raise HTTPException(
+        status_code=410,
+        detail="The latest-report shortcut is unavailable. Select an acknowledged PDF from /reports instead.",
     )
 
 
-@router.get(
-    "/report/pdf/download",
-    summary="Direct native download of Certified Clinical PDF Report",
-    description="Allows direct browser GET download of the official certified clinical audit report.",
-)
+@router.get("/report/pdf/download", summary="Deprecated generate-on-download route")
 def download_pdf_report_get(
-    question: str = "Clinical Trial Analytics Inquiry",
+    question: str = "Clinical Analytics Inquiry",
     tables: str | None = None,
 ):
-    from app.audit.service import record_audit_event
+    raise HTTPException(
+        status_code=410,
+        detail="Generate and download the PDF in the current session.",
+    )
+
+
+@router.get("/runs/{analysis_id}", summary="Read a saved prototype analysis without rerunning it")
+def saved_analysis(analysis_id: str):
+    from app.workflow.store import Store
+    store = Store(engine=engine)
     try:
-        table_list = [t.strip() for t in tables.split(",")] if tables else ["study", "sites", "dm", "ae", "adsl"]
-        req = PDFReportRequest(
-            question=question,
-            selected_tables=table_list,
-            approved_by="Clinical Analyst",
-            dataset_name="CDISC Clinical Trial Dataset",
-        )
-        pdf_bytes = build_clinical_pdf_report(req)
-        filename = "Clinical_Analytics_Report.pdf"
-
-        # Record real audit event
-        record_audit_event(
-            action="REPORT_DOWNLOADED",
-            details="Official certified PDF report binary stream downloaded by Clinical Analyst.",
-            user_agent="Clinical Analyst",
-            status="SUCCESS",
-            entity_type="REPORT",
-            entity_name=filename,
-        )
-
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Type": "application/pdf",
-                "Access-Control-Expose-Headers": "Content-Disposition",
-                "Cache-Control": "no-cache",
-            },
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"PDF report download error: {str(exc)}",
-        )
+        store.get(analysis_id)
+        state = store.latest_artifact(analysis_id, "main_state")
+    except KeyError:
+        raise HTTPException(404, "Analysis not found")
+    return {k: state.get(k) for k in ("analysis_id", "state_version", "user_question", "selected_tables",
+        "analysis_plan", "approval_status", "stage_status", "eda_findings", "result_validation", "insight", "cancelled")}

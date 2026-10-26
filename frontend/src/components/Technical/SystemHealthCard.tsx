@@ -21,12 +21,6 @@ export const SystemHealthCard: React.FC = () => {
       status: 'Active',
       color: 'text-blue-600',
     },
-    {
-      name: 'RAG Retriever & Vector Store',
-      latency: '35ms',
-      status: 'Synced',
-      color: 'text-emerald-600',
-    },
   ];
 
   return (

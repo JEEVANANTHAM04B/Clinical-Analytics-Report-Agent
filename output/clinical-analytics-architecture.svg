@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1490" viewBox="0 0 2400 1490">
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#546b7b" stroke-width="2"/></marker>
+<marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#087d67" stroke-width="2"/></marker>
+<marker id="arrowAmber" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#bd7718" stroke-width="2"/></marker>
+<filter id="shadow" x="-10%" y="-20%" width="120%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#d6dee6" flood-opacity=".55"/></filter></defs>
+<rect width="2400" height="1490" fill="#fbfcfe"/>
+<text x="75" y="38" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" text-anchor="start">CLINICAL ANALYTICS PLATFORM</text>
+<text x="2320" y="38" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="end">CURRENT APPLICATION ARCHITECTURE</text>
+<rect x="60" y="84" width="2280" height="220" rx="25" fill="white" stroke="#7c8a96" stroke-width="3" stroke-dasharray="12 9"/>
+<rect x="78" y="64" width="57" height="44" rx="11" fill="#7c8a96" stroke="#7c8a96" stroke-width="0"/>
+<rect x="140" y="64" width="360" height="46" rx="0" fill="white" stroke="white" stroke-width="0"/>
+<text x="106" y="93" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">C</text>
+<text x="151" y="98" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" text-anchor="start">Client and API layer</text>
+<rect x="160" y="148" width="390" height="110" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="198" cy="181" r="21" fill="#087d67"/>
+<text x="198" y="188" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">U</text>
+<text x="355.0" y="220" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Clinical user</text>
+<text x="355.0" y="251" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Analyst or technical operator</text>
+<rect x="740" y="148" width="430" height="110" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="778" cy="181" r="21" fill="#087d67"/>
+<text x="778" y="188" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">UI</text>
+<text x="955.0" y="220" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">React + TypeScript</text>
+<text x="955.0" y="251" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Clinical and Technical views</text>
+<rect x="1360" y="148" width="430" height="110" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1398" cy="181" r="21" fill="#8b969e"/>
+<text x="1398" y="188" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">API</text>
+<text x="1575.0" y="220" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">FastAPI backend</text>
+<text x="1575.0" y="251" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">REST APIs and request handling</text>
+<rect x="1950" y="148" width="300" height="110" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1988" cy="181" r="21" fill="#8b969e"/>
+<text x="1988" y="188" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">A</text>
+<text x="2100.0" y="220" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Audit</text>
+<text x="2100.0" y="251" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Operational event trail</text>
+<line x1="550" y1="203" x2="740" y2="203" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1170" y1="203" x2="1360" y2="203" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1790" y1="203" x2="1950" y2="203" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<rect x="60" y="345" width="2280" height="715" rx="25" fill="white" stroke="#6257cf" stroke-width="3"/>
+<rect x="78" y="325" width="57" height="44" rx="11" fill="#6257cf" stroke="#6257cf" stroke-width="0"/>
+<rect x="140" y="325" width="720" height="46" rx="0" fill="white" stroke="white" stroke-width="0"/>
+<text x="106" y="354" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">D</text>
+<text x="151" y="359" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" text-anchor="start">Dataset and LangGraph analytics pipeline</text>
+<text x="105" y="408" fill="#6257cf" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start">DATA ONBOARDING</text>
+<rect x="105" y="430" width="350" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="143" cy="463" r="21" fill="#8b969e"/>
+<text x="143" y="470" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">IN</text>
+<text x="280.0" y="502" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">CSV / XLSX upload</text>
+<text x="280.0" y="533" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Validate file and columns</text>
+<text x="280.0" y="556" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">check duplicates</text>
+<rect x="560" y="430" width="400" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="598" cy="463" r="21" fill="#8b969e"/>
+<text x="598" y="470" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">DQ</text>
+<text x="760.0" y="502" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Ingestion-time EDA</text>
+<text x="760.0" y="533" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Profile data quality</text>
+<text x="760.0" y="556" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">infer schema and relationships</text>
+<rect x="1065" y="430" width="400" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1103" cy="463" r="21" fill="#8b969e"/>
+<text x="1103" y="470" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">DB</text>
+<text x="1265.0" y="502" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">MySQL clinical store</text>
+<text x="1265.0" y="533" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">SDTM / ADaM tables</text>
+<text x="1265.0" y="556" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">registry and versions</text>
+<rect x="1570" y="430" width="340" height="150" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1608" cy="463" r="21" fill="#087d67"/>
+<text x="1608" y="470" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">C</text>
+<text x="1740.0" y="502" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Redis (optional)</text>
+<text x="1740.0" y="533" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Validated row cache</text>
+<text x="1740.0" y="556" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">TTL; bypass on failure</text>
+<rect x="1990" y="430" width="290" height="150" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="2028" cy="463" r="21" fill="#6257cf"/>
+<text x="2028" y="470" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">AI</text>
+<text x="2135.0" y="502" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Gemini</text>
+<text x="2135.0" y="533" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Assists plan, SQL, insight</text>
+<text x="2135.0" y="556" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">fallbacks in workflow</text>
+<line x1="455" y1="489" x2="560" y2="489" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="960" y1="489" x2="1065" y2="489" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<path d="M1575 260 L1575 320 L35 320 L35 715" stroke="#546b7b" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="35" y1="489" x2="105" y2="489" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="35" y1="715" x2="100" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<text x="105" y="615" fill="#6257cf" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" text-anchor="start">APPROVED ANALYSIS FLOW</text>
+<rect x="100" y="640" width="280" height="150" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="138" cy="673" r="21" fill="#6257cf"/>
+<text x="138" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">1</text>
+<text x="240.0" y="712" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Question + scope</text>
+<text x="240.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Select approved tables</text>
+<text x="240.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">and ask clinical question</text>
+<rect x="420" y="640" width="280" height="150" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="458" cy="673" r="21" fill="#6257cf"/>
+<text x="458" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">2</text>
+<text x="560.0" y="712" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Analysis Plan Agent</text>
+<text x="560.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Clinical mapping + schema</text>
+<text x="560.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">LLM or deterministic plan</text>
+<rect x="740" y="640" width="280" height="150" rx="16" fill="#fff2dd" stroke="#ae690f" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="778" cy="673" r="21" fill="#ae690f"/>
+<text x="778" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">3</text>
+<text x="880.0" y="712" fill="#845007" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Plan approval</text>
+<text x="880.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Human review</text>
+<text x="880.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">approve or request revision</text>
+<rect x="1060" y="640" width="280" height="150" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1098" cy="673" r="21" fill="#6257cf"/>
+<text x="1098" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">4</text>
+<text x="1200.0" y="712" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">SQL Generation Agent</text>
+<text x="1200.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">LLM or deterministic</text>
+<text x="1200.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">read-only query</text>
+<rect x="1380" y="640" width="280" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1418" cy="673" r="21" fill="#8b969e"/>
+<text x="1418" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">5</text>
+<text x="1520.0" y="712" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Validate SQL</text>
+<text x="1520.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">AST, schema, table scope</text>
+<text x="1520.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">and safety rules</text>
+<rect x="1700" y="640" width="280" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1738" cy="673" r="21" fill="#8b969e"/>
+<text x="1738" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">6</text>
+<text x="1840.0" y="712" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Execute query</text>
+<text x="1840.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Bounded read-only</text>
+<text x="1840.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">MySQL execution</text>
+<rect x="2020" y="640" width="280" height="150" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="2058" cy="673" r="21" fill="#8b969e"/>
+<text x="2058" y="680" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">7</text>
+<text x="2160.0" y="712" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Validate results</text>
+<text x="2160.0" y="743" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Shape, types, values</text>
+<text x="2160.0" y="766" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">correction if needed</text>
+<line x1="380" y1="715" x2="420" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="700" y1="715" x2="740" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1020" y1="715" x2="1060" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1340" y1="715" x2="1380" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1660" y1="715" x2="1700" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1980" y1="715" x2="2020" y2="715" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<path d="M880 790 L880 829 L560 829 L560 790" stroke="#bd7718" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#arrowAmber)"/>
+<text x="718" y="855" fill="#ae690f" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Feedback regenerates plan</text>
+<path d="M2160 790 L2160 873 L1200 873 L1200 790" stroke="#bd7718" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#arrowAmber)"/>
+<text x="1670" y="897" fill="#ae690f" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Correctable result mismatch retries SQL</text>
+<path d="M1265 580 L1265 602 L1720 602 L1720 640" stroke="#546b7b" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1510" y="596" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Read-only data access</text>
+<path d="M1740 580 L1740 625 L1870 625 L1870 640" stroke="#087d67" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrowGreen)"/>
+<text x="1820" y="619" fill="#087d67" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Cache lookup</text>
+<path d="M2160 640 L2160 615 L1935 615 L1935 505 L1910 505" stroke="#087d67" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#arrowGreen)"/>
+<text x="2050" y="607" fill="#087d67" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Store validated rows</text>
+<rect x="105" y="920" width="870" height="45" rx="12" fill="#f7f8fb" stroke="#d7dfe6" stroke-width="1"/>
+<text x="540" y="949" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" text-anchor="middle">Saved workflow state • stage recovery • operational audit events</text>
+<rect x="1070" y="920" width="970" height="90" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2" filter="url(#shadow)"/>
+<circle cx="1110" cy="950" r="19" fill="#6257cf"/>
+<text x="1110" y="956" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">F</text>
+<text x="1555" y="954" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Follow-up questions</text>
+<text x="1555" y="985" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Reuse verified results; safe read-only SQL when needed; answer returns to React</text>
+<path d="M1780 258 L1780 325 L2360 325 L2360 965 L2040 965" stroke="#6257cf" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#arrow)"/>
+<text x="2280" y="906" fill="#6257cf" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="end">Follow-up API</text>
+<rect x="60" y="1100" width="2280" height="300" rx="25" fill="white" stroke="#087d67" stroke-width="3"/>
+<rect x="78" y="1080" width="57" height="44" rx="11" fill="#087d67" stroke="#087d67" stroke-width="0"/>
+<rect x="140" y="1080" width="648" height="46" rx="0" fill="white" stroke="white" stroke-width="0"/>
+<text x="106" y="1109" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">R</text>
+<text x="151" y="1114" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" text-anchor="start">Results, visualization and reporting</text>
+<rect x="2020" y="1180" width="280" height="152" rx="16" fill="#f0efff" stroke="#6257cf" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="2058" cy="1213" r="21" fill="#6257cf"/>
+<text x="2058" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">AI</text>
+<text x="2160.0" y="1252" fill="#3d3b9c" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">AI Insight Agent</text>
+<text x="2160.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Generated from validated</text>
+<text x="2160.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">result rows</text>
+<rect x="1700" y="1180" width="280" height="152" rx="16" fill="#f3f6f8" stroke="#8b969e" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1738" cy="1213" r="21" fill="#8b969e"/>
+<text x="1738" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">✓</text>
+<text x="1840.0" y="1252" fill="#163148" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Insight check</text>
+<text x="1840.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Evidence validation</text>
+<text x="1840.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">and bounded retry</text>
+<rect x="1380" y="1180" width="280" height="152" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1418" cy="1213" r="21" fill="#087d67"/>
+<text x="1418" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">CH</text>
+<text x="1520.0" y="1252" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Plotly charts</text>
+<text x="1520.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Validated chart spec</text>
+<text x="1520.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">rendered in the browser</text>
+<rect x="1060" y="1180" width="280" height="152" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="1098" cy="1213" r="21" fill="#087d67"/>
+<text x="1098" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">PDF</text>
+<text x="1200.0" y="1252" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Clinical PDF</text>
+<text x="1200.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Verified run, own charts</text>
+<text x="1200.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">rules and provenance</text>
+<rect x="740" y="1180" width="280" height="152" rx="16" fill="#fff2dd" stroke="#ae690f" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="778" cy="1213" r="21" fill="#ae690f"/>
+<text x="778" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">HR</text>
+<text x="880.0" y="1252" fill="#845007" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Human report review</text>
+<text x="880.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Review generated PDF</text>
+<text x="880.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">acknowledge to save</text>
+<rect x="420" y="1180" width="280" height="152" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="458" cy="1213" r="21" fill="#087d67"/>
+<text x="458" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">DB</text>
+<text x="560.0" y="1252" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">PDF report history</text>
+<text x="560.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Acknowledged PDFs</text>
+<text x="560.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">stored in MySQL</text>
+<rect x="100" y="1180" width="280" height="152" rx="16" fill="#e4f6f0" stroke="#087d67" stroke-width="2.2" filter="url(#shadow)"/>
+<circle cx="138" cy="1213" r="21" fill="#087d67"/>
+<text x="138" y="1220" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle">↓</text>
+<text x="240.0" y="1252" fill="#075f50" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="middle">Download PDF</text>
+<text x="240.0" y="1283" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Open or download</text>
+<text x="240.0" y="1306" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">saved report</text>
+<line x1="2020" y1="1256" x2="1980" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1700" y1="1256" x2="1660" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1380" y1="1256" x2="1340" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="1060" y1="1256" x2="1020" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="740" y1="1256" x2="700" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<line x1="420" y1="1256" x2="380" y2="1256" stroke="#546b7b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<path d="M2160 790 L2160 1082 L2160 1180" stroke="#546b7b" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M880 1332 L880 1353 L1200 1353 L1200 1332" stroke="#ae690f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<text x="1040" y="1380" fill="#ae690f" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Human review requests PDF revision (manual)</text>
+<text x="1770" y="1362" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" text-anchor="middle">Acknowledged PDF and report history persist in MySQL</text>
+<text x="1770" y="1384" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Render-error fallback retries PDF generation</text>
+<text x="70" y="1455" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start">Current implementation: no active FAISS / RAG retrieval stage or Governed Workspace.</text>
+<text x="2330" y="1455" fill="#5e7283" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="end">Source: current React, FastAPI and LangGraph code</text>
+</svg>

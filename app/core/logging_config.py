@@ -20,7 +20,6 @@ FUTURE USE:
     This same logger will be used by:
       - Data ingestion module
       - MySQL query layer
-      - RAG retrieval pipeline
       - LangChain/LangGraph agents
       - SQL validation layer
       - Plotly chart generation

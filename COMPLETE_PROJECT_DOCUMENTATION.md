@@ -1,3 +1,7 @@
+# ARCHIVED: Pre-Retrieval-Removal Technical Audit
+
+> This manual documents an earlier architecture and is retained for historical context only. Reference retrieval has since been removed from the active backend, governed workflow, frontend, dependencies, and evaluation datasets. For the current implementation, see [README.md](./README.md) and [docs/IMPLEMENTATION.md](./docs/IMPLEMENTATION.md).
+
 # Clinical Analytics Report Agent (Clinical Analytics Platform)
 ## Complete End-to-End Technical Audit & Architectural Reference Manual
 

@@ -5,6 +5,7 @@ interface AskQuestionSectionProps {
   onRunAnalysis: (question: string) => void;
   isLoading?: boolean;
   defaultQuestion?: string;
+  onQuestionChange?: (question: string) => void;
   suggestedQuestions?: string[];
 }
 
@@ -12,6 +13,7 @@ export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
   onRunAnalysis,
   isLoading = false,
   defaultQuestion = 'What is the adverse event rate by treatment arm?',
+  onQuestionChange,
   suggestedQuestions,
 }) => {
   const [question, setQuestion] = useState(defaultQuestion);
@@ -30,7 +32,7 @@ export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm">
+    <div className="studio-composer bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm">
       {/* Header bar */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
@@ -51,7 +53,10 @@ export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
           <input
             type="text"
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
+            onChange={(e) => {
+              setQuestion(e.target.value);
+              onQuestionChange?.(e.target.value);
+            }}
             placeholder="Ask a clinical question (e.g., What is the adverse event rate by treatment arm?)..."
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50/70 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             disabled={isLoading}
@@ -88,6 +93,7 @@ export const AskQuestionSection: React.FC<AskQuestionSectionProps> = ({
               type="button"
               onClick={() => {
                 setQuestion(sq);
+                onQuestionChange?.(sq);
                 onRunAnalysis(sq);
               }}
               className="text-[11px] px-2.5 py-1 rounded-md bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 border border-indigo-100/90 transition-colors font-medium cursor-pointer"

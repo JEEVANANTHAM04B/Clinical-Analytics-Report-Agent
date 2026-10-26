@@ -4,12 +4,15 @@ app/schemas/analytics.py
 Pydantic Schemas for Clinical Analytics API
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 
 class AnalyticsRequest(BaseModel):
+    analysis_id: str | None = None
+    action: Literal["continue", "retry", "stop", "approve_quality", "reject_quality"] = "continue"
+    state_version: int | None = None
     """
     Request payload for running a clinical analytics question.
     """
@@ -77,6 +80,11 @@ class AnalyticsResponse(BaseModel):
 
     status: str
     question: str
+    analysis_id: str | None = None
+    state_version: int | None = None
+    stage_status: dict[str, Any] | None = None
+    eda_findings: dict[str, Any] | None = None
+    validation_attempts: list[dict[str, Any]] = Field(default_factory=list)
     reason: str | None = None
     required_tables: list[str] = Field(default_factory=list)
     selected_tables: list[str] = Field(default_factory=list)
@@ -92,7 +100,6 @@ class AnalyticsResponse(BaseModel):
     insight: str | None = None
     chart_spec: dict[str, Any] | None = None
     visualization_error: str | None = None
-    rag_context: str | None = None
     result_validation: dict[str, Any] | None = None
     insight_evidence: dict[str, Any] | None = None
     error: str | None = None
@@ -167,9 +174,9 @@ class FollowUpRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Follow-up question")
     current_question: str | None = None
     current_results: list[dict[str, Any]] = Field(default_factory=list)
+    original_results: list[dict[str, Any]] = Field(default_factory=list)
     current_sql: str | None = None
     current_plan: str | None = None
-    current_rag_context: str | None = None
     current_insight: str | None = None
     conversation_history: list[ConversationTurn] = Field(default_factory=list)
     selected_tables: list[str] = Field(default_factory=list)
@@ -189,4 +196,4 @@ class FollowUpResponse(BaseModel):
     confidence: float = 0.95
     follow_up_results: list[dict[str, Any]] = Field(default_factory=list)
 
-
+

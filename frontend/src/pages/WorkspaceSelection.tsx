@@ -89,7 +89,7 @@ export const WorkspaceSelection: React.FC<WorkspaceSelectionProps> = ({ onSelect
               </div>
 
               <p className="text-xs text-gray-300 leading-relaxed mb-6">
-                Built for data engineers, ML researchers, and BI architects. Full observability across LangGraph state execution, AST query safety, RAG vector retrieval, and MySQL schemas.
+                Built for data engineers, ML researchers, and BI architects. Full observability across LangGraph state execution, AST query safety, and MySQL schemas.
               </p>
 
               <div className="space-y-2.5 mb-8">

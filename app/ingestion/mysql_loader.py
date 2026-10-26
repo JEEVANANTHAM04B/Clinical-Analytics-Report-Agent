@@ -969,7 +969,7 @@ def load_dataset_to_mysql(
         # Safety Guard: Ensure we do NOT silently drop columns
         matching_cols = [c for c in df.columns if c in existing_col_map.values()]
         dropped_cols = [c for c in df.columns if c not in existing_col_map.values()]
-        if dropped_cols and len(matching_cols) < len(df.columns) * 0.50:
+        if dropped_cols:
             raise ValueError(
                 f"Cannot load into '{table_name}': {len(dropped_cols)} of {len(df.columns)} columns "
                 f"do not exist in table '{table_name}' ({', '.join(dropped_cols[:5])}...). "
@@ -994,12 +994,12 @@ def load_dataset_to_mysql(
     for c in df.columns:
         if c in date_col_names or c.upper() in ("START", "STOP", "BIRTHDATE", "DEATHDATE", "DATE"):
             try:
-                df[c] = pd.to_datetime(df[c], errors="coerce")
+                df[c] = pd.to_datetime(df[c], errors="raise")
                 target_col_info = next((col for col in existing_columns if col["name"] == c), None)
                 if target_col_info and str(target_col_info["type"]).upper() == "DATE":
                     df[c] = df[c].dt.date
             except Exception as e:
-                logger.warning(f"Could not convert column '{c}' to date/datetime: {e}")
+                raise ValueError(f"Column {c!r} contains invalid dates. Correct the source file; values were not replaced with NULL.") from None
 
     # Track row metrics for transparent user reporting
     rows_received = len(df)

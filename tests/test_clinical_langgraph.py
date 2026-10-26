@@ -33,6 +33,8 @@ from app.workflow.graph import (
     _enforce_logical_consistency,
     regenerate_analysis_plan,
     format_clinical_analysis_plan,
+    analyze_question,
+    validate_results_router,
 )
 from app.workflow.state import ClinicalAnalyticsState
 from app.clinical import build_clinical_question_plan, registry as clinical_registry
@@ -49,7 +51,7 @@ def active_schema():
 # =============================================================================
 
 def test_langgraph_nodes_preserved():
-    """Verify that all 13 nodes of the existing LangGraph workflow are preserved."""
+    """Verify that the active LangGraph workflow nodes are registered."""
     graph = build_graph()
     expected_nodes = {
         "load_schema",
@@ -60,7 +62,6 @@ def test_langgraph_nodes_preserved():
         "validate_sql",
         "execute_sql",
         "validate_results",
-        "retrieve_rag",
         "generate_insight",
         "validate_insight",
         "regenerate_insight",
@@ -70,6 +71,12 @@ def test_langgraph_nodes_preserved():
     graph_nodes = set(graph.nodes.keys())
     for node in expected_nodes:
         assert node in graph_nodes, f"Expected node '{node}' not found in LangGraph"
+    assert "retrieve_rag" not in graph_nodes
+
+
+def test_validated_results_route_to_insights_without_generic_eda():
+    assert validate_results_router({"result_validation": {"valid": True}}) == "generate_insight"
+    assert validate_results_router({}) == "__end__"
 
 
 def test_schema_context_detection(active_schema):
@@ -164,6 +171,28 @@ def test_canonical_questions_deterministic_plan(question, expected_datasets, exp
         assert f"`{ehr_table}`" not in plan_text.lower()
 
 
+def test_age_distribution_and_mean_plan_is_specific_and_executable(active_schema):
+    question = "What is the age distribution of subjects across treatment groups, and what is the mean age in each group?"
+    plan = build_clinical_question_plan(question)
+    assert plan.is_supported
+    assert plan.datasets == ["adsl"]
+    assert plan.dimensions == ["TRT01A"]
+    assert "AVG(adsl.AGE)" in plan.calculation
+    assert "AGE BETWEEN 40 AND 59" in plan.calculation
+    assert "median" not in plan.calculation.lower()
+
+    from app.analytics.sql_validator import validate_sql
+    valid, reason = validate_sql(plan.suggested_sql, analysis_plan=format_clinical_analysis_plan(plan))
+    assert valid, reason
+
+    with patch("app.workflow.graph.generate_response", side_effect=AssertionError("unexpected LLM call")), \
+         patch("app.workflow.graph.record_audit_event"):
+        result = analyze_question({"user_question": question, "database_schema": active_schema})
+    assert not result["error"]
+    assert "Age Distribution And Mean" in result["analysis_plan"]
+    assert "AGE < 40" in result["analysis_plan"]
+
+
 @pytest.mark.parametrize("question,expected_datasets,expected_cols,expected_kpi", CANONICAL_QUESTIONS)
 def test_canonical_questions_pending_approval_flow(question, expected_datasets, expected_cols, expected_kpi):
     """Verify flow through load_schema -> analyze_question -> human_approval (pending)."""
@@ -187,9 +216,24 @@ def test_canonical_questions_pending_approval_flow(question, expected_datasets, 
     # Verify expected clinical datasets are present
     plan_datasets = set(clinical_plan.get("datasets", []))
     assert expected_datasets.issubset(plan_datasets)
+    assert expected_datasets.issubset(set(result.get("selected_tables", [])))
 
     # Verify no SQL generated yet (awaiting human approval)
     assert not result.get("sql_query")
+
+
+def test_pending_plan_with_explicitly_empty_selection_remains_blocked():
+    """An explicitly empty selection must not be inferred as authorization."""
+    result = clinical_analytics_graph.invoke({
+        "user_question": "How many subjects are enrolled?",
+        "selected_tables": [],
+        "approval_status": "pending",
+        "approval_source": "api",
+    })
+
+    assert result.get("validation_status") == "blocked"
+    assert result.get("reason") == "invalid_table_selection"
+    assert result.get("analysis_plan") is None
 
 
 @pytest.mark.parametrize("question,expected_datasets,expected_cols,expected_kpi", CANONICAL_QUESTIONS)
@@ -198,7 +242,7 @@ def test_canonical_questions_full_approved_execution(question, expected_datasets
     from app.ai.insight_generator import _deterministic_insight_fallback
     monkeypatch.setattr(
         "app.workflow.graph.generate_insight",
-        lambda user_question, query_results, rag_context="", insight_evidence=None, **kwargs: _deterministic_insight_fallback(
+        lambda user_question, query_results, insight_evidence=None, **kwargs: _deterministic_insight_fallback(
             user_question, query_results, insight_evidence or {}
         ) or "Based on verified data.",
     )

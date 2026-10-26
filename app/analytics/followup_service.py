@@ -4,7 +4,7 @@ app/analytics/followup_service.py
 Lightweight Follow-Up Analysis Engine for Clinical Analytics.
 
 Provides contextual follow-up answers using existing verified results,
-approved schema context, RAG evidence, and lightweight read-only SQL
+approved schema context, and lightweight read-only SQL
 without restarting the LangGraph pipeline or prompting for human approval.
 Supports both CDISC clinical-trial relational data and legacy EHR data.
 """
@@ -209,10 +209,6 @@ def _get_category_group(label_key: str) -> tuple[str, str]:
 def _answer_deterministically(
     question: str,
     results: list[dict[str, Any]],
-    current_question: str | None,
-    current_insight: str | None,
-    current_rag: str | None,
-    is_clinical: bool = True,
 ) -> str | None:
     """
     Provide an accurate, verified deterministic answer directly from result rows
@@ -228,11 +224,11 @@ def _answer_deterministically(
     parsed_items = []
     for r in results:
         label = str(r.get(label_key, "Unknown"))
-        raw_val = r.get(metric_key, 0)
+        raw_val = r.get(metric_key)
         try:
             val = float(raw_val)
         except (ValueError, TypeError):
-            val = 0.0
+            continue
         parsed_items.append((label, val, r))
 
     if not parsed_items:
@@ -288,28 +284,18 @@ def _answer_deterministically(
             mentioned = highest
 
         if mentioned:
-            if is_clinical:
-                rag_note = f" Per verified clinical guidelines: {current_rag[:100]}." if current_rag else ""
-                return (
-                    f"{mentioned[0]} exhibits a {metric_label} of {_format_metric_val(mentioned[1], metric_key)} "
-                    f"in accordance with protocol monitoring criteria across this clinical cohort.{rag_note}"
-                )
-            else:
-                rag_note = f" Per SNOMED-CT clinical guidance, {mentioned[0]} frequently involves intensive blood work, monitoring, and comorbidity management." if current_rag else ""
-                return (
-                    f"{mentioned[0]} exhibits an elevated average length of stay at {mentioned[1]:.1f} days "
-                    f"due to extended inpatient stabilization and clinical observation protocols.{rag_note}"
-                )
+            return (
+                f"The verified results report {metric_label} of "
+                f"{_format_metric_val(mentioned[1], metric_key)} for {mentioned[0]}, "
+                "but do not establish why."
+            )
 
     # Pattern 5: Specific entity inquiry (e.g., "What about Drug A?", "What about Pneumonia?")
     for item in parsed_items:
         clean_item_name = item[0].lower()
         if clean_item_name in q_lower or any(w in q_lower for w in clean_item_name.split() if len(w) > 4):
             val_display = _format_metric_val(item[1], metric_key)
-            if is_clinical:
-                return f"{item[0]} recorded a {metric_label} of {val_display} across verified clinical results in this study."
-            else:
-                return f"{item[0]} recorded an average length of stay of {item[1]:.1f} days across verified inpatient encounters in this dataset."
+            return f"{item[0]} recorded a {metric_label} of {val_display} in the current results."
 
     # Pattern 6: General summary of findings
     return (
@@ -321,9 +307,10 @@ def _answer_deterministically(
 def _generate_llm_answer(
     question: str,
     results: list[dict[str, Any]],
+    original_results: list[dict[str, Any]],
     current_question: str | None,
     current_insight: str | None,
-    current_rag: str | None,
+    current_plan: str | None,
     conversation_history: list[Any],
     selected_tables: list[str],
     is_clinical: bool = True,
@@ -331,11 +318,18 @@ def _generate_llm_answer(
     """
     Generate a natural, clinician-friendly answer using Gemini over the verified data context.
     """
+    if not results and not original_results:
+        return None
+
     try:
         results_summary = "\n".join(
             f"- {', '.join(f'{k}: {v}' for k, v in r.items())}"
             for r in results[:10]
         ) if results else "No rows returned."
+        original_results_summary = "\n".join(
+            f"- {', '.join(f'{k}: {v}' for k, v in r.items())}"
+            for r in original_results[:10]
+        ) if original_results else "No original analysis rows supplied."
 
         history_str = ""
         if conversation_history:
@@ -361,11 +355,13 @@ Answer the following follow-up question from a clinical data analyst.
 
 CURRENT ANALYSIS SESSION CONTEXT:
 - Primary Question: {current_question or 'Clinical Analytics Overview'}
+- Approved Analysis Plan: {current_plan or 'None supplied'}
 - Active Selected Tables: {active_tables_str}
-- Verified Dataset Results:
+- Original Verified Analysis Results:
+{original_results_summary}
+- Latest Verified Follow-Up Results:
 {results_summary}
 - Certified Clinical Insight: {current_insight or 'None'}
-- Clinical RAG Reference: {current_rag or 'None'}
 
 CONVERSATION HISTORY:
 {history_str if history_str else 'No prior follow-up questions in this session.'}
@@ -377,8 +373,9 @@ CRITICAL CONCISENESS RULES:
 1. OUTPUT EXACTLY 1, 2, OR 3 SHORT LINES (maximum 3 sentences). NEVER exceed 3 lines under any circumstance.
 2. Directly answer the question with exact clinical figures from the verified results immediately.
 3. NO conversational filler or preamble (do not say "Based on the verified results" or "According to the dataset").
-4. Base your answer ONLY on the verified data. Absolutely NO invented statistics or hallucinations.
-5. Plain text only. No markdown headers, bullet points, or multiple paragraphs.
+4. Base your answer ONLY on the supplied analysis context and verified data. Do not invent statistics, clinical facts, or explanations.
+5. If the supplied results do not answer the question, state that the evidence is insufficient and recommend a new analysis.
+6. Plain text only. No markdown headers, bullet points, or multiple paragraphs.
 """
         response = generate_response(prompt)
         if response and len(response.strip()) > 5:
@@ -516,7 +513,7 @@ def process_followup_question(request: FollowUpRequest) -> FollowUpResponse:
     Main entry point for processing a follow-up analysis question.
     """
     question = request.question.strip()
-    results = request.current_results or []
+    results = request.current_results or request.original_results
 
     is_clinical = _is_clinical_context(
         selected_tables=request.selected_tables,
@@ -548,6 +545,11 @@ def process_followup_question(request: FollowUpRequest) -> FollowUpResponse:
         is_clinical=is_clinical,
     )
     if sql and sql_answer:
+        validation = validate_results(sql_rows or [])
+        if not validation["valid"]:
+            raise ValueError(
+                f"Follow-up SQL results failed validation: {validation['message']}"
+            )
         return FollowUpResponse(
             status="success",
             question=question,
@@ -557,20 +559,32 @@ def process_followup_question(request: FollowUpRequest) -> FollowUpResponse:
             sql_query=sql,
             verified=True,
             confidence=0.98,
-            follow_up_results=sql_rows or [],
+            follow_up_results=validation["rows"],
         )
+
+    # Validate supplied context too; client-provided rows are not automatically verified.
+    validation = validate_results(results)
+    if not validation["valid"]:
+        return FollowUpResponse(question=question, status="insufficient_context", answer=validation["message"], verified=False, confidence=0.0)
+    results = validation["rows"]
 
     # 3. Answer from verified results using LLM reasoning
     llm_answer = _generate_llm_answer(
         question=question,
         results=results,
+        original_results=request.original_results,
         current_question=request.current_question,
         current_insight=request.current_insight,
-        current_rag=request.current_rag_context,
+        current_plan=request.current_plan,
         conversation_history=request.conversation_history,
         selected_tables=request.selected_tables,
         is_clinical=is_clinical,
     )
+    if llm_answer:
+        from app.ai.insight_validator import validate_insight
+        from app.analytics.insight_evidence import build_insight_evidence
+        if not validate_insight(llm_answer, results, build_insight_evidence(results))["valid"]:
+            llm_answer = None
     if llm_answer:
         return FollowUpResponse(
             status="success",
@@ -587,10 +601,6 @@ def process_followup_question(request: FollowUpRequest) -> FollowUpResponse:
     deterministic_answer = _answer_deterministically(
         question=question,
         results=results,
-        current_question=request.current_question,
-        current_insight=request.current_insight,
-        current_rag=request.current_rag_context,
-        is_clinical=is_clinical,
     )
     if deterministic_answer:
         return FollowUpResponse(
@@ -604,21 +614,17 @@ def process_followup_question(request: FollowUpRequest) -> FollowUpResponse:
             confidence=0.99,
         )
 
-    # 5. Default safe verified fallback
-    default_answer = (
-        "Based on the verified clinical trial dataset results, metrics vary across study cohorts "
-        "and treatment arms in accordance with protocol criteria."
-        if is_clinical else
-        "Based on the verified dataset results, length of stay varies by diagnosis "
-        "with highest variance noted in acute inpatient conditions."
-    )
+    # 5. Do not imply an answer is verified when no supplied results support it.
     return FollowUpResponse(
-        status="success",
+        status="insufficient_context",
         question=question,
-        answer=default_answer,
+        answer=(
+            "The supplied verified results do not provide enough information to answer this follow-up. "
+            "Run a new analysis with the required data."
+        ),
         source="verified_results",
         is_new_analysis=False,
         sql_query=None,
-        verified=True,
-        confidence=0.9,
+        verified=False,
+        confidence=0.0,
     )

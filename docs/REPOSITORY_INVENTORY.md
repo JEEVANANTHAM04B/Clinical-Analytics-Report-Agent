@@ -1,0 +1,214 @@
+> Historical note: This inventory predates removal of authentication and active persistent PDF history, as well as the separate Governed Workspace. Use [FILE_BY_FILE_INDEX.md](FILE_BY_FILE_INDEX.md) for the maintained-file inventory and [README](../README.md) for current scope.
+
+# Repository source inventory
+
+Static inventory of current Python modules and frontend files. Reference retrieval and its implementation files have been removed. This is not a claim that every legacy integration was executed.
+
+- `app/__init__.py`: module setup / exports
+- `app/ai/__init__.py`: module setup / exports
+- `app/ai/insight_generator.py`: _is_clinical_context, _deterministic_insight_fallback, generate_insight
+- `app/ai/insight_regenerator.py`: regenerate_insight
+- `app/ai/insight_validator.py`: _is_numeric, _extract_numbers, _result_numeric_values, _result_categories, _number_exists_in_results, validate_insight
+- `app/ai/llm.py`: _generate_with_model, generate_response
+- `app/ai/llm_test.py`: module setup / exports
+- `app/analytics/__init__.py`: module setup / exports
+- `app/analytics/dashboard_service.py`: _safe_float, _safe_int, calculate_clinical_kpi, get_clinical_dashboard_summary, validate_selected_tables, are_tables_connected, generate_custom_dashboard, _dashboard_clinical_safety, _dashboard_clinical_enrollment_demographics, _dashboard_clinical_laboratory, _dashboard_clinical_vitals, _dashboard_clinical_efficacy, _dashboard_clinical_disposition, _dashboard_clinical_single_table, _dashboard_clinical_general, _dashboard_encounters_conditions, _dashboard_encounters_medications, _dashboard_encounters_procedures, _dashboard_encounters_observations, _dashboard_patients_encounters, _dashboard_patients_conditions, _dashboard_patients_medications, _dashboard_patients_procedures, _dashboard_patients_observations, _dashboard_single_table
+- `app/analytics/followup_service.py`: _is_clinical_context, _is_unrelated_new_analysis, _extract_metric_key_and_label, _format_metric_val, _get_category_group, _answer_deterministically, _generate_llm_answer, _try_follow_up_sql, process_followup_question
+- `app/analytics/insight_evidence.py`: _is_num, _find_category_key, build_insight_evidence, _extract_numbers, _result_numeric_values, _result_categories, _number_exists_in_results, validate_insight
+- `app/analytics/query_executor.py`: execute_query
+- `app/analytics/result_validator.py`: normalize_value, normalize_row, validate_results
+- `app/analytics/sql_generator.py`: _is_clinical_context, _build_clinical_prompt, _check_sql_vs_clinical_plan, _build_legacy_ehr_prompt, _build_sql_from_plan, _check_sql_vs_plan, _deterministic_sql_fallback, generate_sql
+- `app/analytics/sql_validator.py`: _check_unqualified_columns, _extract_plan_datasets, validate_sql
+- `app/api/__init__.py`: module setup / exports
+- `app/api/analytics.py`: customize_dashboard, get_analytics_overview, run_analytics, answer_followup, generate_pdf_report, approve_pdf_report, download_latest_pdf_report, download_pdf_report_get
+- `app/api/database.py`: load_clinical_dataset, list_dataset_versions, get_version_columns, list_persisted_relationships, list_audit_logs, list_clinical_tables, get_dataset_registry, update_dataset_registry_status, approve_clinical_dataset
+- `app/api/health.py`: health_check, database_health_check
+- `app/api/ingestion.py`: upload_dataset, preview_dataset, analyze_clinical_datasets
+- `app/api/relationships.py`: list_relationship_candidates, list_approved_relationships, list_rejected_relationships, review_relationship, regenerate_relationship_endpoint
+- `app/audit/__init__.py`: module setup / exports
+- `app/audit/service.py`: record_audit_event, get_audit_trail
+- `app/clinical/__init__.py`: module setup / exports
+- `app/clinical/dataset_metadata.py`: ColumnMetadata, DatasetMetadata
+- `app/clinical/dataset_registry_service.py`: ensure_registry_initialized, get_approved_clinical_tables, is_table_approved_for_clinical_analytics, register_dataset, update_dataset_status, approve_dataset, list_all_registry_entries
+- `app/clinical/kpi_definitions.py`: KPIDefinition, get_kpi, list_kpis_by_category
+- `app/clinical/question_mapping.py`: ClinicalQuestionPlan, build_clinical_question_plan
+- `app/clinical/relationship_map.py`: ClinicalRelationship, get_all_relationships, find_direct_relationship, are_tables_connected, get_join_condition
+- `app/clinical/schema_registry.py`: ClinicalSchemaRegistry
+- `app/clinical/table_validator.py`: get_registered_tables, validate_selected_table_allowlist, identify_required_tables, check_table_selection, extract_sql_tables_ast, enforce_sql_table_boundaries
+- `app/config.py`: Settings
+- `app/core/__init__.py`: module setup / exports
+- `app/core/database.py`: Base, get_db_session, get_db_context, check_db_connection
+- `app/core/logging_config.py`: JSONFormatter, setup_logging, get_logger
+- `app/database/__init__.py`: module setup / exports
+- `app/database/models.py`: DatasetVersion, DatasetColumn, ApprovedRelationship, AuditLog, ClinicalDatasetRegistry
+- `app/database/repository.py`: create_dataset_version, get_dataset_versions, get_dataset_version_by_id, save_dataset_columns, get_dataset_columns, save_relationship_review, get_approved_relationships_from_db, create_audit_log, get_audit_logs
+- `app/database/schema_service.py`: get_database_schema
+- `app/database/session.py`: init_db
+- `app/governed/__init__.py`: module setup / exports
+- `app/governed/analysis.py`: plan, scoped_sql, Extractor, quality, eda, insights, validate_insights
+- `app/governed/api.py`: identity, service, call, catalog, listing, create, status, decide, regenerate, resume, read_notice, audit, report
+- `app/governed/contracts.py`: StrictModel, Criteria, AnalysisRequest, Decision, StageOutput, Regenerate, Principal
+- `app/governed/report.py`: build_report
+- `app/governed/service.py`: WorkflowService, create_service
+- `app/governed/store.py`: now, uid, Store
+- `app/governed/workflow.py`: State, build_workflow
+- `app/governed_app.py`: lifespan, health
+- `app/ingestion/__init__.py`: module setup / exports
+- `app/ingestion/analyzer.py`: generate_dataset_quality_flags, read_dataset_schema, analyze_single_dataset, analyze_datasets, resolve_files_to_analyze
+- `app/ingestion/file_reader.py`: FileReadResult, _generate_safe_filename, _ensure_upload_directory, read_uploaded_file, _parse_file, _read_csv, _read_excel, _check_dataframe_not_empty
+- `app/ingestion/file_validator.py`: ValidationResult, validate_upload
+- `app/ingestion/metadata.py`: extract_metadata, _extract_column_metadata, _safe_float
+- `app/ingestion/mysql_loader.py`: sanitize_table_name, validate_table_name, validate_and_sanitize_column_names, resolve_target_table_name, DuplicatePrimaryKeyError, get_table_primary_keys, _normalize_pk_val, identify_duplicate_records, resolve_safe_file_path, map_pandas_dtype, map_pandas_to_sqlalchemy_dtypes, load_dataframe_to_mysql, load_dataset_to_mysql
+- `app/ingestion/privacy_detector.py`: detect_sensitive_column
+- `app/ingestion/quality_checker.py`: check_quality, _check_duplicates, _check_missing_values, _find_empty_columns, _find_constant_columns, _generate_quality_flags
+- `app/ingestion/relationship_detector.py`: find_primary_key_candidates, evaluate_relationship, detect_relationships_across_datasets
+- `app/ingestion/relationship_regenerator.py`: ProposedRelationship, extract_schema_catalog, format_catalog_for_prompt, parse_llm_json_response, propose_alternative_relationship, validate_proposed_relationship
+- `app/ingestion/relationship_review.py`: CandidateNotFoundError, _make_key, set_relationship_candidates, get_relationship_candidates, find_candidate, approve_relationship, reject_relationship, regenerate_relationship, edit_relationship, get_approved_relationships, get_rejected_relationships, clear_review_stores
+- `app/ingestion/schema_inference.py`: classify_missingness, detect_date_column, profile_column, analyze_observations_special
+- `app/main.py`: lifespan, root
+- `app/reporting/__init__.py`: module setup / exports
+- `app/reporting/pdf_generator.py`: NumberedCanvas, clean_markdown_for_reportlab, parse_insight_to_paragraphs, _is_clinical_context, _get_active_tables, get_table_metadata, _get_clinical_joins_text, _extract_metric_info, generate_chart_image, build_clinical_pdf_report
+- `app/schemas/__init__.py`: module setup / exports
+- `app/schemas/analytics.py`: AnalyticsRequest, AnalyticsResponse, OverviewResponse, DashboardCustomizationRequest, DashboardCustomizationResponse, ConversationTurn, FollowUpRequest, FollowUpResponse
+- `app/schemas/database.py`: DatasetLoadRequest, DatasetLoadResponse, DatasetVersionOut, ListVersionsResponse, DatasetColumnOut, ListColumnsResponse, ApprovedRelationshipOut, AuditLogOut, ListAuditLogsResponse, TableColumnInfo, TableMetadataOut, ListTablesResponse, RegistryEntryOut, UpdateRegistryStatusRequest, ListRegistryResponse
+- `app/schemas/ingestion.py`: ColumnMetadata, DatasetMetadata, QualityReport, UploadResponse, ErrorResponse, ColumnPreview, PreviewResponse
+- `app/schemas/relationships.py`: RelationshipAction, RelationshipReviewRequest, ApprovedRelationship, RejectedRelationship, RelationshipReviewResponse, RelationshipCandidatesResponse, ApprovedRelationshipsResponse, RejectedRelationshipsResponse, RelationshipRegenerateRequest, RelationshipRegenerateResponse
+- `app/schemas/reports.py`: PDFReportRequest
+- `app/schemas/validation.py`: DateColumnMetadata, SensitiveColumnMetadata, ColumnAnalysis, PrimaryKeyCandidate, RelationshipAnalysis, ObservationsAnalysis, DatasetAnalysis, OverallQuality, AnalyzeRequest, AnalyzeResponse
+- `app/visualization/__init__.py`: module setup / exports
+- `app/visualization/chart_generator.py`: _is_numeric, create_chart_spec, create_bar_chart
+- `app/workflow/__init__.py`: module setup / exports
+- `app/workflow/graph.py`: _is_clinical_context, format_clinical_analysis_plan, validate_table_selection_node, table_selection_router, load_schema, _deterministic_analysis_plan, analyze_question, human_approval_node, _is_explicitly_removed, _remove_inpatient_filter, _remove_conditions_table_and_join, _remove_filter_from_plan, _inject_filter_into_plan, _sanitize_clinical_plan, _enforce_logical_consistency, _preserve_plan_requirements, regenerate_analysis_plan, regeneration_router, approval_router, _resolve_authorized_clinical_schema, generate_sql_node, validate_sql_node, execute_sql_node, validate_results_node, generate_insight_node, validate_insight_node, regenerate_insight_node, generate_sql_router, validate_sql_router, execute_sql_router, validate_results_router, insight_validation_router, generate_chart_node, build_graph
+- `app/workflow/graph_test.py`: module setup / exports
+- `app/workflow/state.py`: ClinicalAnalyticsState
+- `evals/print_uat_summary.py`: module setup / exports
+- `evals/run_clinical_benchmark.py`: load_golden_benchmark, evaluate_analytical_case, run_benchmark
+- `evals/run_clinical_uat.py`: load_uat_cases, check_sql_semantics, check_multi_row_additive_equivalence, evaluate_sql_uat_case, evaluate_ambiguous_case, run_full_uat
+- `evals/test_analysis_plan.py`: load_test_cases, check_requirement, run_analysis_plan_eval
+- `evals/test_chart_generation.py`: load_test_cases, validate_chart_spec, run_chart_generation_eval
+- `evals/test_e2e_workflow.py`: load_test_cases, run_e2e_evaluation
+- `evals/test_insight_deepeval.py`: RateLimitedGeminiModel, load_test_cases, build_analysis_context, run_insight_deepeval
+- `evals/test_insight_generation.py`: load_test_cases, check_fact_present, run_insight_generation_eval
+- `evals/test_plan_regeneration.py`: load_test_cases, run_router_tests, run_plan_regeneration_tests, run_full_evaluation
+- `evals/test_sql_execution.py`: load_test_cases, verify_numeric_fields, run_sql_execution_eval
+- `evals/test_sql_plan_validator.py`: load_test_cases, run_sql_plan_validator_eval
+- `evals/test_sql_validator.py`: load_test_cases, run_sql_validator_eval
+- `scratch/analyze_columns.py`: analyze_columns
+- `scratch/analyze_csvs.py`: test_pk, test_fk
+- `scratch/analyze_keys_deep.py`: module setup / exports
+- `scratch/backup_existing_db.py`: module setup / exports
+- `scratch/check_audit_schema.py`: module setup / exports
+- `scratch/check_dates.py`: module setup / exports
+- `scratch/check_health.py`: module setup / exports
+- `scratch/cleanup.py`: module setup / exports
+- `scratch/copy_datasets.py`: module setup / exports
+- `scratch/find_csvs.py`: module setup / exports
+- `scratch/inspect_and_copy_zip.py`: module setup / exports
+- `scratch/inspect_dataset_folder.py`: module setup / exports
+- `scratch/inspect_dataset_zip.py`: module setup / exports
+- `scratch/inspect_mysql.py`: module setup / exports
+- `scratch/inspect_table_details.py`: module setup / exports
+- `scratch/locate_new_csvs.py`: module setup / exports
+- `scratch/locate_zip.py`: module setup / exports
+- `scratch/restore_old_db.py`: module setup / exports
+- `scratch/search_old_references.py`: module setup / exports
+- `scratch/test_api.py`: module setup / exports
+- `scratch/test_api_endpoints.py`: module setup / exports
+- `scratch/test_app_db_layer.py`: module setup / exports
+- `scratch/test_canonical_pipeline.py`: module setup / exports
+- `scratch/test_final_verification.py`: http_post, http_get, test_all
+- `scratch/test_plan_format.py`: format_clinical_analysis_plan
+- `scratch/verify_all_clinical_foundation.py`: module setup / exports
+- `scratch/verify_migration_detailed.py`: module setup / exports
+- `scratch/view_approved_relationships.py`: module setup / exports
+- `scripts/migrate_clinical_trials.py`: get_mysql_connection, execute_migration
+- `scripts/run_deepeval_evaluation.py`: run_evaluation_suite, generate_markdown_report
+- `scripts/setup_clinical_trial_db.py`: ensure_extracted_csvs, main
+- `scripts/test_custom_datasets_removal.py`: run_tests
+- `scripts/test_dataset_registry_cleanup.py`: print_test, run_all_tests
+- `scripts/test_upload_and_create_table.py`: print_test, cleanup_table, run_all_tests
+- `scripts/test_upload_flow.py`: module setup / exports
+- `scripts/verify_e2e_selection_pipeline.py`: post_api, run_verification
+- `tests/__init__.py`: module setup / exports
+- `tests/evaluation/__init__.py`: module setup / exports
+- `tests/evaluation/conftest.py`: pytest_addoption, eval_dataset, synthetic_data, correctness_metric, sql_safety_metric, pipeline_metric, evidence_metric, deepeval_gemini_judge
+- `tests/evaluation/fixtures/clinical_test_data.py`: module setup / exports
+- `tests/evaluation/metrics/__init__.py`: module setup / exports
+- `tests/evaluation/metrics/clinical_correctness.py`: ClinicalCorrectnessMetric
+- `tests/evaluation/metrics/evidence_quality.py`: EvidenceQualityMetric
+- `tests/evaluation/metrics/pipeline_completeness.py`: PipelineCompletenessMetric
+- `tests/evaluation/metrics/sql_safety.py`: SQLSafetyMetric
+- `tests/evaluation/test_clinical_analytics_e2e.py`: test_e2e_subject_distribution_workflow, test_e2e_adverse_event_rate_workflow, test_e2e_missing_table_blocked_workflow, test_synthetic_kpi_mathematical_invariants
+- `tests/evaluation/test_insight_generation.py`: test_insight_factual_grounding_deterministic, test_insight_empty_result_handling, test_deepeval_llm_judge_metrics
+- `tests/evaluation/test_question_understanding.py`: test_question_understanding_categories, test_question_plan_dimensions_and_metrics
+- `tests/evaluation/test_regression.py`: test_regression_core_13_clinical_datasets_approved, test_regression_custom_tables_remain_unapproved, test_regression_schema_service_filters_unapproved, test_regression_selection_allowlist
+- `tests/evaluation/test_security_boundaries.py`: test_sec_1_approved_and_selected_tables, test_sec_2_required_table_missing_from_selection, test_sec_3_custom_unapproved_table_biomarker_results, test_sec_4_custom_unapproved_table_clinical_endpoints, test_sec_5_hidden_table_referenced_by_sql, test_sec_6_test_demo_table_access, test_sec_7_approved_table_not_selected, test_sec_8_destructive_malicious_sql
+- `tests/evaluation/test_sql_generation.py`: clinical_schema, test_sql_subject_count_by_arm, test_sql_ae_incidence_join, test_sql_top_adverse_events_ordering
+- `tests/evaluation/test_visualization.py`: test_chart_spec_treatment_arm_distribution, test_chart_spec_top_adverse_events, test_chart_spec_empty_results_handling
+- `tests/test_authorized_scope_fix.py`: test_clinical_single_table_authorized, test_clinical_table_not_in_approved_schema_rejected, test_clinical_multi_table_authorized, test_unapproved_arbitrary_table_rejected, test_end_to_end_distribution_across_treatment_arms_blocked_when_unselected, test_end_to_end_distribution_across_treatment_arms_with_default_selected_tables
+- `tests/test_clinical_dashboard.py`: TestAllClinicalKPIs, TestDashboardCustomizationCombinations, TestSingleClinicalTables, TestTableValidation, TestOverviewEndpoint
+- `tests/test_clinical_evaluation.py`: test_golden_benchmark_file_exists_and_structure, test_golden_benchmark_categories_distribution, test_golden_benchmark_ground_truth_values, test_cdisc_sql_test_cases_suite, test_cdisc_sql_plan_test_cases_suite, test_cdisc_sql_execution_test_cases_suite, test_legacy_ehr_datasets_preservation, test_clinical_datasets_coverage, test_regression_age_distribution_by_treatment_arm_semantics, test_regression_treatment_emergent_ae_filter_semantics, test_regression_evaluator_cdisc_arm_equivalence, test_regression_evaluator_ranking_equivalence, test_regression_uat_natural_language_treatment_group_mapping, test_regression_uat_natural_language_age_profile_mapping, test_regression_uat_natural_language_ae_more_comparison, test_regression_uat_sql_generator_forbids_window_functions, test_regression_uat_ambiguous_queries_safety, test_regression_issue1_treatment_comparison_intent_priority, test_regression_issue2_teae_fallback_preserves_clinical_semantics, test_regression_issue3_discontinuation_vs_completion_logic, test_regression_issue4_multi_row_additive_equivalence_evaluation
+- `tests/test_clinical_insight_followup.py`: test_insight_context_detection, test_followup_context_detection, test_insight_fallback_total_subjects, test_insight_fallback_average_age, test_insight_fallback_serious_ae_count, test_insight_fallback_ae_rate_by_treatment, test_insight_fallback_efficacy_response_rate, test_insight_fallback_enrollment_by_site, test_build_evidence_clinical_trial, test_validate_insight_valid_claim, test_validate_insight_unsupported_number_fails, test_validate_insight_wrong_ranking_fails, test_followup_highest_treatment_arm, test_followup_lowest_treatment_arm, test_followup_threshold_check, test_followup_specific_entity, test_followup_unrelated_domain_detection, test_followup_prompt_uses_original_and_latest_results_and_conversation, test_followup_without_verified_results_reports_insufficient_context, test_followup_lightweight_sql_total_subjects, test_followup_lightweight_sql_sae_count, test_legacy_ehr_followup_backward_compatibility
+- `tests/test_clinical_langgraph.py`: active_schema, test_langgraph_nodes_preserved, test_validated_results_route_directly_to_insight_generation, test_schema_context_detection, test_canonical_questions_deterministic_plan, test_canonical_questions_pending_approval_flow, test_canonical_questions_full_approved_execution, test_execution_boundary_blocked_on_empty_selected_tables, test_execution_boundary_blocked_on_missing_required_tables, test_execution_boundary_blocked_on_unknown_tables, test_execution_boundary_blocked_on_unapproved_custom_datasets, test_plan_regeneration_on_rejection, test_legacy_ehr_deterministic_plan_fallback, test_join_conditions_header_not_classified_as_ehr, test_clinical_ae_severity_unstratified, test_clinical_ae_severity_stratified, test_clinical_ae_severity_equivalent_phrasings, test_regeneration_with_gemini_unavailable_incorporates_feedback, test_clinical_plan_sanitization
+- `tests/test_clinical_pdf_report.py`: extract_pdf_text, test_report_total_subjects_enrollment, test_report_adverse_event_count, test_report_serious_ae_count, test_report_ae_rate_by_treatment, test_report_lab_change_from_baseline, test_report_vital_sign_change_from_baseline, test_report_efficacy_response_rate, test_report_site_enrollment, test_chart_image_generation, test_chart_handles_negative_values, test_no_unsupported_causal_or_stat_claims, test_is_clinical_context_detection, test_legacy_ehr_report_backward_compatibility, client, test_api_generate_pdf_endpoint, test_api_download_latest_pdf, test_api_download_pdf_get, test_api_approve_pdf_report
+- `tests/test_clinical_schema_mapping.py`: TestClinicalSchemaRegistry, TestClinicalRelationships, TestKPIDefinitions, TestClinicalQuestionPlanner, TestNegativeCasesAndSafety
+- `tests/test_clinical_sql_generator.py`: test_deterministic_sql_generation_and_validation, test_total_enrolled_patients_result, test_average_age_result, test_sex_distribution_result, test_ae_rate_by_treatment_arm_result, test_serious_adverse_events_result, test_lab_change_from_baseline_result, test_vital_sign_change_from_baseline_result, test_efficacy_response_rate_result, test_site_enrollment_result, test_context_detection_clinical, test_context_detection_legacy_ehr, test_clinical_prompt_builder, test_plan_consistency_checker, test_unsupported_question_fails_safely, test_validator_rejects_unauthorized_tables, test_validator_rejects_forbidden_keywords, test_legacy_ehr_fallback_preserved
+- `tests/test_clinical_sql_validator.py`: test_valid_clinical_queries_pass_validation, test_unauthorized_tables_rejected, test_unqualified_nonexistent_column_rejected, test_qualified_nonexistent_column_rejected, test_aliased_nonexistent_column_rejected, test_unapproved_relationship_rejected, test_adsl_adae_approved_usubjid_relationship_accepted, test_adsl_adae_unapproved_studyid_relationship_rejected, test_disconnected_tables_rejected, test_security_and_syntax_violations_blocked, test_clinical_plan_single_table_violation, test_clinical_plan_serious_ae_filter, test_sql_generator_output_passes_validator
+- `tests/test_duplicate_upload_handling.py`: client, test_primary_key_inspection_cdisc_tables, test_identify_duplicates_all_existing, test_identify_duplicates_mixed, test_identify_duplicates_composite_pk, test_identify_intra_file_duplicates, test_api_upload_all_duplicates_rejected_by_default, test_api_upload_insert_new_only_when_all_duplicates, test_api_upload_mixed_records_with_insert_new_only, test_api_preview_detects_duplicates, test_diagnostic_dm_9001_to_9005_duplicate_detection, test_transaction_rollback_preserves_existing_data
+- `tests/test_governed.py`: fixture_engine, harness, request, approve, test_success_restart_review_pdf_followup, test_reject_stale_and_isolation, test_quality_interrupt_and_dataset_version_change, test_regeneration_preserves_upstream_and_invalidates_review, test_quality_and_numerical_boundary, test_sql_safety, test_timeout_recovery_bounded
+- `tests/test_governed_api.py`: test_authenticated_api_approval_and_report_isolation
+- `tests/test_selection_aware_table_validation.py`: test_registered_tables_allowlist, test_a_block_when_adae_missing, test_b_run_when_both_selected, test_c_request_adlb_when_missing, test_d_table_does_not_exist, test_e_ast_blocks_unauthorized_table_in_sql, test_f_deselect_before_execution_prevents_stale_run, test_g_adsl_alone_question, test_h_blocked_pipeline_resumes_when_user_selects_table
+
+## Frontend sources
+
+- `frontend/src/__tests__/DatasetUploadModal.test.tsx`
+- `frontend/src/__tests__/GovernedWorkspace.test.tsx`
+- `frontend/src/__tests__/TableSelector.test.tsx`
+- `frontend/src/api/analytics.ts`
+- `frontend/src/api/client.ts`
+- `frontend/src/api/database.ts`
+- `frontend/src/api/datasets.ts`
+- `frontend/src/App.css`
+- `frontend/src/App.tsx`
+- `frontend/src/assets/hero.png`
+- `frontend/src/assets/react.svg`
+- `frontend/src/assets/vite.svg`
+- `frontend/src/components/ChartCustomizer.tsx`
+- `frontend/src/components/Clinical/ActiveDatasetCard.tsx`
+- `frontend/src/components/Clinical/AskQuestionSection.tsx`
+- `frontend/src/components/Clinical/ClinicalApprovalCard.tsx`
+- `frontend/src/components/Clinical/ClinicalInsightsCard.tsx`
+- `frontend/src/components/Clinical/ClinicalMetricsRow.tsx`
+- `frontend/src/components/Clinical/ClinicalReferenceCard.tsx`
+- `frontend/src/components/Clinical/ClinicalSidebar.tsx`
+- `frontend/src/components/Clinical/ClinicalTopbar.tsx`
+- `frontend/src/components/Clinical/DynamicCharts.tsx`
+- `frontend/src/components/Clinical/FollowUpAnswerCard.tsx`
+- `frontend/src/components/Clinical/FollowUpSection.tsx`
+- `frontend/src/components/Clinical/VerifiedResultsTable.tsx`
+- `frontend/src/components/DatasetUploadModal.tsx`
+- `frontend/src/components/IngestionResultModal.tsx`
+- `frontend/src/components/PDFPageCanvas.tsx`
+- `frontend/src/components/PDFViewer.tsx`
+- `frontend/src/components/ReportModal.tsx`
+- `frontend/src/components/ReportTriggerBanner.tsx`
+- `frontend/src/components/SidebarTableSelector.tsx`
+- `frontend/src/components/TableSelectorPopover.tsx`
+- `frontend/src/components/Technical/ActiveDatabaseCard.tsx`
+- `frontend/src/components/Technical/PipelineVisualizer.tsx`
+- `frontend/src/components/Technical/SqlInspectorCard.tsx`
+- `frontend/src/components/Technical/SystemHealthCard.tsx`
+- `frontend/src/components/Technical/TechnicalApprovalPopup.tsx`
+- `frontend/src/components/Technical/TechnicalMetricsRow.tsx`
+- `frontend/src/components/Technical/TechnicalSidebar.tsx`
+- `frontend/src/components/Technical/TechnicalTopbar.tsx`
+- `frontend/src/components/TopPlatformBar.tsx`
+- `frontend/src/index.css`
+- `frontend/src/main.tsx`
+- `frontend/src/pages/ClinicalDashboard.tsx`
+- `frontend/src/pages/GovernedWorkspace.css`
+- `frontend/src/pages/GovernedWorkspace.tsx`
+- `frontend/src/pages/TechnicalDashboard.tsx`
+- `frontend/src/pages/WorkspaceSelection.tsx`
+- `frontend/src/services/api.ts`
+- `frontend/src/types/analytics.ts`

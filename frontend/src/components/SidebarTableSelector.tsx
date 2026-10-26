@@ -4,7 +4,9 @@ import {
   Check, 
   Loader2, 
   AlertCircle, 
-  ShieldCheck 
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { ClinicalTable } from '../types/analytics';
 import apiService from '../services/api';
@@ -25,13 +27,16 @@ export const filterApprovedClinicalTables = (tbls: string[], available?: Clinica
   if (available && available.length > 0) {
     const availableNames = new Set(
       available
-        .filter((a) => !a.classification || a.classification === 'CLINICAL')
+        .filter((a) => (!a.classification || a.classification === 'CLINICAL') && (!a.approval_status || a.approval_status === 'APPROVED'))
         .map((a) => a.name.toLowerCase().trim())
     );
     return withoutLegacy.filter((t) => availableNames.has(t.toLowerCase().trim()));
   }
   return withoutLegacy.filter((t) => APPROVED_CLINICAL_TABLES.includes(t.toLowerCase().trim()));
 };
+
+export const getAvailableClinicalTableNames = (available: ClinicalTable[]): string[] =>
+  Array.from(new Set(filterApprovedClinicalTables(available.map((table) => table.name), available)));
 
 interface SidebarTableSelectorProps {
   availableTables?: ClinicalTable[];
@@ -52,6 +57,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
 }) => {
   const [tables, setTables] = useState<ClinicalTable[]>(availableTables);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [localSelected, setLocalSelected] = useState<string[]>(() =>
     filterApprovedClinicalTables(selectedTables, availableTables)
   );
@@ -60,6 +66,10 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   useEffect(() => {
     setLocalSelected(filterApprovedClinicalTables(selectedTables, tables));
   }, [selectedTables, tables]);
+
+  useEffect(() => {
+    if (combinationError) setIsExpanded(true);
+  }, [combinationError]);
 
   // Synchronize tables with parent or self-fetch if empty, and listen for updates
   useEffect(() => {
@@ -114,11 +124,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   };
 
   const handleSelectAll = () => {
-    const allValid = tables
-      .filter((t) => !t.classification || t.classification === 'CLINICAL')
-      .map((t) => t.name)
-      .filter((name) => !LEGACY_EHR_TABLES.includes(name.toLowerCase().trim()));
-    setLocalSelected(allValid);
+    setLocalSelected(getAvailableClinicalTableNames(tables));
   };
 
   const handleClearAll = () => {
@@ -137,13 +143,19 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
   return (
     <div className="mx-1.5 my-1.5 p-2 bg-gray-50/90 rounded-lg border border-gray-200/90 shadow-2xs flex flex-col space-y-1.5">
       {/* Header */}
-      <div className="flex items-center justify-between pb-1 border-b border-gray-200/70">
-        <div className="flex items-center space-x-1">
+      <div className={`flex items-center justify-between ${isExpanded ? 'pb-1 border-b border-gray-200/70' : ''}`}>
+        <button
+          type="button"
+          aria-label={isExpanded ? 'Minimize dataset tables' : 'Expand dataset tables'}
+          aria-expanded={isExpanded}
+          aria-controls="dataset-table-selection"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          className="flex items-center space-x-1 text-left cursor-pointer"
+        >
           <Table2 className={`w-3 h-3 ${isTechnical ? 'text-blue-600' : 'text-indigo-600'}`} />
-          <span className="text-[9px] font-bold text-gray-800 uppercase tracking-wider">
-            DATASET TABLES
-          </span>
-        </div>
+          <span className="text-[9px] font-bold text-gray-800 uppercase tracking-wider">DATASET TABLES</span>
+          {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-500" /> : <ChevronDown className="w-3 h-3 text-gray-500" />}
+        </button>
         <span
           data-testid="selected-count-badge"
           className="text-[9px] font-mono font-bold text-gray-600 bg-white px-1 py-0.2 rounded border border-gray-200/80 shadow-2xs"
@@ -151,6 +163,8 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
           {localSelected.length} selected
         </span>
       </div>
+
+      {isExpanded && <div id="dataset-table-selection" className="flex flex-col space-y-1.5">
 
       {/* Select All / Clear All quick actions */}
       <div className="flex items-center justify-between text-[9px] text-gray-500 px-0.5">
@@ -186,7 +200,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
           </div>
         ) : (
           tables
-            .filter((t) => !t.classification || t.classification === 'CLINICAL')
+            .filter((t) => (!t.classification || t.classification === 'CLINICAL') && (!t.approval_status || t.approval_status === 'APPROVED') && !LEGACY_EHR_TABLES.includes(t.name.toLowerCase().trim()))
             .map((tbl) => {
             const isChecked = localSelected.includes(tbl.name);
             return (
@@ -243,7 +257,7 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
         </div>
       )}
 
-      {/* Apply Selection Button */}
+      {/* Start analysis with the manually selected tables */}
       <button
         type="button"
         data-testid="apply-selection-btn"
@@ -254,18 +268,19 @@ export const SidebarTableSelector: React.FC<SidebarTableSelectorProps> = ({
         {isApplying ? (
           <>
             <Loader2 className="w-2.5 h-2.5 animate-spin" />
-            <span>Applying...</span>
+            <span>Starting...</span>
           </>
         ) : (
           <>
             <Check className="w-3 h-3 stroke-[2.5]" />
-            <span>Apply Selection</span>
+            <span>Start Analysis</span>
             {hasUnappliedChanges && (
               <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse ml-0.5" />
             )}
           </>
         )}
       </button>
+      </div>}
     </div>
   );
 };

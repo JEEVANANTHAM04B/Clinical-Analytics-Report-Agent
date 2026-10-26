@@ -11,15 +11,28 @@ def _find_category_key(query_results: list[dict[str, Any]]) -> str | None:
     if not query_results:
         return None
     sample = query_results[0]
+    sample_key_map = {k.lower(): k for k in sample.keys()}
+
     clinical_dimensions = (
         "treatment_arm", "trt01a", "arm", "site_name", "siteid",
         "param", "paramcd", "avisit", "visit", "aesev", "severity",
         "aebodsys", "aedecod", "sex", "race", "ethnic", "respfl",
         "encounter_class", "encounterclass", "diagnosis", "description", "category"
     )
+
+    # If multiple rows, prefer a dimension that actually varies across rows
+    if len(query_results) > 1:
+        for k in clinical_dimensions:
+            actual_k = sample_key_map.get(k)
+            if actual_k:
+                unique_vals = {str(r.get(actual_k)) for r in query_results if r.get(actual_k) is not None}
+                if len(unique_vals) > 1:
+                    return actual_k
+
     for k in clinical_dimensions:
-        if k in sample:
-            return k
+        if k in sample_key_map:
+            return sample_key_map[k]
+
     for k in sample:
         if any(dim in k.lower() for dim in ("treatment", "arm", "site", "param", "visit", "class", "diagnosis", "desc")):
             return k
@@ -123,11 +136,13 @@ def build_insight_evidence(
                 "metric": metric_key,
                 "value": float(maximum_row[metric_key]),
                 "category": max_category,
+                "categories": [max_category] if max_category else [],
             }
 
             evidence["minimum"] = {
                 "metric": metric_key,
                 "value": float(minimum_value),
+                "category": min_categories[0] if min_categories else None,
                 "categories": min_categories,
             }
 

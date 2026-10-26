@@ -24,7 +24,7 @@ type CompanionView = 'auto' | 'volume' | 'tiers' | 'demographics' | 'safety' | '
 
 // Safe clinical color palette
 const colorPalette = [
-  '#4F46E5', '#0D9488', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#10B981'
+  '#4F46E5', '#0D9488', '#E37993', '#68B4BA', '#D8A05A', '#7187A5', '#94ADB0', '#8A91C8'
 ];
 
 // Clinical AE Severity color coding
@@ -168,7 +168,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
           x: categories,
           y: values,
           line: { color: primaryColor, width: 3, shape: 'spline' },
-          marker: { size: 6, color: '#312E81' },
+          marker: { size: 6, color: '#4F46E5' },
           hoverinfo: 'x+y',
         },
       ];
@@ -587,7 +587,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
     }
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+      <div className="studio-charts grid grid-cols-1 lg:grid-cols-3 gap-3.5">
         {/* Main Dynamic Chart (Left 2 Columns) with Chart Type mini-box */}
         <div className="lg:col-span-2 bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -665,7 +665,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                       type: 'bar',
                       x: cohortData.categories,
                       y: cohortData.values,
-                      marker: { color: '#6366F1' },
+                      marker: { color: '#4F46E5' },
                       text: cohortData.values.map((v) => v.toLocaleString()),
                       textposition: 'auto',
                       hoverinfo: 'x+y',
@@ -691,7 +691,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                       orientation: 'h',
                       y: topAEData.categories,
                       x: topAEData.values,
-                      marker: { color: '#6366F1' },
+                      marker: { color: '#4F46E5' },
                       text: topAEData.values.map((v) => v.toLocaleString()),
                       textposition: 'auto',
                       hovertemplate: '%{y}: %{x:,} subjects<extra></extra>',
@@ -820,7 +820,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+    <div className="studio-charts grid grid-cols-1 lg:grid-cols-3 gap-3.5">
       {/* Chart 1: Total Subjects by Treatment Arm (Large Left Card) */}
       <div className="lg:col-span-2 bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -900,7 +900,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                     type: 'bar',
                     x: cohortData.categories,
                     y: cohortData.values,
-                    marker: { color: '#6366F1' },
+                    marker: { color: '#4F46E5' },
                     text: cohortData.values.map((v) => v.toLocaleString()),
                     textposition: 'auto',
                     hoverinfo: 'x+y',
@@ -926,7 +926,7 @@ export const DynamicCharts: React.FC<DynamicChartsProps> = ({
                     orientation: 'h',
                     y: topAEData.categories,
                     x: topAEData.values,
-                    marker: { color: '#6366F1' },
+                    marker: { color: '#4F46E5' },
                     text: topAEData.values.map((v) => v.toLocaleString()),
                     textposition: 'auto',
                     hovertemplate: '%{y}: %{x:,} subjects<extra></extra>',

@@ -9,7 +9,6 @@ PURPOSE:
       - Analyst Relationship Confirmation / Rejection
       - Analytics Pipeline Execution & Plan Review
       - SQL Synthesis, Validation & Execution
-      - RAG Guideline Retrieval
       - AI Insight Generation & Validation
       - Reportlab Certified PDF Generation, Approval & Download
 
@@ -49,7 +48,7 @@ def record_audit_event(
         details: Clear, sanitized explanation of the event and resources affected.
         user_agent: Initiating actor (e.g. 'Clinical Analyst', 'FastAPI API', 'LangGraph Pipeline').
         status: Operation outcome (SUCCESS, FAILED, REJECTED, PARTIAL).
-        entity_type: Category of the resource (e.g. TABLE, QUERY, PLAN, RAG, REPORT, RELATIONSHIP).
+        entity_type: Category of the resource (e.g. TABLE, QUERY, PLAN, REPORT, RELATIONSHIP).
         entity_name: Specific identifier of the resource (e.g. table name, query hash, report name).
         db: Optional existing SQLAlchemy session; if omitted, opens a dedicated context session.
 

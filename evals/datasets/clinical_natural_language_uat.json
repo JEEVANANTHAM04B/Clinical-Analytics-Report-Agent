@@ -6,12 +6,21 @@
     "type": "sql",
     "expected_intent": "Count total enrolled study participants",
     "expected_kpi": "TOTAL_SUBJECTS",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["USUBJID"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "USUBJID"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID)",
-    "expected_sql_concepts": ["SELECT", "COUNT", "DISTINCT", "dm"],
+    "expected_sql_concepts": [
+      "SELECT",
+      "COUNT",
+      "DISTINCT",
+      "dm"
+    ],
     "expected_result": 10000,
     "expected_result_type": "scalar_integer"
   },
@@ -22,12 +31,21 @@
     "type": "sql",
     "expected_intent": "Count total enrolled subjects",
     "expected_kpi": "TOTAL_SUBJECTS",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["USUBJID"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "USUBJID"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID)",
-    "expected_sql_concepts": ["SELECT", "COUNT", "DISTINCT", "dm"],
+    "expected_sql_concepts": [
+      "SELECT",
+      "COUNT",
+      "DISTINCT",
+      "dm"
+    ],
     "expected_result": 10000,
     "expected_result_type": "scalar_integer"
   },
@@ -38,12 +56,25 @@
     "type": "sql",
     "expected_intent": "Identify clinical site with highest recruitment count",
     "expected_kpi": "ENROLLMENT_BY_SITE",
-    "expected_datasets": ["sites", "dm"],
-    "expected_columns": ["SITEID", "SITE_NAME", "USUBJID"],
-    "expected_relationships": ["sites.SITEID = dm.SITEID"],
+    "expected_datasets": [
+      "sites",
+      "dm"
+    ],
+    "expected_columns": [
+      "SITEID",
+      "SITE_NAME",
+      "USUBJID"
+    ],
+    "expected_relationships": [
+      "sites.SITEID = dm.SITEID"
+    ],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT dm.USUBJID)",
-    "expected_sql_concepts": ["JOIN", "GROUP BY", "ORDER BY DESC"],
+    "expected_sql_concepts": [
+      "JOIN",
+      "GROUP BY",
+      "ORDER BY DESC"
+    ],
     "expected_result": {
       "site_id": "SITE010",
       "site_name": "Clinical Center 10",
@@ -58,12 +89,25 @@
     "type": "sql",
     "expected_intent": "List enrolled subject counts across all research sites",
     "expected_kpi": "ENROLLMENT_BY_SITE",
-    "expected_datasets": ["sites", "dm"],
-    "expected_columns": ["SITEID", "SITE_NAME", "USUBJID"],
-    "expected_relationships": ["sites.SITEID = dm.SITEID"],
+    "expected_datasets": [
+      "sites",
+      "dm"
+    ],
+    "expected_columns": [
+      "SITEID",
+      "SITE_NAME",
+      "USUBJID"
+    ],
+    "expected_relationships": [
+      "sites.SITEID = dm.SITEID"
+    ],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT dm.USUBJID)",
-    "expected_sql_concepts": ["JOIN", "GROUP BY", "sites"],
+    "expected_sql_concepts": [
+      "JOIN",
+      "GROUP BY",
+      "sites"
+    ],
     "expected_result": {
       "row_count": 10,
       "max_site": "Clinical Center 10",
@@ -78,12 +122,25 @@
     "type": "sql",
     "expected_intent": "Identify investigator center with highest enrollment count",
     "expected_kpi": "ENROLLMENT_BY_SITE",
-    "expected_datasets": ["sites", "dm"],
-    "expected_columns": ["SITEID", "SITE_NAME", "USUBJID"],
-    "expected_relationships": ["sites.SITEID = dm.SITEID"],
+    "expected_datasets": [
+      "sites",
+      "dm"
+    ],
+    "expected_columns": [
+      "SITEID",
+      "SITE_NAME",
+      "USUBJID"
+    ],
+    "expected_relationships": [
+      "sites.SITEID = dm.SITEID"
+    ],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT dm.USUBJID)",
-    "expected_sql_concepts": ["JOIN", "GROUP BY", "ORDER BY DESC"],
+    "expected_sql_concepts": [
+      "JOIN",
+      "GROUP BY",
+      "ORDER BY DESC"
+    ],
     "expected_result": {
       "site_id": "SITE010",
       "site_name": "Clinical Center 10",
@@ -98,12 +155,21 @@
     "type": "sql",
     "expected_intent": "Count subjects allocated to Drug X vs Placebo",
     "expected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "TRT01A"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) GROUP BY TRT01A",
-    "expected_sql_concepts": ["ARM", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -117,12 +183,21 @@
     "type": "sql",
     "expected_intent": "Breakdown of study population by treatment arm",
     "expected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "TRT01A"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) GROUP BY TRT01A",
-    "expected_sql_concepts": ["ARM", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -136,12 +211,21 @@
     "type": "sql",
     "expected_intent": "Display treatment allocation distribution",
     "expected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "TRT01A"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) GROUP BY TRT01A",
-    "expected_sql_concepts": ["ARM", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -155,12 +239,21 @@
     "type": "sql",
     "expected_intent": "Count subjects in each treatment group",
     "expected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "TRT01A"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) GROUP BY TRT01A",
-    "expected_sql_concepts": ["ARM", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -174,12 +267,21 @@
     "type": "sql",
     "expected_intent": "Compare subject counts across treatment groups",
     "expected_kpi": "SUBJECTS_BY_TREATMENT_ARM",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "TRT01A"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) GROUP BY TRT01A",
-    "expected_sql_concepts": ["ARM", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -193,12 +295,20 @@
     "type": "sql",
     "expected_intent": "Calculate mean age of study participants",
     "expected_kpi": "AVERAGE_AGE",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["AGE"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "AGE"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AGE)",
-    "expected_sql_concepts": ["AVG", "AGE", "dm"],
+    "expected_sql_concepts": [
+      "AVG",
+      "AGE",
+      "dm"
+    ],
     "expected_result": {
       "mean_age": 55.48
     },
@@ -211,12 +321,20 @@
     "type": "sql",
     "expected_intent": "Calculate mean age across study participants",
     "expected_kpi": "AVERAGE_AGE",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["AGE"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "AGE"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AGE)",
-    "expected_sql_concepts": ["AVG", "AGE", "dm"],
+    "expected_sql_concepts": [
+      "AVG",
+      "AGE",
+      "dm"
+    ],
     "expected_result": {
       "mean_age": 55.48
     },
@@ -229,12 +347,21 @@
     "type": "sql",
     "expected_intent": "Stratify age summary statistics by treatment arm",
     "expected_kpi": "AVERAGE_AGE",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["ARM", "AGE"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "ARM",
+      "AGE"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AGE) GROUP BY ARM",
-    "expected_sql_concepts": ["ARM", "AVG", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "AVG",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 55.45,
       "Placebo": 55.51
@@ -248,12 +375,21 @@
     "type": "sql",
     "expected_intent": "Compare mean age between treatment arms",
     "expected_kpi": "AVERAGE_AGE",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["ARM", "AGE"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "ARM",
+      "AGE"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AGE) GROUP BY ARM",
-    "expected_sql_concepts": ["ARM", "AVG", "GROUP BY"],
+    "expected_sql_concepts": [
+      "ARM",
+      "AVG",
+      "GROUP BY"
+    ],
     "expected_result": {
       "Drug X": 55.45,
       "Placebo": 55.51
@@ -267,12 +403,21 @@
     "type": "sql",
     "expected_intent": "Calculate minimum and maximum age bounds",
     "expected_kpi": "AVERAGE_AGE",
-    "expected_datasets": ["dm"],
-    "expected_columns": ["AGE"],
+    "expected_datasets": [
+      "dm"
+    ],
+    "expected_columns": [
+      "AGE"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "MIN(AGE), MAX(AGE)",
-    "expected_sql_concepts": ["MIN", "MAX", "AGE", "dm"],
+    "expected_sql_concepts": [
+      "MIN",
+      "MAX",
+      "AGE",
+      "dm"
+    ],
     "expected_result": {
       "min_age": 18,
       "max_age": 85
@@ -286,12 +431,20 @@
     "type": "sql",
     "expected_intent": "Count total reported adverse event occurrences",
     "expected_kpi": "ADVERSE_EVENT_COUNT",
-    "expected_datasets": ["ae"],
-    "expected_columns": ["USUBJID", "AESEQ"],
+    "expected_datasets": [
+      "ae"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "AESEQ"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(*)",
-    "expected_sql_concepts": ["COUNT", "ae"],
+    "expected_sql_concepts": [
+      "COUNT",
+      "ae"
+    ],
     "expected_result": 10000,
     "expected_result_type": "scalar_integer"
   },
@@ -302,12 +455,22 @@
     "type": "sql",
     "expected_intent": "Count serious adverse events filtered by AESER = 'Y'",
     "expected_kpi": "SERIOUS_AE_COUNT",
-    "expected_datasets": ["ae"],
-    "expected_columns": ["AESER"],
+    "expected_datasets": [
+      "ae"
+    ],
+    "expected_columns": [
+      "AESER"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["ae.AESER = 'Y'"],
+    "expected_filters": [
+      "ae.AESER = 'Y'"
+    ],
     "expected_aggregation": "COUNT(*) WHERE AESER = 'Y'",
-    "expected_sql_concepts": ["COUNT", "AESER", "'Y'"],
+    "expected_sql_concepts": [
+      "COUNT",
+      "AESER",
+      "'Y'"
+    ],
     "expected_result": 2518,
     "expected_result_type": "scalar_integer"
   },
@@ -318,12 +481,25 @@
     "type": "sql",
     "expected_intent": "Calculate adverse event incidence rate by treatment group",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adsl.TRT01A", "adae.USUBJID"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adsl.TRT01A",
+      "adae.USUBJID"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100",
-    "expected_sql_concepts": ["LEFT JOIN", "GROUP BY", "ARM"],
+    "expected_sql_concepts": [
+      "LEFT JOIN",
+      "GROUP BY",
+      "ARM"
+    ],
     "expected_result": {
       "Drug X": 70.0,
       "Placebo": 60.0
@@ -337,12 +513,25 @@
     "type": "sql",
     "expected_intent": "Compare adverse event rates across treatment groups",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adsl.TRT01A", "adae.USUBJID"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adsl.TRT01A",
+      "adae.USUBJID"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100",
-    "expected_sql_concepts": ["LEFT JOIN", "GROUP BY", "ARM"],
+    "expected_sql_concepts": [
+      "LEFT JOIN",
+      "GROUP BY",
+      "ARM"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -355,12 +544,20 @@
     "type": "sql",
     "expected_intent": "Breakdown adverse events by severity grade",
     "expected_kpi": "AE_SEVERITY_DISTRIBUTION",
-    "expected_datasets": ["adae"],
-    "expected_columns": ["AESEV"],
+    "expected_datasets": [
+      "adae"
+    ],
+    "expected_columns": [
+      "AESEV"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(*) GROUP BY AESEV",
-    "expected_sql_concepts": ["AESEV", "COUNT", "GROUP BY"],
+    "expected_sql_concepts": [
+      "AESEV",
+      "COUNT",
+      "GROUP BY"
+    ],
     "expected_result": {
       "MILD": 5000,
       "MODERATE": 5000,
@@ -375,12 +572,29 @@
     "type": "sql",
     "expected_intent": "Calculate treatment-emergent adverse event percentage (TRTEMFL = 'Y')",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adsl.TRT01A", "adae.USUBJID", "adae.TRTEMFL"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
-    "expected_filters": ["adae.TRTEMFL = 'Y'"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adsl.TRT01A",
+      "adae.USUBJID",
+      "adae.TRTEMFL"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
+    "expected_filters": [
+      "adae.TRTEMFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100",
-    "expected_sql_concepts": ["TRTEMFL", "'Y'", "LEFT JOIN", "COUNT"],
+    "expected_sql_concepts": [
+      "TRTEMFL",
+      "'Y'",
+      "LEFT JOIN",
+      "COUNT"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -393,12 +607,24 @@
     "type": "sql",
     "expected_intent": "Count treatment-emergent adverse events filtered by TRTEMFL = 'Y'",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adae.TRTEMFL"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
-    "expected_filters": ["adae.TRTEMFL = 'Y'"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adae.TRTEMFL"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
+    "expected_filters": [
+      "adae.TRTEMFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(*) WHERE TRTEMFL = 'Y'",
-    "expected_sql_concepts": ["TRTEMFL", "'Y'"],
+    "expected_sql_concepts": [
+      "TRTEMFL",
+      "'Y'"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -411,12 +637,29 @@
     "type": "sql",
     "expected_intent": "Compare TEAE rates across treatment arms with TRTEMFL = 'Y'",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adsl.TRT01A", "adae.USUBJID", "adae.TRTEMFL"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
-    "expected_filters": ["adae.TRTEMFL = 'Y'"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adsl.TRT01A",
+      "adae.USUBJID",
+      "adae.TRTEMFL"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
+    "expected_filters": [
+      "adae.TRTEMFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100 GROUP BY TRT01A",
-    "expected_sql_concepts": ["TRTEMFL", "'Y'", "LEFT JOIN", "ARM"],
+    "expected_sql_concepts": [
+      "TRTEMFL",
+      "'Y'",
+      "LEFT JOIN",
+      "ARM"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -429,12 +672,26 @@
     "type": "sql",
     "expected_intent": "Evaluate subjects experiencing treatment-emergent adverse events",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adae.USUBJID", "adae.TRTEMFL"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
-    "expected_filters": ["adae.TRTEMFL = 'Y'"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adae.USUBJID",
+      "adae.TRTEMFL"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
+    "expected_filters": [
+      "adae.TRTEMFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID)",
-    "expected_sql_concepts": ["TRTEMFL", "'Y'"],
+    "expected_sql_concepts": [
+      "TRTEMFL",
+      "'Y'"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -447,12 +704,26 @@
     "type": "sql",
     "expected_intent": "Calculate incidence of treatment-emergent adverse events with TRTEMFL = 'Y'",
     "expected_kpi": "AE_RATE_BY_TREATMENT",
-    "expected_datasets": ["adsl", "adae"],
-    "expected_columns": ["adsl.USUBJID", "adae.USUBJID", "adae.TRTEMFL"],
-    "expected_relationships": ["adsl.USUBJID = adae.USUBJID"],
-    "expected_filters": ["adae.TRTEMFL = 'Y'"],
+    "expected_datasets": [
+      "adsl",
+      "adae"
+    ],
+    "expected_columns": [
+      "adsl.USUBJID",
+      "adae.USUBJID",
+      "adae.TRTEMFL"
+    ],
+    "expected_relationships": [
+      "adsl.USUBJID = adae.USUBJID"
+    ],
+    "expected_filters": [
+      "adae.TRTEMFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT adae.USUBJID) / COUNT(DISTINCT adsl.USUBJID) * 100",
-    "expected_sql_concepts": ["TRTEMFL", "'Y'"],
+    "expected_sql_concepts": [
+      "TRTEMFL",
+      "'Y'"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -465,12 +736,20 @@
     "type": "sql",
     "expected_intent": "Summarize hemoglobin laboratory results in ADLB",
     "expected_kpi": "LAB_VALUE",
-    "expected_datasets": ["adlb"],
-    "expected_columns": ["PARAMCD", "AVAL", "AVISIT"],
+    "expected_datasets": [
+      "adlb"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "AVAL",
+      "AVISIT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AVAL)",
-    "expected_sql_concepts": ["adlb"],
+    "expected_sql_concepts": [
+      "adlb"
+    ],
     "expected_result": {
       "param_cd": "HGB"
     },
@@ -483,12 +762,26 @@
     "type": "sql",
     "expected_intent": "Calculate change from baseline for hemoglobin at Week 8",
     "expected_kpi": "LAB_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["adlb"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG", "PCHG"],
+    "expected_datasets": [
+      "adlb"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG",
+      "PCHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adlb.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adlb.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG), AVG(PCHG)",
-    "expected_sql_concepts": ["CHG", "PARAMCD", "adlb"],
+    "expected_sql_concepts": [
+      "CHG",
+      "PARAMCD",
+      "adlb"
+    ],
     "expected_result": {
       "param_cd": "HGB"
     },
@@ -501,12 +794,25 @@
     "type": "sql",
     "expected_intent": "Compare change in hemoglobin from baseline between treatment groups",
     "expected_kpi": "LAB_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["adlb"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG"],
+    "expected_datasets": [
+      "adlb"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adlb.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adlb.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG) GROUP BY PARAMCD, TRT01A",
-    "expected_sql_concepts": ["CHG", "ARM", "GROUP BY"],
+    "expected_sql_concepts": [
+      "CHG",
+      "ARM",
+      "GROUP BY"
+    ],
     "expected_result": {
       "param_cd": "HGB"
     },
@@ -519,12 +825,25 @@
     "type": "sql",
     "expected_intent": "Compare laboratory changes from baseline across treatment arms",
     "expected_kpi": "LAB_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["adlb"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG"],
+    "expected_datasets": [
+      "adlb"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adlb.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adlb.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG) GROUP BY PARAMCD, TRT01A",
-    "expected_sql_concepts": ["CHG", "ARM", "GROUP BY"],
+    "expected_sql_concepts": [
+      "CHG",
+      "ARM",
+      "GROUP BY"
+    ],
     "expected_result": {
       "param_cd": "HGB"
     },
@@ -537,12 +856,22 @@
     "type": "sql",
     "expected_intent": "Display laboratory measurement summary across parameters",
     "expected_kpi": "LAB_VALUE",
-    "expected_datasets": ["adlb"],
-    "expected_columns": ["PARAMCD", "AVAL", "AVISIT"],
+    "expected_datasets": [
+      "adlb"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "AVAL",
+      "AVISIT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AVAL)",
-    "expected_sql_concepts": ["PARAMCD", "AVAL", "adlb"],
+    "expected_sql_concepts": [
+      "PARAMCD",
+      "AVAL",
+      "adlb"
+    ],
     "expected_result": {
       "param_cd": "HGB"
     },
@@ -555,12 +884,20 @@
     "type": "sql",
     "expected_intent": "Summarize systolic blood pressure vital sign values",
     "expected_kpi": "VITAL_SIGN_VALUE",
-    "expected_datasets": ["advs"],
-    "expected_columns": ["PARAMCD", "AVAL", "AVISIT"],
+    "expected_datasets": [
+      "advs"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "AVAL",
+      "AVISIT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(AVAL)",
-    "expected_sql_concepts": ["advs"],
+    "expected_sql_concepts": [
+      "advs"
+    ],
     "expected_result": {
       "param_cd": "SYSBP"
     },
@@ -573,12 +910,25 @@
     "type": "sql",
     "expected_intent": "Calculate systolic blood pressure change from baseline at Week 8",
     "expected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["advs"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG", "PCHG"],
+    "expected_datasets": [
+      "advs"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG",
+      "PCHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["advs.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "advs.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG), AVG(PCHG)",
-    "expected_sql_concepts": ["CHG", "advs"],
+    "expected_sql_concepts": [
+      "CHG",
+      "advs"
+    ],
     "expected_result": {
       "param_cd": "SYSBP"
     },
@@ -591,12 +941,25 @@
     "type": "sql",
     "expected_intent": "Compare vital sign blood pressure change from baseline by treatment arm",
     "expected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["advs"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG"],
+    "expected_datasets": [
+      "advs"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["advs.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "advs.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG) GROUP BY PARAMCD, TRT01A",
-    "expected_sql_concepts": ["CHG", "ARM", "GROUP BY"],
+    "expected_sql_concepts": [
+      "CHG",
+      "ARM",
+      "GROUP BY"
+    ],
     "expected_result": {
       "param_cd": "SYSBP"
     },
@@ -609,12 +972,24 @@
     "type": "sql",
     "expected_intent": "Summarize vital-sign change from baseline after treatment",
     "expected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["advs"],
-    "expected_columns": ["PARAMCD", "TRT01A", "AVISIT", "CHG"],
+    "expected_datasets": [
+      "advs"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "TRT01A",
+      "AVISIT",
+      "CHG"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["advs.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "advs.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "AVG(CHG) GROUP BY PARAMCD, TRT01A",
-    "expected_sql_concepts": ["CHG", "advs"],
+    "expected_sql_concepts": [
+      "CHG",
+      "advs"
+    ],
     "expected_result": {
       "param_cd": "SYSBP"
     },
@@ -627,12 +1002,19 @@
     "type": "sql",
     "expected_intent": "Evaluate systolic blood pressure change from baseline",
     "expected_kpi": "VITAL_SIGN_CHANGE_FROM_BASELINE",
-    "expected_datasets": ["advs"],
-    "expected_columns": ["PARAMCD", "AVISIT"],
+    "expected_datasets": [
+      "advs"
+    ],
+    "expected_columns": [
+      "PARAMCD",
+      "AVISIT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "AVG(CHG) or AVG(AVAL)",
-    "expected_sql_concepts": ["advs"],
+    "expected_sql_concepts": [
+      "advs"
+    ],
     "expected_result": {
       "param_cd": "SYSBP"
     },
@@ -645,12 +1027,24 @@
     "type": "sql",
     "expected_intent": "Count clinical responders at Week 8 visit with RESPFL = 'Y'",
     "expected_kpi": "EFFICACY_RESPONSE_COUNT",
-    "expected_datasets": ["adresp"],
-    "expected_columns": ["USUBJID", "RESPFL", "AVISIT"],
+    "expected_datasets": [
+      "adresp"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "RESPFL",
+      "AVISIT"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adresp.RESPFL = 'Y'"],
+    "expected_filters": [
+      "adresp.RESPFL = 'Y'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) WHERE RESPFL = 'Y'",
-    "expected_sql_concepts": ["RESPFL", "'Y'", "adresp"],
+    "expected_sql_concepts": [
+      "RESPFL",
+      "'Y'",
+      "adresp"
+    ],
     "expected_result": 2126,
     "expected_result_type": "scalar_integer"
   },
@@ -661,12 +1055,25 @@
     "type": "sql",
     "expected_intent": "Calculate clinical response rate percentage",
     "expected_kpi": "EFFICACY_RESPONSE_RATE",
-    "expected_datasets": ["adresp"],
-    "expected_columns": ["USUBJID", "TRT01A", "AVISIT", "RESPFL"],
+    "expected_datasets": [
+      "adresp"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A",
+      "AVISIT",
+      "RESPFL"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adresp.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adresp.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) / COUNT(DISTINCT USUBJID) * 100",
-    "expected_sql_concepts": ["RESPFL", "adresp", "ROUND"],
+    "expected_sql_concepts": [
+      "RESPFL",
+      "adresp",
+      "ROUND"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -679,12 +1086,25 @@
     "type": "sql",
     "expected_intent": "Compare clinical response rate between treatment arms at Week 8",
     "expected_kpi": "EFFICACY_RESPONSE_RATE",
-    "expected_datasets": ["adresp"],
-    "expected_columns": ["USUBJID", "TRT01A", "AVISIT", "RESPFL"],
+    "expected_datasets": [
+      "adresp"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A",
+      "AVISIT",
+      "RESPFL"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adresp.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adresp.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) / COUNT(DISTINCT USUBJID) * 100 GROUP BY TRT01A",
-    "expected_sql_concepts": ["RESPFL", "ARM", "GROUP BY"],
+    "expected_sql_concepts": [
+      "RESPFL",
+      "ARM",
+      "GROUP BY"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -697,12 +1117,24 @@
     "type": "sql",
     "expected_intent": "Determine efficacy response rate at Week 8 for Drug X",
     "expected_kpi": "EFFICACY_RESPONSE_RATE",
-    "expected_datasets": ["adresp"],
-    "expected_columns": ["USUBJID", "TRT01A", "AVISIT", "RESPFL"],
+    "expected_datasets": [
+      "adresp"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A",
+      "AVISIT",
+      "RESPFL"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adresp.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adresp.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END) / COUNT(DISTINCT USUBJID) * 100",
-    "expected_sql_concepts": ["RESPFL", "adresp"],
+    "expected_sql_concepts": [
+      "RESPFL",
+      "adresp"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -715,12 +1147,23 @@
     "type": "sql",
     "expected_intent": "Display count of responders stratified by treatment arm",
     "expected_kpi": "EFFICACY_RESPONSE_RATE",
-    "expected_datasets": ["adresp"],
-    "expected_columns": ["USUBJID", "TRT01A", "RESPFL"],
+    "expected_datasets": [
+      "adresp"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "TRT01A",
+      "RESPFL"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adresp.AVISIT = 'WEEK 8'"],
+    "expected_filters": [
+      "adresp.AVISIT = 'WEEK 8'"
+    ],
     "expected_aggregation": "COUNT(DISTINCT CASE WHEN RESPFL = 'Y' THEN USUBJID END)",
-    "expected_sql_concepts": ["RESPFL", "ARM"],
+    "expected_sql_concepts": [
+      "RESPFL",
+      "ARM"
+    ],
     "expected_result": {
       "treatment_arm": "Drug X"
     },
@@ -733,12 +1176,23 @@
     "type": "sql",
     "expected_intent": "Count subjects completing study with EOSDT IS NOT NULL",
     "expected_kpi": "SUBJECT_DISPOSITION",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "EOSDT"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "EOSDT"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adsl.EOSDT IS NOT NULL"],
+    "expected_filters": [
+      "adsl.EOSDT IS NOT NULL"
+    ],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) WHERE EOSDT IS NOT NULL",
-    "expected_sql_concepts": ["EOSDT", "IS NOT NULL", "adsl"],
+    "expected_sql_concepts": [
+      "EOSDT",
+      "IS NOT NULL",
+      "adsl"
+    ],
     "expected_result": 10000,
     "expected_result_type": "scalar_integer"
   },
@@ -749,12 +1203,23 @@
     "type": "sql",
     "expected_intent": "Count discontinued subjects where EOSDT IS NULL",
     "expected_kpi": "SUBJECT_DISPOSITION",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "EOSDT"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "EOSDT"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adsl.EOSDT IS NULL"],
+    "expected_filters": [
+      "adsl.EOSDT IS NULL"
+    ],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) WHERE EOSDT IS NULL",
-    "expected_sql_concepts": ["EOSDT", "IS NULL", "adsl"],
+    "expected_sql_concepts": [
+      "EOSDT",
+      "IS NULL",
+      "adsl"
+    ],
     "expected_result": 0,
     "expected_result_type": "scalar_integer"
   },
@@ -765,12 +1230,20 @@
     "type": "sql",
     "expected_intent": "Summarize subject disposition across treatment arms",
     "expected_kpi": "SUBJECT_DISPOSITION",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["TRT01A", "EOSDT"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "TRT01A",
+      "EOSDT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) WHERE EOSDT IS NOT NULL",
-    "expected_sql_concepts": ["EOSDT", "adsl"],
+    "expected_sql_concepts": [
+      "EOSDT",
+      "adsl"
+    ],
     "expected_result": {
       "Drug X": 5011,
       "Placebo": 4989
@@ -784,12 +1257,19 @@
     "type": "sql",
     "expected_intent": "Calculate percentage of subjects who completed the study",
     "expected_kpi": "SUBJECT_DISPOSITION",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["EOSDT"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "EOSDT"
+    ],
     "expected_relationships": [],
     "expected_filters": [],
     "expected_aggregation": "COUNT(DISTINCT CASE WHEN EOSDT IS NOT NULL THEN USUBJID END) / COUNT(DISTINCT USUBJID) * 100",
-    "expected_sql_concepts": ["EOSDT", "adsl"],
+    "expected_sql_concepts": [
+      "EOSDT",
+      "adsl"
+    ],
     "expected_result": 100.0,
     "expected_result_type": "scalar_numeric"
   },
@@ -800,58 +1280,24 @@
     "type": "sql",
     "expected_intent": "Count subjects discontinued or lost to follow up",
     "expected_kpi": "SUBJECT_DISPOSITION",
-    "expected_datasets": ["adsl"],
-    "expected_columns": ["USUBJID", "EOSDT"],
+    "expected_datasets": [
+      "adsl"
+    ],
+    "expected_columns": [
+      "USUBJID",
+      "EOSDT"
+    ],
     "expected_relationships": [],
-    "expected_filters": ["adsl.EOSDT IS NULL"],
+    "expected_filters": [
+      "adsl.EOSDT IS NULL"
+    ],
     "expected_aggregation": "COUNT(DISTINCT USUBJID) WHERE EOSDT IS NULL",
-    "expected_sql_concepts": ["EOSDT", "IS NULL", "adsl"],
+    "expected_sql_concepts": [
+      "EOSDT",
+      "IS NULL",
+      "adsl"
+    ],
     "expected_result": 0,
     "expected_result_type": "scalar_integer"
-  },
-  {
-    "id": "uat_rag_001",
-    "question": "What is SDTM?",
-    "category": "rag",
-    "type": "rag",
-    "expected_intent": "Define CDISC Study Data Tabulation Model (SDTM)",
-    "expected_rag_concepts": ["Study Data Tabulation Model", "SDTM", "submission"],
-    "expected_terminology": ["SDTM", "tabulation"]
-  },
-  {
-    "id": "uat_rag_002",
-    "question": "What is ADaM used for?",
-    "category": "rag",
-    "type": "rag",
-    "expected_intent": "Explain CDISC Analysis Data Model (ADaM) purpose",
-    "expected_rag_concepts": ["Analysis Data Model", "ADaM", "analysis"],
-    "expected_terminology": ["ADaM", "analysis"]
-  },
-  {
-    "id": "uat_rag_003",
-    "question": "What does TRTEMFL mean?",
-    "category": "rag",
-    "type": "rag",
-    "expected_intent": "Define Treatment-Emergent Analysis Flag (TRTEMFL)",
-    "expected_rag_concepts": ["Treatment-Emergent", "TRTEMFL", "adverse event"],
-    "expected_terminology": ["TRTEMFL", "treatment-emergent"]
-  },
-  {
-    "id": "uat_rag_004",
-    "question": "What is a treatment-emergent adverse event?",
-    "category": "rag",
-    "type": "rag",
-    "expected_intent": "Define Treatment-Emergent Adverse Event (TEAE)",
-    "expected_rag_concepts": ["treatment-emergent", "TEAE", "dosing"],
-    "expected_terminology": ["treatment-emergent", "TEAE"]
-  },
-  {
-    "id": "uat_rag_005",
-    "question": "What is the difference between SDTM and ADaM?",
-    "category": "rag",
-    "type": "rag",
-    "expected_intent": "Contrast SDTM tabulation with ADaM analysis structures",
-    "expected_rag_concepts": ["SDTM", "ADaM", "tabulation", "analysis"],
-    "expected_terminology": ["SDTM", "ADaM"]
   }
 ]

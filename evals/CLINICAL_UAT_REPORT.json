@@ -1,4 +1,5 @@
 {
+  "archival_notice": "Historical UAT output generated before reference retrieval was removed; not a verification of the current pipeline.",
   "total_cases": 50,
   "total_passed": 50,
   "total_failed": 0,

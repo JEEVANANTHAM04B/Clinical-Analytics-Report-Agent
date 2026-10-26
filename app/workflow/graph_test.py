@@ -28,9 +28,6 @@ if __name__ == "__main__":
     print("\n=== RESULT VALIDATION ===")
     pprint(result.get("result_validation", {}))
 
-    print("\n=== RAG CONTEXT ===")
-    print(result.get("rag_context", ""))
-
     print("\n=== FINAL INSIGHT ===")
     print(result.get("insight", ""))
 

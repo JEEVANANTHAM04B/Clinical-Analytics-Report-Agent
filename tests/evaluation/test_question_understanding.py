@@ -48,7 +48,7 @@ def test_question_plan_dimensions_and_metrics(eval_dataset):
     dimensions and metrics (e.g. TRT01A / ARM for treatment arm questions).
     """
     for case in eval_dataset:
-        if case["category"] in ["CLINICAL_KNOWLEDGE_RAG"] or case["category"].startswith("SECURITY_"):
+        if case["category"].startswith("SECURITY_"):
             continue
 
         question = case["question"]

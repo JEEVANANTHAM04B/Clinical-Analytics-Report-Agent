@@ -135,7 +135,7 @@ export const ChartCustomizer: React.FC<ChartCustomizerProps> = ({
   const plotlyData = useMemo(() => {
     const primaryColor = '#4F46E5';
     const pieColorPalette = [
-      '#4F46E5', '#38BDF8', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'
+      '#4F46E5', '#0D9488', '#E37993', '#68B4BA', '#D8A05A', '#7187A5', '#94ADB0'
     ];
 
     if (chartType === 'hbar') {
@@ -175,7 +175,7 @@ export const ChartCustomizer: React.FC<ChartCustomizerProps> = ({
           x: categories,
           y: values,
           line: { color: primaryColor, width: 3, shape: 'spline' },
-          marker: { size: 6, color: '#312E81' },
+          marker: { size: 6, color: '#4F46E5' },
           hoverinfo: 'x+y',
         },
       ];
@@ -394,7 +394,7 @@ export const ChartCustomizer: React.FC<ChartCustomizerProps> = ({
           data={plotlyData as any}
           layout={{
             autosize: true,
-            title: { text: title, font: { size: 13, color: '#1E293B' } },
+            title: { text: title, font: { size: 13, color: '#111827' } },
             margin: {
               l: chartType === 'hbar' ? 160 : 50,
               r: 30,
@@ -402,15 +402,15 @@ export const ChartCustomizer: React.FC<ChartCustomizerProps> = ({
               b: chartType === 'vbar' ? 80 : 40,
             },
             xaxis: {
-              gridcolor: '#F1F5F9',
-              zerolinecolor: '#E2E8F0',
-              tickfont: { size: 10, color: '#475569' },
+              gridcolor: '#eee7de',
+              zerolinecolor: '#E5E7EB',
+              tickfont: { size: 10, color: '#64748B' },
               type: (chartType === 'hbar' && axisScale === 'log') ? 'log' : 'linear',
             },
             yaxis: {
               autorange: chartType === 'hbar' ? 'reversed' : true,
-              tickfont: { size: 10, color: '#475569' },
-              gridcolor: '#F1F5F9',
+              tickfont: { size: 10, color: '#64748B' },
+              gridcolor: '#eee7de',
               type: (chartType !== 'hbar' && chartType !== 'donut' && chartType !== 'pie' && axisScale === 'log') ? 'log' : 'linear',
             },
             plot_bgcolor: '#FFFFFF',

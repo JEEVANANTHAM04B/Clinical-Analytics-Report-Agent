@@ -1,0 +1,264 @@
+{
+  "run_at_utc": "2026-10-19T03:31:46.788264+00:00",
+  "framework": "DeepEval ExactMatchMetric 4.2.8 (offline, no LLM judge)",
+  "dataset": "evals\\datasets\\clinical_golden_benchmark.json",
+  "total": 25,
+  "passed": 24,
+  "by_domain": {
+    "demographics": {
+      "total": 3,
+      "passed": 3
+    },
+    "disposition": {
+      "total": 3,
+      "passed": 3
+    },
+    "efficacy": {
+      "total": 4,
+      "passed": 4
+    },
+    "enrollment": {
+      "total": 4,
+      "passed": 3
+    },
+    "laboratory": {
+      "total": 3,
+      "passed": 3
+    },
+    "safety": {
+      "total": 5,
+      "passed": 5
+    },
+    "vital_signs": {
+      "total": 3,
+      "passed": 3
+    }
+  },
+  "cases": [
+    {
+      "id": "gold_enr_001",
+      "question": "How many subjects are enrolled?",
+      "expected_domain": "enrollment",
+      "actual_domain": "enrollment",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_enr_002",
+      "question": "Which site has the highest enrollment?",
+      "expected_domain": "enrollment",
+      "actual_domain": "enrollment",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_enr_003",
+      "question": "Show enrollment by site.",
+      "expected_domain": "enrollment",
+      "actual_domain": "enrollment",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_enr_004",
+      "question": "What is the treatment-arm distribution?",
+      "expected_domain": "enrollment",
+      "actual_domain": "demographics",
+      "supported": true,
+      "score": 0.0,
+      "passed": false
+    },
+    {
+      "id": "gold_dem_001",
+      "question": "What is the average age of subjects?",
+      "expected_domain": "demographics",
+      "actual_domain": "demographics",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_dem_002",
+      "question": "What is the sex distribution?",
+      "expected_domain": "demographics",
+      "actual_domain": "demographics",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_dem_003",
+      "question": "What is the age distribution by treatment arm?",
+      "expected_domain": "demographics",
+      "actual_domain": "demographics",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_saf_001",
+      "question": "How many adverse events occurred?",
+      "expected_domain": "safety",
+      "actual_domain": "safety",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_saf_002",
+      "question": "How many serious adverse events occurred?",
+      "expected_domain": "safety",
+      "actual_domain": "safety",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_saf_003",
+      "question": "What is the AE rate by treatment arm?",
+      "expected_domain": "safety",
+      "actual_domain": "safety",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_saf_004",
+      "question": "What is the AE severity distribution?",
+      "expected_domain": "safety",
+      "actual_domain": "safety",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_saf_005",
+      "question": "What is the treatment-emergent AE rate?",
+      "expected_domain": "safety",
+      "actual_domain": "safety",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_lab_001",
+      "question": "What is the lab value at Week 8?",
+      "expected_domain": "laboratory",
+      "actual_domain": "laboratory",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_lab_002",
+      "question": "What is the lab change from baseline?",
+      "expected_domain": "laboratory",
+      "actual_domain": "laboratory",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_lab_003",
+      "question": "Which treatment arm has the largest laboratory change?",
+      "expected_domain": "laboratory",
+      "actual_domain": "laboratory",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_vit_001",
+      "question": "What is the vital sign value?",
+      "expected_domain": "vital_signs",
+      "actual_domain": "vital_signs",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_vit_002",
+      "question": "What is the vital sign change from baseline?",
+      "expected_domain": "vital_signs",
+      "actual_domain": "vital_signs",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_vit_003",
+      "question": "Which treatment arm has the largest vital-sign change?",
+      "expected_domain": "vital_signs",
+      "actual_domain": "vital_signs",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_eff_001",
+      "question": "What is the efficacy response rate?",
+      "expected_domain": "efficacy",
+      "actual_domain": "efficacy",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_eff_002",
+      "question": "What is the efficacy response rate by treatment arm?",
+      "expected_domain": "efficacy",
+      "actual_domain": "efficacy",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_eff_003",
+      "question": "How many subjects responded?",
+      "expected_domain": "efficacy",
+      "actual_domain": "efficacy",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_eff_004",
+      "question": "Which treatment arm has the highest response rate?",
+      "expected_domain": "efficacy",
+      "actual_domain": "efficacy",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_dsp_001",
+      "question": "What is the subject disposition?",
+      "expected_domain": "disposition",
+      "actual_domain": "disposition",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_dsp_002",
+      "question": "How many subjects completed the study?",
+      "expected_domain": "disposition",
+      "actual_domain": "disposition",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    },
+    {
+      "id": "gold_dsp_003",
+      "question": "How many subjects discontinued?",
+      "expected_domain": "disposition",
+      "actual_domain": "disposition",
+      "supported": true,
+      "score": 1.0,
+      "passed": true
+    }
+  ]
+}

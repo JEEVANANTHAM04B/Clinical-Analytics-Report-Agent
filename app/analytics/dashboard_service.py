@@ -17,7 +17,7 @@ Supports:
    - Vital Sign Values, Vital Sign Change from Baseline
    - Efficacy Response Count, Efficacy Response Rate by Treatment
    - Subject Disposition
-6. Exact preservation of DashboardCustomizationResponse schema for seamless frontend compatibility.
+6. Exact preservation of Dashboard Customization Response schema for seamless frontend compatibility.
 7. Legacy EHR dataset fallback handlers for backward compatibility.
 """
 
@@ -39,7 +39,6 @@ CLINICAL_TABLES: Set[str] = {
     "adsl", "adae", "adlb", "advs", "adresp",
 }
 
-
 def _safe_float(val: Any, default: float = 0.0) -> float:
     """Helper to convert Decimal/int/float/None to float safely."""
     if val is None:
@@ -49,7 +48,6 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
     except (ValueError, TypeError):
         return default
 
-
 def _safe_int(val: Any, default: int = 0) -> int:
     """Helper to convert Decimal/int/str/None to int safely."""
     if val is None:
@@ -58,7 +56,6 @@ def _safe_int(val: Any, default: int = 0) -> int:
         return int(val)
     except (ValueError, TypeError):
         return default
-
 
 # =============================================================================
 # KPI EXECUTION HELPER (STEP 4 & STEP 8)

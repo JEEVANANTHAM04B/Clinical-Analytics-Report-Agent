@@ -1,4 +1,7 @@
 export interface AnalyticsRequest {
+  analysis_id?: string;
+  state_version?: number;
+  action?: "continue" | "retry" | "stop" | "approve_quality" | "reject_quality";
   question: string;
   approval_status: 'pending' | 'approved' | 'rejected';
   human_feedback?: string;
@@ -72,7 +75,15 @@ export interface ChartSpec {
   [key: string]: any;
 }
 
+export interface StageStatus {
+  stage: string; status: string; message?: string; recoverable?: boolean; allowed_actions?: string[];
+}
 export interface AnalyticsResponse {
+  analysis_id?: string;
+  state_version?: number;
+  stage_status?: StageStatus;
+  eda_findings?: { scope?: string; findings: Array<{code: string; severity: string; message: string}> };
+
   status: string;
   question: string;
   reason?: string | null;
@@ -90,7 +101,6 @@ export interface AnalyticsResponse {
   insight?: string | null;
   chart_spec?: ChartSpec | null;
   visualization_error?: string | null;
-  rag_context?: string | null;
   result_validation?: Record<string, any> | null;
   insight_evidence?: Record<string, any> | null;
   error?: string | null;
@@ -145,9 +155,9 @@ export interface FollowUpRequest {
   question: string;
   current_question?: string | null;
   current_results?: Record<string, any>[];
+  original_results?: Record<string, any>[];
   current_sql?: string | null;
   current_plan?: string | null;
-  current_rag_context?: string | null;
   current_insight?: string | null;
   conversation_history?: ConversationTurn[];
   selected_tables?: string[];

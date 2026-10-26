@@ -5,13 +5,13 @@ from app.database.repository import get_approved_relationships_from_db
 
 
 METADATA_TABLES = {
+    "clinical_reports", "workflow_executions", "workflow_artifacts", "workflow_events", "workflow_notifications",
     "dataset_versions",
     "dataset_columns",
     "approved_relationships",
     "audit_logs",
     "clinical_dataset_registry",
 }
-
 
 def get_database_schema(approved_only: bool = True) -> dict:
     """

@@ -1,17 +1,19 @@
 import React from 'react';
-import { Database } from 'lucide-react';
+import { Code2, Database } from 'lucide-react';
 
 interface ClinicalTopbarProps {
   title?: string;
   datasetName?: string;
+  onOpenTechnical: () => void;
 }
 
 export const ClinicalTopbar: React.FC<ClinicalTopbarProps> = ({
   title = "Clinical Dashboard",
-  datasetName = "Organization Dataset"
+  datasetName = "Organization Dataset",
+  onOpenTechnical,
 }) => {
   return (
-    <header className="h-12 bg-white border-b border-gray-200 px-5 flex items-center justify-between sticky top-0 z-40 select-none">
+    <header className="studio-topbar h-12 bg-white border-b border-gray-200 px-5 flex items-center justify-between sticky top-0 z-40 select-none">
       {/* Title & Domain badge */}
       <div className="flex items-center space-x-2.5">
         <h1 className="text-sm font-bold text-gray-900 tracking-tight">{title}</h1>
@@ -22,6 +24,15 @@ export const ClinicalTopbar: React.FC<ClinicalTopbarProps> = ({
 
       {/* Dataset & Profile */}
       <div className="flex items-center space-x-2.5">
+        <button
+          type="button"
+          onClick={onOpenTechnical}
+          aria-label="Open technical workspace"
+          title="Open technical workspace"
+          className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-indigo-700 transition-colors"
+        >
+          <Code2 className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
         <button className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[11px] font-medium text-gray-700 shadow-2xs transition-colors">
           <Database className="w-3 h-3 text-indigo-600" />
           <span>{datasetName}</span>

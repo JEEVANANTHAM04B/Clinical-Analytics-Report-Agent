@@ -23,6 +23,7 @@ from sqlalchemy import text
 
 from app.main import app
 from app.core.database import engine
+from app.ingestion.quality_checker import check_quality
 from app.ingestion.mysql_loader import (
     get_table_primary_keys,
     identify_duplicate_records,
@@ -145,6 +146,46 @@ def test_identify_intra_file_duplicates():
     assert dup_info["duplicate_count"] == 1
     assert dup_info["eligible_count"] == 2
     assert dup_info["duplicate_indices"] == [2]
+
+
+def test_quality_check_counts_blank_and_whitespace_separately_from_missing():
+    """Blank text is reported separately while null counts and empty columns remain unchanged."""
+    df = pd.DataFrame({
+        "text": ["", "   ", None, "value"],
+        "all_missing": [None, None, None, None],
+        "row_id": [1, 2, 3, 4],
+    })
+
+    report = check_quality(df, "blank_values.csv")
+
+    assert report.total_missing_cells == 5
+    assert report.columns_with_missing_values == 2
+    assert report.empty_columns == ["all_missing"]
+    assert any(
+        "Column 'text' contains 2 blank text values" in flag
+        for flag in report.quality_flags
+    )
+    assert not any(
+        "Column 'all_missing' contains" in flag
+        for flag in report.quality_flags
+    )
+
+
+def test_quality_check_preserves_duplicate_detection_with_blank_text():
+    """Adding blank-value reporting does not change exact duplicate-row counts."""
+    df = pd.DataFrame({
+        "row_id": [1, 1, 2, 2],
+        "text": ["", "", "   ", "   "],
+    })
+
+    report = check_quality(df, "duplicate_blank_values.csv")
+
+    assert report.duplicate_row_count == 2
+    assert report.duplicate_row_percentage == 50.0
+    assert any(
+        "Column 'text' contains 4 blank text values" in flag
+        for flag in report.quality_flags
+    )
 
 
 # =============================================================================

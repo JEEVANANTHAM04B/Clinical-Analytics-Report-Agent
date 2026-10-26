@@ -46,6 +46,7 @@ def _deterministic_insight_fallback(
     insight_evidence: dict[str, Any],
     clinical_plan: dict[str, Any] | None = None,
 ) -> str | None:
+    
     """
     Generate an insight directly from verified query results and
     deterministic evidence when the LLM is temporarily unavailable.
@@ -235,7 +236,6 @@ def _deterministic_insight_fallback(
 def generate_insight(
     user_question: str,
     query_results: list[dict[str, Any]],
-    rag_context: str = "",
     insight_evidence: dict[str, Any] | None = None,
     clinical_plan: dict[str, Any] | None = None,
     analysis_plan: str | None = None,
@@ -243,8 +243,8 @@ def generate_insight(
     """
     Generate a clinical analytics insight using:
     1. Verified SQL results
-    2. RAG reference context
-    3. Deterministically calculated evidence
+    2. Deterministically calculated evidence
+    3. Approved analysis metadata
     4. CDISC clinical trial domain context
 
     The LLM explains the verified evidence and comparisons.
@@ -292,11 +292,17 @@ You are an expert clinical analytics intelligence assistant.
 
 Answer the user's question using ONLY:
 1. The verified SQL results.
-2. The provided reference context.
-3. The deterministic insight evidence.
+2. The deterministic insight evidence.
+3. The approved analysis plan and clinical question metadata, when provided.
 
 User question:
 {user_question}
+
+Approved analysis plan:
+{analysis_plan or 'Not provided'}
+
+Clinical question metadata:
+{clinical_plan or 'Not provided'}
 
 Verified SQL results:
 {query_results}
@@ -304,15 +310,14 @@ Verified SQL results:
 Deterministic insight evidence:
 {insight_evidence}
 
-Reference context:
-{rag_context}
-
 {domain_guidelines}
 
 General Rules:
-- Do not invent statistics, percentages, or values.
-- Do not invent categories, treatment arms, or visits.
+- Use only supplied analytical evidence; do not invent statistics, percentages, values, categories, treatment arms, or visits.
+- Distinguish observed results from interpretation.
+- State when the supplied evidence is insufficient to answer the question.
 - Do not calculate rankings yourself; use the deterministic evidence.
+- Do not make unsupported causal claims or claim clinical significance without appropriate statistical evidence.
 - Answer the user's specific question directly and prioritize the key findings needed to answer it.
 - Do not provide medical diagnosis or treatment recommendations.
 - Keep the answer concise (2-4 sentences) and suitable for a clinical data review team.

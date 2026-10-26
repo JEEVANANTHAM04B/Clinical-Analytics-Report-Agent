@@ -468,7 +468,6 @@ def _build_sql_from_plan(analysis_plan: str) -> Optional[str]:
 
     return None
 
-
 def _check_sql_vs_plan(sql: str, analysis_plan: str) -> Tuple[bool, str]:
     """Lightweight inline check for legacy EHR plan consistency."""
     if not analysis_plan:
@@ -532,7 +531,6 @@ def _check_sql_vs_plan(sql: str, analysis_plan: str) -> Tuple[bool, str]:
 
     return True, ""
 
-
 # ============================================================
 # DETERMINISTIC SQL FALLBACK DISPATCHER
 # ============================================================
@@ -563,6 +561,7 @@ def generate_sql(
     user_question: str,
     analysis_plan: str,
     database_schema: Optional[Dict[str, Any]] = None,
+    validation_feedback: str = "",
 ) -> str:
     """
     Main SQL generation engine.
@@ -583,6 +582,8 @@ def generate_sql(
             plan=clinical_plan,
         )
 
+        if validation_feedback:
+            prompt += "\nCorrect this validation issue without changing the approved objective: " + validation_feedback
         try:
             response = generate_response(prompt).strip()
         except RuntimeError as error:
@@ -631,6 +632,8 @@ def generate_sql(
             user_question, analysis_plan, database_schema
         )
 
+        if validation_feedback:
+            prompt += "\nCorrect this validation issue without changing the approved objective: " + validation_feedback
         try:
             response = generate_response(prompt).strip()
         except RuntimeError as error:

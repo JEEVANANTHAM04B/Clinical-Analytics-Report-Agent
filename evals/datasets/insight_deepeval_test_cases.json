@@ -4,23 +4,36 @@
     "category": "average_age",
     "question": "Which treatment arm has the highest average age?",
     "query_results": [
-      {"ARM": "Drug X", "mean_age": 54.8},
-      {"ARM": "Placebo", "mean_age": 54.5}
+      {
+        "ARM": "Drug X",
+        "mean_age": 54.8
+      },
+      {
+        "ARM": "Placebo",
+        "mean_age": 54.5
+      }
     ],
-    "expected_answer": "The treatment arm with the highest average age is Drug X with an average age of 54.8 years.",
-    "rag_context": "Demographic characterization evaluates baseline subject comparability across treatment arms."
+    "expected_answer": "The treatment arm with the highest average age is Drug X with an average age of 54.8 years."
   },
   {
     "id": "insight_deepeval_002",
     "category": "adverse_events_by_severity",
     "question": "Compare adverse event counts by severity.",
     "query_results": [
-      {"AESEV": "MILD", "ae_count": 7018},
-      {"AESEV": "MODERATE", "ae_count": 1949},
-      {"AESEV": "SEVERE", "ae_count": 1033}
+      {
+        "AESEV": "MILD",
+        "ae_count": 7018
+      },
+      {
+        "AESEV": "MODERATE",
+        "ae_count": 1949
+      },
+      {
+        "AESEV": "SEVERE",
+        "ae_count": 1033
+      }
     ],
-    "expected_answer": "Adverse events by severity show MILD (7018 events) as the most frequent, followed by MODERATE (1949 events) and SEVERE (1033 events).",
-    "rag_context": "Adverse event severity is classified as MILD, MODERATE, or SEVERE according to protocol criteria."
+    "expected_answer": "Adverse events by severity show MILD (7018 events) as the most frequent, followed by MODERATE (1949 events) and SEVERE (1033 events)."
   },
   {
     "id": "insight_deepeval_003",
@@ -36,26 +49,29 @@
         "response_rate_pct": 0.0
       }
     ],
-    "expected_answer": "The treatment arm with the highest efficacy response rate is Drug X at 84.9%, compared to Placebo at 0.0%.",
-    "rag_context": "Efficacy responder analysis calculates the proportion of subjects achieving clinical response (RESPFL='Y')."
+    "expected_answer": "The treatment arm with the highest efficacy response rate is Drug X at 84.9%, compared to Placebo at 0.0%."
   },
   {
     "id": "insight_deepeval_004",
     "category": "demographics",
     "question": "Which sex category has the highest subject count?",
     "query_results": [
-      {"SEX": "F", "subject_count": 5033},
-      {"SEX": "M", "subject_count": 4967}
+      {
+        "SEX": "F",
+        "subject_count": 5033
+      },
+      {
+        "SEX": "M",
+        "subject_count": 4967
+      }
     ],
-    "expected_answer": "Female (F) subjects represent the higher count with 5033 subjects compared to Male (M) with 4967 subjects.",
-    "rag_context": "Clinical trial demographics summarize baseline subject characteristics including sex and race."
+    "expected_answer": "Female (F) subjects represent the higher count with 5033 subjects compared to Male (M) with 4967 subjects."
   },
   {
     "id": "insight_deepeval_005",
     "category": "empty_result",
     "question": "Show subjects matching an impossible filter.",
     "query_results": [],
-    "expected_answer": "No subject records were found matching the query criteria.",
-    "rag_context": "Clinical trial analytics evaluates safety and efficacy across enrolled subjects."
+    "expected_answer": "No subject records were found matching the query criteria."
   }
 ]

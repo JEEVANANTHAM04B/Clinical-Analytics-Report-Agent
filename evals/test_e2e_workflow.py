@@ -87,7 +87,6 @@ def run_e2e_evaluation():
             sql_query = final_state.get("sql_query", "")
             query_result = final_state.get("query_result", [])
             result_val = final_state.get("result_validation", {})
-            rag_context = final_state.get("rag_context", "")
             insight = final_state.get("insight", "")
             chart_spec = final_state.get("chart_spec")
 
@@ -140,11 +139,6 @@ def run_e2e_evaluation():
                     print(f"Result Validation: {result_val.get('message', 'Valid')} ({len(query_result)} rows)")
                     if not result_val.get("valid", True):
                         failures.append(f"Result validation rejected rows: {result_val.get('message')}")
-
-            if expected_checks.get("expect_rag"):
-                print(f"RAG Context   : {'PRESENT' if rag_context else 'MISSING'}")
-                if not rag_context:
-                    failures.append("RAG context was expected but is missing.")
 
             if expected_checks.get("expect_insight"):
                 if not insight:

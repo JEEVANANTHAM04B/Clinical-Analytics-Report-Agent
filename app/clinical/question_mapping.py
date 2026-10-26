@@ -445,6 +445,43 @@ ORDER BY adsl.TRT01A, event_count DESC;""".strip(),
         )
 
     # ── 9. Average Age ───────────────────────────────────────────────────────
+    if ((re.search(r"\bage\b", q) or re.search(r"\bages\b", q))
+            and "distribution" in q
+            and ("mean" in q or "average" in q)
+            and ("treatment" in q or "arm" in q or "cohort" in q)):
+        sql_age = """SELECT adsl.TRT01A AS treatment_arm,
+    COUNT(DISTINCT adsl.USUBJID) AS subjects_with_age,
+    ROUND(AVG(adsl.AGE), 2) AS mean_age,
+    COUNT(DISTINCT CASE WHEN adsl.AGE < 40 THEN adsl.USUBJID END) AS age_under_40,
+    COUNT(DISTINCT CASE WHEN adsl.AGE BETWEEN 40 AND 59 THEN adsl.USUBJID END) AS age_40_to_59,
+    COUNT(DISTINCT CASE WHEN adsl.AGE >= 60 THEN adsl.USUBJID END) AS age_60_plus
+FROM adsl
+WHERE adsl.AGE IS NOT NULL AND adsl.TRT01A IS NOT NULL
+GROUP BY adsl.TRT01A;"""
+        return ClinicalQuestionPlan(
+            question=question,
+            is_supported=True,
+            question_type="demographics",
+            matched_kpi_id="AVERAGE_AGE",
+            metric="age_distribution_and_mean",
+            primary_dataset="adsl",
+            datasets=["adsl"],
+            dimensions=["TRT01A"],
+            required_columns=["adsl.USUBJID", "adsl.TRT01A", "adsl.AGE"],
+            calculation=("ROUND(AVG(adsl.AGE), 2) for mean age; "
+                         "COUNT(DISTINCT adsl.USUBJID) for subjects with recorded age; "
+                         "COUNT(DISTINCT CASE WHEN adsl.AGE < 40 THEN adsl.USUBJID END), "
+                         "COUNT(DISTINCT CASE WHEN adsl.AGE BETWEEN 40 AND 59 THEN adsl.USUBJID END), "
+                         "COUNT(DISTINCT CASE WHEN adsl.AGE >= 60 THEN adsl.USUBJID END) "
+                         "for age bands under 40, 40-59, and 60 or older"),
+            requires_join=False,
+            join_tables=[],
+            filter_conditions=["adsl.AGE IS NOT NULL", "adsl.TRT01A IS NOT NULL"],
+            suggested_sql=sql_age,
+            confidence=0.97,
+            explanation=("Summarizes recorded age in ADSL by actual treatment arm. "
+                         "The age bands are proposed for review; no median or unrequested statistic is added."),
+        )
     if (re.search(r"\bage\b", q) or re.search(r"\bages\b", q) or "old" in q) and ("average" in q or "mean" in q or "old" in q or "distribution" in q or "profile" in q or "summary" in q or "compare" in q or "minimum" in q or "maximum" in q or "min" in q or "max" in q):
         kpi = KPIS["AVERAGE_AGE"]
         by_arm = ("treatment" in q or "arm" in q or "cohort" in q or "placebo" in q or "drug" in q)
@@ -665,7 +702,7 @@ ORDER BY adsl.TRT01A, event_count DESC;""".strip(),
             filter_conditions=["adsl.SAFFL = 'Y'"],
             suggested_sql=sql_saf,
             confidence=0.95,
-            explanation="Queries safety population (SAFFL = 'Y') in ADSL and retrieves study protocol definitions via RAG."
+            explanation="Queries the safety population (SAFFL = 'Y') in ADSL."
         )
 
     # ── 14. Unsupported / Unknown Question Fallback ──────────────────────────

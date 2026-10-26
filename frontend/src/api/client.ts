@@ -2,9 +2,7 @@ import axios from 'axios';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
 
-// Default 180 s — most endpoints respond quickly but the analytics pipeline
-// involves two LLM round-trips (SQL generation + insight generation) plus RAG
-// retrieval, which can collectively take 90–120 s on this machine.
+// Default 180 s accommodates SQL generation and insight generation.
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {

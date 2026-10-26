@@ -1,5 +1,7 @@
 # Clinical Analytics Platform — DeepEval & End-to-End Evaluation Report
 
+> **Archived historical output:** This report was generated before reference retrieval was removed and does not describe or verify the current pipeline.
+
 **Generated**: 2026-10-10T03:31:31.933240Z
 **Duration**: 141.03s (avg: 10.85s/test)
 **Overall Pass Rate**: **100.0%**

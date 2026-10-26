@@ -114,7 +114,7 @@ export const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
     <div
       id={`pdf-page-${pageNumber}`}
       ref={containerRef}
-      className="relative mb-6 bg-white rounded-lg shadow-xl ring-1 ring-gray-900/10 overflow-hidden transition-all duration-200"
+      className="relative mb-6 bg-white rounded-lg shadow-lg ring-1 ring-[#CBD5E1] overflow-hidden transition-all duration-200"
       style={{
         width: dimensions ? `${Math.floor(dimensions.width)}px` : 'auto',
         minHeight: dimensions ? `${Math.floor(dimensions.height)}px` : '500px',
@@ -122,7 +122,7 @@ export const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
     >
       {/* Individual Page Badge */}
       <div className="absolute top-3 right-3 z-10 select-none pointer-events-none opacity-70 hover:opacity-100 transition-opacity">
-        <span className="px-2.5 py-1 text-[11px] font-semibold bg-gray-900/80 text-white rounded-full backdrop-blur-xs shadow-xs">
+        <span className="px-2.5 py-1 text-[11px] font-semibold bg-[#EEF2FF] text-[#4F46E5] rounded-full shadow-xs">
           Page {pageNumber} of {pdf.numPages}
         </span>
       </div>

@@ -1,4 +1,5 @@
 {
+  "archival_notice": "Historical evaluation output generated before reference retrieval was removed; not a verification of the current pipeline.",
   "summary": {
     "timestamp": "2026-10-10T03:31:31.933240Z",
     "total_test_cases": 13,

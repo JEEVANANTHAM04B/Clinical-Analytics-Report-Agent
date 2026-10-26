@@ -205,32 +205,32 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col h-full w-full bg-slate-900 select-none overflow-hidden ${className}`}
+      className={`flex flex-col h-full w-full bg-[#F8FAFC] select-none overflow-hidden ${className}`}
     >
       {/* PDF Controls Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-slate-800 border-b border-slate-700/80 text-slate-200 text-xs shadow-md z-20">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-[#ffffff] border-b border-[#E5E7EB] text-[#111827] text-xs z-20">
         {/* Left: Page Navigation */}
         <div className="flex items-center space-x-1.5">
           <button
             onClick={() => scrollToPage(currentPage - 1)}
             disabled={currentPage <= 1 || isLoading}
             title="Previous Page"
-            className="p-1 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer text-slate-300"
+            className="p-1 rounded-md hover:bg-[#EEF2FF] disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer text-[#64748B]"
           >
             <ChevronUp className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-slate-900/60 rounded border border-slate-700 font-mono text-[11px]">
-            <span className="font-semibold text-white">{currentPage}</span>
-            <span className="text-slate-400">/</span>
-            <span className="text-slate-300">{numPages || '–'}</span>
+          <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-[#F8FAFC] rounded border border-[#E5E7EB] font-mono text-[11px]">
+            <span className="font-semibold text-[#111827]">{currentPage}</span>
+            <span className="text-[#7d8c98]">/</span>
+            <span className="text-[#64748B]">{numPages || '–'}</span>
           </div>
 
           <button
             onClick={() => scrollToPage(currentPage + 1)}
             disabled={currentPage >= numPages || isLoading}
             title="Next Page"
-            className="p-1 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer text-slate-300"
+            className="p-1 rounded-md hover:bg-[#EEF2FF] disabled:opacity-40 disabled:hover:bg-transparent transition-colors cursor-pointer text-[#64748B]"
           >
             <ChevronDown className="w-4 h-4" />
           </button>
@@ -240,7 +240,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             <select
               value={currentPage}
               onChange={(e) => scrollToPage(Number(e.target.value))}
-              className="ml-1 bg-slate-900 text-slate-300 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="ml-1 bg-white text-[#111827] border border-[#CBD5E1] rounded px-1.5 py-0.5 text-[11px] focus:outline-hidden focus:ring-1 focus:ring-[#4F46E5] cursor-pointer"
             >
               {Array.from({ length: numPages }, (_, i) => i + 1).map((p) => (
                 <option key={p} value={p}>
@@ -257,7 +257,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             onClick={handleZoomOut}
             disabled={isLoading}
             title="Zoom Out"
-            className="p-1 rounded-md hover:bg-slate-700 transition-colors cursor-pointer text-slate-300 disabled:opacity-40"
+            className="p-1 rounded-md hover:bg-[#EEF2FF] transition-colors cursor-pointer text-[#64748B] disabled:opacity-40"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
@@ -266,7 +266,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             onClick={handleResetZoom}
             disabled={isLoading}
             title="Reset to 100%"
-            className="px-2 py-0.5 rounded-md hover:bg-slate-700 font-mono text-[11px] text-slate-200 transition-colors cursor-pointer disabled:opacity-40"
+            className="px-2 py-0.5 rounded-md hover:bg-[#EEF2FF] font-mono text-[11px] text-[#111827] transition-colors cursor-pointer disabled:opacity-40"
           >
             {zoomMode === 'custom' ? `${zoomPercent}%` : '100%'}
           </button>
@@ -275,12 +275,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             onClick={handleZoomIn}
             disabled={isLoading}
             title="Zoom In"
-            className="p-1 rounded-md hover:bg-slate-700 transition-colors cursor-pointer text-slate-300 disabled:opacity-40"
+            className="p-1 rounded-md hover:bg-[#EEF2FF] transition-colors cursor-pointer text-[#64748B] disabled:opacity-40"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-3.5 w-px bg-slate-700 mx-1 hidden sm:block" />
+          <div className="h-3.5 w-px bg-[#E5E7EB] mx-1 hidden sm:block" />
 
           {/* Fit Width */}
           <button
@@ -289,8 +289,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             title="Fit Width"
             className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
               zoomMode === 'fit-width'
-                ? 'bg-indigo-600 text-white font-semibold shadow-xs'
-                : 'hover:bg-slate-700 text-slate-300'
+                ? 'bg-[#EEF2FF] text-[#4F46E5] font-semibold'
+                : 'hover:bg-[#EEF2FF] text-[#64748B]'
             }`}
           >
             Fit Width
@@ -303,8 +303,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             title="Fit Entire Page"
             className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer hidden md:inline-block ${
               zoomMode === 'fit-page'
-                ? 'bg-indigo-600 text-white font-semibold shadow-xs'
-                : 'hover:bg-slate-700 text-slate-300'
+                ? 'bg-[#EEF2FF] text-[#4F46E5] font-semibold'
+                : 'hover:bg-[#EEF2FF] text-[#64748B]'
             }`}
           >
             Fit Page
@@ -313,15 +313,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
         {/* Right: Fullscreen and Document Info */}
         <div className="flex items-center space-x-2">
-          <div className="hidden lg:flex items-center space-x-1.5 text-slate-400 text-[11px]">
-            <FileText className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Official Clinical Audit PDF</span>
+          <div className="hidden lg:flex items-center space-x-1.5 text-[#64748B] text-[11px]">
+            <FileText className="w-3.5 h-3.5 text-[#4F46E5]" />
+            <span>Clinical analytics PDF</span>
           </div>
 
           <button
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Exit Fullscreen' : 'Open Fullscreen'}
-            className="p-1 rounded-md hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center space-x-1"
+            className="p-1 rounded-md hover:bg-[#EEF2FF] text-[#64748B] transition-colors cursor-pointer flex items-center space-x-1"
           >
             {isFullscreen ? (
               <>
@@ -341,27 +341,27 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       {/* Scrollable Document Viewing Area */}
       <div
         ref={scrollAreaRef}
-        className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 bg-slate-950 flex flex-col items-center justify-start min-h-0"
+        className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 bg-[#F1F5F9] flex flex-col items-center justify-start min-h-0"
       >
         {/* Loading Spinner */}
         {isLoading && (
           <div className="my-auto py-16 flex flex-col items-center justify-center text-center">
-            <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-sm font-semibold text-slate-200">
-              Loading Certified 5-Page Clinical Analytics Document...
+            <div className="w-10 h-10 border-3 border-[#4F46E5] border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-sm font-semibold text-[#111827]">
+              Loading clinical analytics report...
             </p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm">
-              Rendering vector report pages with verified EHR database query outcomes.
+            <p className="text-xs text-[#64748B] mt-1 max-w-sm">
+              Rendering report pages for review.
             </p>
           </div>
         )}
 
         {/* Error State */}
         {errorMessage && !isLoading && (
-          <div className="my-auto py-12 px-6 max-w-md bg-rose-950/40 border border-rose-800/80 rounded-xl text-center">
-            <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-            <h3 className="text-sm font-bold text-rose-200">Failed to render PDF preview</h3>
-            <p className="text-xs text-rose-300/80 mt-1">{errorMessage}</p>
+          <div className="my-auto py-12 px-6 max-w-md bg-rose-50 border border-rose-200 rounded-xl text-center">
+            <AlertCircle className="w-8 h-8 text-rose-600 mx-auto mb-2" />
+            <h3 className="text-sm font-bold text-rose-800">Failed to render PDF preview</h3>
+            <p className="text-xs text-rose-700 mt-1">{errorMessage}</p>
           </div>
         )}
 

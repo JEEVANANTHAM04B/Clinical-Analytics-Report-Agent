@@ -3,7 +3,7 @@ evals/run_clinical_benchmark.py
 ================================
 Master Clinical Golden Benchmark Evaluation Runner for CDISC / Clinical Trial Data.
 
-Executes the 40 CDISC Clinical Golden Benchmark cases against the real application
+Executes the CDISC Clinical Golden Benchmark cases against the real application
 pipeline and the active MySQL database `clinical_trial_analytics_db`.
 
 Evaluates:
@@ -12,8 +12,7 @@ Evaluates:
   3. KPI Mapping Accuracy
   4. SQL Semantic Correctness
   5. SQL Execution & Ground-Truth Verification
-  6. RAG Context Retrieval Correctness
-  7. Final Response & Clinical Terminology Correctness
+  6. Clinical Terminology Correctness
 """
 
 import json
@@ -32,8 +31,6 @@ from app.clinical.question_mapping import build_clinical_question_plan
 from app.analytics.sql_validator import validate_sql
 from app.analytics.query_executor import execute_query
 from app.analytics.result_validator import validate_results
-from app.rag.retriever.retriever import retrieve
-from app.rag.insight_context import get_insight_context
 from app.database.schema_service import get_database_schema
 
 BENCHMARK_PATH = PROJECT_ROOT / "evals" / "datasets" / "clinical_golden_benchmark.json"
@@ -265,68 +262,6 @@ def evaluate_analytical_case(
     return results
 
 
-def evaluate_rag_case(case: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Evaluates a CDISC Terminology / RAG case through the real RAG pipeline:
-      Question -> retrieve -> get_insight_context -> Expected Concept Verification
-    """
-    question = case["question"]
-    expected_concepts = case.get("expected_rag_concepts", [])
-    expected_terminology = case.get("expected_terminology", [])
-
-    results = {
-        "id": case["id"],
-        "category": case["category"],
-        "question": question,
-        "question_understanding": True,
-        "dataset_selection": True,
-        "kpi_mapping": True,
-        "sql_validation": True,
-        "sql_semantic": True,
-        "execution": True,
-        "ground_truth_match": True,
-        "rag_retrieval": False,
-        "insight_terminology": False,
-        "passed": False,
-        "details": [],
-    }
-
-    # 1. Real RAG Context Retrieval
-    try:
-        retrieved_text = get_insight_context(question)
-        if not retrieved_text:
-            # Fallback to raw retriever
-            docs = retrieve(question, top_k=3)
-            retrieved_text = " ".join(docs)
-    except Exception as exc:
-        retrieved_text = ""
-        results["details"].append(f"RAG retrieval exception: {exc}")
-
-    if not retrieved_text:
-        results["details"].append("No RAG context returned")
-        return results
-
-    text_lower = retrieved_text.lower()
-
-    # 2. Concept Containment Check
-    concepts_found = [c for c in expected_concepts if c.lower() in text_lower]
-    concept_hit_rate = len(concepts_found) / len(expected_concepts) if expected_concepts else 1.0
-
-    if concept_hit_rate >= 0.5:
-        results["rag_retrieval"] = True
-    else:
-        results["details"].append(
-            f"RAG concepts hit rate: {concept_hit_rate:.1f} (found {concepts_found}, expected {expected_concepts})"
-        )
-
-    # 3. Terminology Check
-    term_found = any(t.lower() in text_lower for t in expected_terminology)
-    results["insight_terminology"] = term_found
-
-    results["passed"] = results["rag_retrieval"]
-    return results
-
-
 def run_benchmark():
     benchmark_cases = load_golden_benchmark()
     total_cases = len(benchmark_cases)
@@ -350,11 +285,9 @@ def run_benchmark():
         "sql_semantic": 0,
         "execution": 0,
         "ground_truth_match": 0,
-        "rag_retrieval": 0,
         "insight_terminology": 0,
     }
     total_analytical = 0
-    total_rag = 0
 
     start_time = time.time()
 
@@ -364,30 +297,22 @@ def run_benchmark():
             category_stats[cat] = {"total": 0, "passed": 0}
         category_stats[cat]["total"] += 1
 
-        is_rag = case.get("expected_rag_topic") is not None or "rag" in cat.lower() or "terminology" in cat.lower()
-
-        if is_rag:
-            total_rag += 1
-            res = evaluate_rag_case(case)
-            if res["rag_retrieval"]:
-                dimension_counts["rag_retrieval"] += 1
-        else:
-            total_analytical += 1
-            res = evaluate_analytical_case(case, schema)
-            if res["question_understanding"]:
-                dimension_counts["question_understanding"] += 1
-            if res["dataset_selection"]:
-                dimension_counts["dataset_selection"] += 1
-            if res["kpi_mapping"]:
-                dimension_counts["kpi_mapping"] += 1
-            if res["sql_validation"]:
-                dimension_counts["sql_validation"] += 1
-            if res["sql_semantic"]:
-                dimension_counts["sql_semantic"] += 1
-            if res["execution"]:
-                dimension_counts["execution"] += 1
-            if res["ground_truth_match"]:
-                dimension_counts["ground_truth_match"] += 1
+        total_analytical += 1
+        res = evaluate_analytical_case(case, schema)
+        if res["question_understanding"]:
+            dimension_counts["question_understanding"] += 1
+        if res["dataset_selection"]:
+            dimension_counts["dataset_selection"] += 1
+        if res["kpi_mapping"]:
+            dimension_counts["kpi_mapping"] += 1
+        if res["sql_validation"]:
+            dimension_counts["sql_validation"] += 1
+        if res["sql_semantic"]:
+            dimension_counts["sql_semantic"] += 1
+        if res["execution"]:
+            dimension_counts["execution"] += 1
+        if res["ground_truth_match"]:
+            dimension_counts["ground_truth_match"] += 1
 
         if res["insight_terminology"]:
             dimension_counts["insight_terminology"] += 1
@@ -439,10 +364,6 @@ def run_benchmark():
         print(f"SQL Execution Correctness       : {exec_acc:.1f}% ({dimension_counts['execution']}/{total_analytical})")
         print(f"Ground Truth Match Accuracy     : {gt_acc:.1f}% ({dimension_counts['ground_truth_match']}/{total_analytical})")
 
-    if total_rag > 0:
-        rag_acc = (dimension_counts["rag_retrieval"] / total_rag) * 100.0
-        print(f"RAG Retrieval Accuracy          : {rag_acc:.1f}% ({dimension_counts['rag_retrieval']}/{total_rag})")
-
     term_acc = (dimension_counts["insight_terminology"] / total_cases) * 100.0
     print(f"Clinical Terminology Accuracy   : {term_acc:.1f}% ({dimension_counts['insight_terminology']}/{total_cases})")
 
@@ -464,7 +385,6 @@ def run_benchmark():
         "category_stats": category_stats,
         "dimension_counts": dimension_counts,
         "total_analytical": total_analytical,
-        "total_rag": total_rag,
     }
 
 

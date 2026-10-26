@@ -1,0 +1,123 @@
+/* Classic light Clinical BI dashboard presentation. */
+.studio-shell {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.studio-workspace { background: #f8fafc; }
+.studio-sidebar {
+  width: 284px;
+  background: #fff;
+  border-color: #e5e7eb;
+}
+.studio-sidebar > div:first-child > div:first-child {
+  min-height: 68px;
+  padding: 12px 16px;
+}
+.studio-sidebar > div:first-child > div:first-child > div:first-child {
+  width: 36px;
+  height: 36px;
+}
+.studio-sidebar h2 { font-size: 14px; }
+.studio-sidebar h2 + span { font-size: 9px; color: #4f46e5; }
+.studio-sidebar nav { padding: 10px 12px; }
+.studio-nav-item {
+  min-height: 32px;
+  padding: 6px 10px;
+  gap: 10px;
+  font-size: 13px;
+}
+.studio-nav-item[aria-current="page"] {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.studio-nav-item[aria-current="page"] svg { color: #4f46e5; }
+.studio-topbar {
+  height: 68px;
+  padding: 0 24px;
+  background: #fff;
+  border-color: #e5e7eb;
+}
+.studio-topbar h1 { font-size: 17px; font-weight: 700; }
+.studio-topbar h1 + span { font-size: 10px; }
+.studio-main {
+  max-width: none;
+  margin: 0;
+  padding: 20px 24px 48px;
+}
+.studio-main > details summary { cursor: pointer; }
+.studio-main > details[open] {
+  max-width: 640px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.studio-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.studio-metric-card {
+  min-width: 0;
+  min-height: 84px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+}
+.studio-metric-card > span { font-size: 11px; color: #94a3b8; }
+.studio-metric-card > div { font-size: 19px; color: #0f172a; overflow-wrap: anywhere; }
+.studio-dataset-card,
+.studio-composer,
+.studio-insight-card,
+.studio-results-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+.studio-dataset-card { padding: 20px; }
+.studio-composer { padding: 24px; }
+.studio-composer input { min-height: 52px; background: #f8fafc; }
+.studio-composer button[type="submit"] { min-height: 52px; background: #4f46e5; }
+.studio-charts > div {
+  border-color: #e2e8f0;
+  border-radius: 15px;
+}
+@media (min-width: 1501px) {
+  .studio-charts > div:first-child > div:last-child { height: 405px; }
+  .studio-charts > div:last-child > div > div:last-child { height: 188px; }
+}
+.studio-shell :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+@media (max-width: 1500px) {
+  .studio-sidebar { width: 245px; }
+  .studio-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .studio-workspace { display: block; }
+  .studio-sidebar { position: relative; width: 100%; height: auto; }
+  .studio-sidebar > div:first-child { max-height: 230px; overflow-y: auto; }
+  .studio-sidebar nav { display: flex; overflow-x: auto; gap: 4px; }
+  .studio-sidebar nav button { flex: 0 0 auto; width: auto; white-space: nowrap; }
+  .studio-topbar { position: relative; min-height: 64px; height: auto; padding: 12px 18px; }
+  .studio-main { padding: 18px 16px 40px; }
+  .studio-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .studio-composer form { flex-direction: column; align-items: stretch; }
+  .studio-composer form > button { justify-content: center; }
+}
+@media (max-width: 540px) {
+  .studio-topbar { flex-wrap: wrap; gap: 8px; }
+  .studio-topbar > div:last-child { flex-wrap: wrap; }
+  .studio-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .studio-metric-card { padding: 12px; }
+  .studio-metric-card > div { font-size: 16px; }
+  .studio-composer, .studio-dataset-card { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-shell *, .studio-shell *::before, .studio-shell *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

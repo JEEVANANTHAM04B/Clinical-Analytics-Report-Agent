@@ -27,7 +27,10 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
+    JSON,
+    LargeBinary,
 )
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -203,3 +206,29 @@ class ClinicalDatasetRegistry(Base):
             f"<ClinicalDatasetRegistry(id={self.id}, name='{self.dataset_name}', "
             f"classification='{self.classification}', status='{self.approval_status}')>"
         )
+
+
+class ClinicalReport(Base):
+    """Acknowledged PDFs only. Legacy user_id is a fixed local-prototype value."""
+
+    __tablename__ = "clinical_reports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    dataset_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    analysis_run_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    storage_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    analysis_plan: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    insight: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    results: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    sql_query: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    selected_tables: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    analysis_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    generation_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pdf_bytes: Mapped[Optional[bytes]] = mapped_column(LargeBinary().with_variant(MEDIUMBLOB, "mysql"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

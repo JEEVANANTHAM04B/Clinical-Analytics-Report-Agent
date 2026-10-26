@@ -38,6 +38,7 @@ from app.api import ingestion as ingestion_router
 from app.api.relationships import router as relationships_router
 from app.api.database import router as database_router
 from app.api import analytics as analytics_router
+from app.api import reports as reports_router
 from app.database.session import init_db
 from app.core.database import check_db_connection
 
@@ -65,7 +66,7 @@ async def lifespan(app: FastAPI):
 
     STARTUP:
         - Log that the server is live
-        - (Future phases: init connection pools, load embeddings model, etc.)
+        - Verify database connection and initialize metadata tables.
 
     SHUTDOWN:
         - Log graceful shutdown
@@ -149,6 +150,7 @@ app.include_router(ingestion_router.router)
 app.include_router(relationships_router)
 app.include_router(database_router)
 app.include_router(analytics_router.router)
+app.include_router(reports_router.router)
 # =============================================================================
 # Root Endpoint
 # =============================================================================

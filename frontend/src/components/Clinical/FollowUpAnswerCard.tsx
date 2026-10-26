@@ -19,6 +19,7 @@ export interface FollowUpHistoryItem {
   sql_query?: string | null;
   verified?: boolean;
   timestamp: string;
+  follow_up_results?: Record<string, any>[];
 }
 
 interface FollowUpAnswerCardProps {
@@ -152,7 +153,7 @@ export const FollowUpAnswerCard: React.FC<FollowUpAnswerCardProps> = ({
 
           {/* Technical visibility if Technical Workspace */}
           {isTechnical && currentAnswer.sql_query && (
-            <div className="bg-slate-900 text-emerald-400 font-mono text-[10px] p-2.5 rounded-lg border border-slate-800 space-y-1">
+            <div className="bg-[#F1F5F9] text-emerald-800 font-mono text-[10px] p-2.5 rounded-lg border border-[#E5E7EB] space-y-1">
               <div className="flex items-center justify-between text-gray-400 text-[9px] uppercase font-bold">
                 <div className="flex items-center space-x-1">
                   <Terminal className="w-3 h-3 text-blue-400" />

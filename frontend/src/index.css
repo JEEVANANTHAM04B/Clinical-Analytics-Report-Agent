@@ -2,17 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --studio-canvas: #f8fafc;
+  --studio-ink: #0f172a;
+  --studio-card: #ffffff;
+  --studio-surface: #ffffff;
+  --studio-muted: #64748b;
+  --studio-tertiary: #94a3b8;
+  --studio-placeholder: #94a3b8;
+  --studio-peach: #eef2ff;
+  --studio-accent-ink: #4f46e5;
+  --studio-border: #e2e8f0;
+  --studio-display-font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --studio-body-font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
   }
   body {
     margin: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--studio-body-font);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #F8FAFC;
-    color: #0F172A;
+    background-color: var(--studio-canvas);
+    color: var(--studio-ink);
+    line-height: 1.5;
   }
 }
 
@@ -25,11 +41,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #94a3b8;
 }
 
 .js-plotly-plot .plotly .modebar {

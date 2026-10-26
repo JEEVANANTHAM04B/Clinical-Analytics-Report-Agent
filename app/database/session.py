@@ -15,7 +15,7 @@ ARCHITECTURE:
 """
 
 from typing import Generator
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.database import (
@@ -48,6 +48,7 @@ def init_db() -> dict:
           2. dataset_columns
           3. approved_relationships
           4. audit_logs
+          5. clinical_reports
 
     Returns:
         dict with status, existing_tables, and metadata_tables
@@ -61,6 +62,15 @@ def init_db() -> dict:
         # Create all tables registered to Base (only metadata tables)
         Base.metadata.create_all(bind=engine)
 
+        # The legacy report table predates titles. Add only this nullable field;
+        # retain historical rows and all clinical data tables unchanged.
+        inspector = inspect(engine)
+        if inspector.has_table("clinical_reports") and not any(
+            column["name"] == "title" for column in inspector.get_columns("clinical_reports")
+        ):
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE clinical_reports ADD COLUMN title VARCHAR(255) NULL"))
+
         inspector = inspect(engine)
         all_tables = inspector.get_table_names()
 
@@ -69,6 +79,7 @@ def init_db() -> dict:
             "dataset_columns",
             "approved_relationships",
             "audit_logs",
+            "clinical_reports",
         ]
 
         verified = [t for t in metadata_tables if t in all_tables]

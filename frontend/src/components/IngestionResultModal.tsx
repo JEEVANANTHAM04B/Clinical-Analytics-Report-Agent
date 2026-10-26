@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2,
   XCircle,
@@ -293,7 +293,7 @@ export const IngestionResultModal: React.FC<IngestionResultModalProps> = ({
             </button>
             {showRaw && (
               <div className="mt-2 relative">
-                <pre className="text-[10px] font-mono bg-gray-900 text-emerald-300 rounded-xl p-3 overflow-auto max-h-52 leading-relaxed whitespace-pre-wrap break-all">
+                <pre className="text-[10px] font-mono bg-[#F1F5F9] text-[#111827] rounded-xl p-3 overflow-auto max-h-52 leading-relaxed whitespace-pre-wrap break-all border border-[#E5E7EB]">
                   {rawJson}
                 </pre>
                 <button

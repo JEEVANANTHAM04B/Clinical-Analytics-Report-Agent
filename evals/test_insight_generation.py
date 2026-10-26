@@ -17,33 +17,11 @@ from app.ai.insight_generator import generate_insight
 from app.ai.insight_validator import validate_insight
 
 DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "insight_test_cases.json"
-CLINICAL_REF_PATH = PROJECT_ROOT / "app" / "rag" / "documents" / "clinical_reference.txt"
 
 
 def load_test_cases():
     with open(DATASET_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-def get_relevant_rag_context(question: str) -> str:
-    """
-    Provide relevant clinical reference context from the project's clinical reference document.
-    """
-    try:
-        from app.rag.insight_context import get_insight_context
-        ctx = get_insight_context(question)
-        if ctx:
-            return ctx
-    except Exception:
-        pass
-    q_lower = question.lower()
-    if "adverse event" in q_lower or "ae" in q_lower or "safety" in q_lower:
-        return "Adverse events evaluate clinical trial safety. Serious adverse events (AESER='Y') require expedited reporting."
-    elif "efficacy" in q_lower or "response" in q_lower:
-        return "Efficacy responder analysis calculates the proportion of subjects achieving clinical response (RESPFL='Y')."
-    elif "age" in q_lower or "demographics" in q_lower:
-        return "Demographic characterization evaluates baseline subject comparability across treatment arms."
-    return "Clinical trial analytics evaluates safety, efficacy, and subject disposition in accordance with CDISC standards."
 
 
 def check_fact_present(fact_def: dict, insight_text: str) -> bool:
@@ -101,15 +79,11 @@ def run_insight_generation_eval():
         # 1. Build deterministic insight evidence using the project's real function
         evidence = build_insight_evidence(query_results)
 
-        # 2. Provide reasonable RAG reference context
-        rag_context = get_relevant_rag_context(question) if query_results else ""
-
-        # 3. Generate insight using real production function
+        # 2. Generate insight using real production function
         try:
             insight = generate_insight(
                 user_question=question,
                 query_results=query_results,
-                rag_context=rag_context,
                 insight_evidence=evidence,
             )
         except Exception as e:

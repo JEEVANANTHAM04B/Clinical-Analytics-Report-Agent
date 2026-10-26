@@ -4,23 +4,36 @@
     "category": "average_length_of_stay",
     "question": "Which diagnosis has the highest average length of stay?",
     "query_results": [
-      {"diagnosis": "Anemia (disorder)", "average_length_of_stay": 4.0},
-      {"diagnosis": "Hypertension", "average_length_of_stay": 3.0},
-      {"diagnosis": "Diabetes", "average_length_of_stay": 2.0}
+      {
+        "diagnosis": "Anemia (disorder)",
+        "average_length_of_stay": 4.0
+      },
+      {
+        "diagnosis": "Hypertension",
+        "average_length_of_stay": 3.0
+      },
+      {
+        "diagnosis": "Diabetes",
+        "average_length_of_stay": 2.0
+      }
     ],
-    "expected_answer": "The diagnosis with the highest average length of stay is Anemia (disorder), with an average length of stay of 4.0 days.",
-    "rag_context": "Average length of stay is the average duration of inpatient encounters, calculated from the difference between encounter start and stop dates."
+    "expected_answer": "The diagnosis with the highest average length of stay is Anemia (disorder), with an average length of stay of 4.0 days."
   },
   {
     "id": "insight_deepeval_002",
     "category": "encounter_counts",
     "question": "Compare the number of inpatient and emergency encounters.",
     "query_results": [
-      {"ENCOUNTERCLASS": "inpatient", "encounter_count": 120},
-      {"ENCOUNTERCLASS": "emergency", "encounter_count": 80}
+      {
+        "ENCOUNTERCLASS": "inpatient",
+        "encounter_count": 120
+      },
+      {
+        "ENCOUNTERCLASS": "emergency",
+        "encounter_count": 80
+      }
     ],
-    "expected_answer": "Inpatient encounters (120) are higher than emergency encounters (80).",
-    "rag_context": "Clinical analytics uses structured healthcare data to compare encounter volume across encounter classes."
+    "expected_answer": "Inpatient encounters (120) are higher than emergency encounters (80)."
   },
   {
     "id": "insight_deepeval_003",
@@ -38,27 +51,36 @@
         "total_payer_coverage": 20000.0
       }
     ],
-    "expected_answer": "The inpatient encounter class has the highest total claim cost at 50000.0, compared to emergency at 35000.0.",
-    "rag_context": "Total cost represents the recorded healthcare cost associated with a patient encounter."
+    "expected_answer": "The inpatient encounter class has the highest total claim cost at 50000.0, compared to emergency at 35000.0."
   },
   {
     "id": "insight_deepeval_004",
     "category": "demographics",
     "question": "Which gender and race combination has the highest patient count?",
     "query_results": [
-      {"GENDER": "F", "RACE": "White", "patient_count": 150},
-      {"GENDER": "M", "RACE": "White", "patient_count": 120},
-      {"GENDER": "F", "RACE": "Black", "patient_count": 90}
+      {
+        "GENDER": "F",
+        "RACE": "White",
+        "patient_count": 150
+      },
+      {
+        "GENDER": "M",
+        "RACE": "White",
+        "patient_count": 120
+      },
+      {
+        "GENDER": "F",
+        "RACE": "Black",
+        "patient_count": 90
+      }
     ],
-    "expected_answer": "Female (F) and White has the highest patient count with 150 patients.",
-    "rag_context": "Clinical analytics uses structured healthcare data to identify patterns, demographic trends, and measurable outcomes."
+    "expected_answer": "Female (F) and White has the highest patient count with 150 patients."
   },
   {
     "id": "insight_deepeval_005",
     "category": "empty_result",
     "question": "Show encounters matching an impossible filter.",
     "query_results": [],
-    "expected_answer": "No matching records were returned.",
-    "rag_context": ""
+    "expected_answer": "No matching records were returned."
   }
 ]

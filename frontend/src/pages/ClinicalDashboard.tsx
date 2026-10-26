@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { WorkflowNotice } from '../components/Clinical/WorkflowNotice';
+import React, { useEffect, useRef, useState } from 'react';
 import ClinicalSidebar from '../components/Clinical/ClinicalSidebar';
 import ClinicalTopbar from '../components/Clinical/ClinicalTopbar';
 import ClinicalMetricsRow from '../components/Clinical/ClinicalMetricsRow';
@@ -7,13 +8,14 @@ import AskQuestionSection from '../components/Clinical/AskQuestionSection';
 import ClinicalApprovalCard from '../components/Clinical/ClinicalApprovalCard';
 import DynamicCharts from '../components/Clinical/DynamicCharts';
 import ClinicalInsightsCard from '../components/Clinical/ClinicalInsightsCard';
-import ClinicalReferenceCard from '../components/Clinical/ClinicalReferenceCard';
 import VerifiedResultsTable from '../components/Clinical/VerifiedResultsTable';
 import FollowUpSection from '../components/Clinical/FollowUpSection';
 import FollowUpAnswerCard, { FollowUpHistoryItem } from '../components/Clinical/FollowUpAnswerCard';
 import ReportTriggerBanner from '../components/ReportTriggerBanner';
 import ReportModal from '../components/ReportModal';
+import ReportHistory from '../components/ReportHistory';
 import DatasetUploadModal from '../components/DatasetUploadModal';
+import { getAvailableClinicalTableNames } from '../components/SidebarTableSelector';
 import apiService from '../services/api';
 import {
   AnalyticsResponse,
@@ -26,16 +28,13 @@ import {
   Activity,
   MessageSquare,
   TrendingUp,
-  Database,
   History,
-  FileText,
   Settings,
   Sparkles,
   CheckCircle2,
   Clock,
   ArrowRight,
   UploadCloud,
-  ShieldCheck,
   ShieldAlert,
   Sliders
 } from 'lucide-react';
@@ -51,6 +50,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   const [isApproving, setIsApproving] = useState(false);
   const [approveElapsedSecs, setApproveElapsedSecs] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState('What is the adverse event rate by treatment arm?');
+  const [draftQuestion, setDraftQuestion] = useState(currentQuestion);
 
   // Analytics state
   const [isQuestionMode, setIsQuestionMode] = useState(false);
@@ -60,11 +60,14 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   const [feedbackHistory, setFeedbackHistory] = useState<string[]>([]);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [analyticsResult, setAnalyticsResult] = useState<AnalyticsResponse | null>(null);
+  const [recovery, setRecovery] = useState<Partial<AnalyticsResponse> | null>(null);
+  const [analysisIdentity, setAnalysisIdentity] = useState<{analysis_id?: string; state_version?: number}>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Dynamic Table Selection & Custom Dashboard state
   const [availableTables, setAvailableTables] = useState<ClinicalTable[]>([]);
-  const [selectedTables, setSelectedTables] = useState<string[]>(['study', 'sites', 'dm']);
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const hasManualTableSelection = useRef(false);
   const [isApplyingTables, setIsApplyingTables] = useState(false);
   const [tableCombinationError, setTableCombinationError] = useState<string | null>(null);
   const [customDashboardData, setCustomDashboardData] = useState<DashboardCustomizationResponse | null>(null);
@@ -81,6 +84,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
 
   // Modals state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportHistoryRefreshKey, setReportHistoryRefreshKey] = useState(0);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Lightweight Follow-up session state (does NOT restart main workflow)
@@ -100,24 +104,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     status: string;
     source?: string;
     sql_query?: string | null;
-  }>>([
-    {
-      type: 'analysis',
-      question: 'What is the average length of stay by diagnosis?',
-      answer: 'Average length of stay spans from 1.0 days (Impacted molars, Chronic pain) up to 4.0 days (Anemia disorder).',
-      timestamp: 'Today, 10:45 AM',
-      rows: 8,
-      status: 'Verified & Approved',
-    },
-    {
-      type: 'analysis',
-      question: 'Total encounters by clinical class',
-      answer: 'Inpatient (45%), Ambulatory (32%), Emergency (23%) verified against encounters table.',
-      timestamp: 'Today, 09:30 AM',
-      rows: 6,
-      status: 'Verified',
-    },
-  ]);
+  }>>([]);
 
   // Load general clinical metrics and dynamic tables from real database on mount
   const fetchData = async () => {
@@ -139,6 +126,9 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
         : (tablesData as any)?.tables || [];
       if (tablesList.length > 0) {
         setAvailableTables(tablesList);
+        if (!hasManualTableSelection.current) {
+          setSelectedTables(getAvailableClinicalTableNames(tablesList));
+        }
       }
     } catch (err: any) {
       console.error('Failed to load initial data:', err);
@@ -150,7 +140,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   }, []);
 
   // Handle user applying custom table selection
-  const handleApplyTableSelection = async (tablesToApply: string[], autoResume = true) => {
+  const handleApplyTableSelection = async (tablesToApply: string[]) => {
     const sanitized = (tablesToApply || []).filter(
       (t) => !['patients', 'encounters', 'conditions', 'medications', 'observations', 'procedures'].includes(t.toLowerCase().trim())
     );
@@ -174,24 +164,13 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       }
 
       setSelectedTables(sanitized);
+      hasManualTableSelection.current = true;
       setCustomDashboardData(response);
       setTableCombinationError(null);
       setIsQuestionMode(false);
-
-      // If there was an active blocked analysis, check if all required tables are now selected
-      if (blockedInfo && autoResume) {
-        const stillMissing = blockedInfo.required_tables.filter(
-          (t) => !sanitized.map(s => s.toLowerCase()).includes(t.toLowerCase())
-        );
-        if (stillMissing.length === 0) {
-          // All required tables selected! Automatically resume analysis
-          setBlockedInfo(null);
-          handleRunAnalysisWithTables(currentQuestion, sanitized);
-        } else {
-          // Re-validate against updated selection
-          handleRunAnalysisWithTables(currentQuestion, sanitized);
-        }
-      }
+      setBlockedInfo(null);
+      setActiveTab('dashboard');
+      await handleRunAnalysisWithTables(draftQuestion || blockedInfo?.question || currentQuestion, sanitized);
     } catch (err: any) {
       console.error('Error applying table selection:', err);
       setTableCombinationError(
@@ -205,13 +184,23 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
 
   // Run question against an explicit table selection
   const handleRunAnalysisWithTables = async (question: string, tablesToUse?: string[]) => {
+    if (!question.trim() || isLoading) {
+      if (!question.trim()) setErrorMessage('Enter a clinical question before starting analysis.');
+      return;
+    }
+    const tables = tablesToUse || selectedTables;
+    if (tables.length === 0) {
+      setErrorMessage('Dataset tables are still loading. Please try again once they are available.');
+      return;
+    }
     setIsLoading(true);
     setErrorMessage(null);
     setCurrentQuestion(question);
+    setDraftQuestion(question);
+    setAnalysisIdentity({});
+    setRecovery(null);
     setPlanVersion(1);
     setFeedbackHistory([]);
-
-    const tables = tablesToUse || selectedTables;
 
     try {
       const res = await apiService.runAnalytics({
@@ -220,6 +209,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
         selected_tables: tables,
         plan_version: 1,
       });
+      setAnalysisIdentity({analysis_id: res.analysis_id, state_version: res.state_version});
+      setRecovery(null);
 
       if (res.status === 'blocked') {
         setBlockedInfo({
@@ -250,6 +241,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     } catch (err: any) {
       console.error('Error starting analysis:', err);
       const detail = err.response?.data?.detail;
+      if (detail?.stage_status) { setRecovery(detail); setAnalysisIdentity({analysis_id: detail.analysis_id, state_version: detail.state_version}); }
       setErrorMessage(typeof detail === 'string' ? detail : detail?.message || 'An error occurred while connecting to the analytics engine.');
     } finally {
       setIsLoading(false);
@@ -266,6 +258,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     const sanitizedMissing = missing.map((t) => t.toLowerCase().trim());
     const newTables = Array.from(new Set([...selectedTables.map((t) => t.toLowerCase().trim()), ...sanitizedMissing]));
     setSelectedTables(newTables);
+    hasManualTableSelection.current = true;
     setBlockedInfo(null);
 
     try {
@@ -296,6 +289,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       console.log('[Clinical Approve] Sending approval request:', {
         question: currentQuestion,
         approval_status: 'approved',
+        ...analysisIdentity,
         current_plan: analysisPlan,
         feedback_history: feedbackHistory,
         plan_version: planVersion,
@@ -305,11 +299,14 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       const res = await apiService.runAnalytics({
         question: currentQuestion,
         approval_status: 'approved',
+        ...analysisIdentity,
         current_plan: analysisPlan || undefined,
         feedback_history: feedbackHistory,
         plan_version: planVersion,
         selected_tables: selectedTables,
       });
+      setAnalysisIdentity({analysis_id: res.analysis_id, state_version: res.state_version});
+      setRecovery(null);
 
       console.log('APPROVAL RESPONSE RECEIVED');
       console.log('[Clinical Approve] Response received:', {
@@ -343,6 +340,19 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
         return;
       }
 
+      if (res.status === 'awaiting_approval' || res.approval_status === 'pending') {
+        setApprovalPending(false);
+        setAnalysisPlan(null);
+        setAnalyticsResult(null);
+        setErrorMessage('Approval did not start execution. The analysis context changed; run the question again to review a fresh plan.');
+        return;
+      }
+      if (res.status !== 'success' && res.status !== 'partial_success') {
+        setApprovalPending(false);
+        setErrorMessage(res.message || 'The analysis did not complete. Review the response before trying again.');
+        return;
+      }
+
       setBlockedInfo(null);
       setAnalyticsResult(res);
       setApprovalPending(false);
@@ -369,6 +379,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       console.error('[Approve] Error response:', err?.response?.status, err?.response?.data);
       const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
       const detail = err.response?.data?.detail;
+      if (detail?.stage_status) { setRecovery(detail); setAnalysisIdentity({analysis_id: detail.analysis_id, state_version: detail.state_version}); }
       const msg = isTimeout
         ? 'The analytics pipeline is taking longer than expected. Please try again — the database query and AI insight generation can take up to 2 minutes.'
         : typeof detail === 'string' ? detail : detail?.message || 'Failed to complete verified SQL execution.';
@@ -378,6 +389,39 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       setIsApproving(false);
       setApproveElapsedSecs(0);
     }
+  };
+
+  const recoverAnalysis = async (action: 'retry' | 'stop' | 'approve_quality' | 'reject_quality') => {
+    if (!analysisIdentity?.analysis_id) {
+      if (action === 'stop' || action === 'reject_quality') {
+        setRecovery(null);
+        setErrorMessage('Analysis cancelled. No further stages will run.');
+        setApprovalPending(false);
+        setIsApproving(false);
+        return;
+      }
+      if (action === 'retry') {
+        setRecovery(null);
+        setErrorMessage(null);
+        setIsApproving(false);
+        await handleRunAnalysis(currentQuestion);
+        return;
+      }
+    }
+    setIsApproving(true);
+    try {
+      const res = await apiService.runAnalytics({question: currentQuestion, approval_status: 'approved',
+        selected_tables: selectedTables, ...analysisIdentity, action});
+      setAnalysisIdentity({analysis_id: res.analysis_id, state_version: res.state_version});
+      setRecovery(null);
+      setErrorMessage((action === 'stop' || action === 'reject_quality') ? 'Analysis cancelled. No further stages will run.' : null);
+      setApprovalPending(false);
+      if (action === 'retry' || action === 'approve_quality') {setAnalyticsResult(res); setIsQuestionMode(true);}
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      if (detail?.stage_status) {setRecovery(detail); setAnalysisIdentity({analysis_id: detail.analysis_id, state_version: detail.state_version});}
+      setErrorMessage(typeof detail === 'string' ? detail : detail?.message || 'Recovery could not complete.');
+    } finally {setIsApproving(false);}
   };
 
   // Step 3: User rejects plan -> calls backend with approval_status = 'rejected' and optional feedback + selected_tables
@@ -394,12 +438,15 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
       const res = await apiService.runAnalytics({
         question: currentQuestion,
         approval_status: 'rejected',
+        ...analysisIdentity,
         human_feedback: trimmed,
         current_plan: analysisPlan || undefined,
         feedback_history: updatedHistory,
         plan_version: planVersion,
         selected_tables: selectedTables,
       });
+      setAnalysisIdentity({analysis_id: res.analysis_id, state_version: res.state_version});
+      setRecovery(null);
 
       // Show regenerated plan and ask for approval again
       if (res.analysis_plan) {
@@ -422,18 +469,22 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
     setErrorMessage(null);
 
     try {
+      const originalResults = analyticsResult?.results || (overview?.top_diagnoses as any[]) || [];
+      const latestFollowUpResults = [...followUpHistory]
+        .reverse()
+        .find((item) => item.follow_up_results?.length)?.follow_up_results;
       const res = await apiService.runFollowUp({
         question: followUpQuestion,
         current_question: currentQuestion,
-        current_results: analyticsResult?.results || (overview?.top_diagnoses as any[]) || [],
+        current_results: latestFollowUpResults || originalResults,
+        original_results: originalResults,
         current_sql: analyticsResult?.sql_query,
         current_plan: analyticsResult?.analysis_plan || analysisPlan,
-        current_rag_context: analyticsResult?.rag_context,
         current_insight: analyticsResult?.insight,
-        conversation_history: followUpHistory.map((h) => ({
-          role: 'user',
-          content: h.question,
-        })),
+        conversation_history: followUpHistory.flatMap((h) => [
+          { role: 'user' as const, content: h.question },
+          { role: 'assistant' as const, content: h.answer },
+        ]),
         selected_tables: selectedTables,
       });
 
@@ -446,6 +497,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
           source: res.source,
           sql_query: res.sql_query,
           verified: res.verified,
+          follow_up_results: res.follow_up_results,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -518,17 +570,16 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
   ];
 
   return (
-    <div className="flex bg-[#F8FAFC] min-h-screen">
+    <div className="studio-workspace flex min-h-screen">
       {/* Sidebar */}
       {/* Sidebar with Table Selector inside Red-Box area */}
       <ClinicalSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onSwitchRole={onSwitchRole}
         availableTables={availableTables}
         selectedTables={selectedTables}
         onApplySelection={handleApplyTableSelection}
-        isApplying={isApplyingTables}
+        isApplying={isApplyingTables || isLoading}
         combinationError={tableCombinationError}
       />
 
@@ -544,38 +595,49 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
               ? "Clinical Questions & Queries Library"
               : activeTab === 'trends'
               ? "Patient & Encounter Trends"
-              : activeTab === 'evidence'
-              ? "Clinical Reference & RAG Evidence"
               : activeTab === 'history'
               ? "Verified Analysis History"
               : activeTab === 'reports'
-              ? "Certified Clinical Reports Center"
+              ? "Clinical Reports Center"
               : "Clinical Organization Settings"
           }
           datasetName={overview?.dataset_name || "Organization Dataset"}
+          onOpenTechnical={onSwitchRole}
         />
 
         {/* FULL WIDTH CONTAINER: compact scale matching Screenshot density */}
-        <main className="p-4 md:p-5 space-y-3.5 flex-1 w-full">
+        <main className="studio-main p-4 md:p-5 space-y-3.5 flex-1 w-full">
           {/* Error Banner if any */}
-          {errorMessage && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl shadow-xs flex items-center justify-between">
-              <span>{errorMessage}</span>
-              <button onClick={() => setErrorMessage(null)} className="text-rose-500 font-bold ml-2">×</button>
-            </div>
-          )}
+          {errorMessage && <WorkflowNotice message={errorMessage} recovery={recovery} busy={isApproving}
+            onAction={recoverAnalysis} onDismiss={() => setErrorMessage(null)} />}
 
+          {Array.isArray(analyticsResult?.eda_findings?.findings) && analyticsResult.eda_findings.findings.length > 0 && (
+            <section
+              aria-label="Data quality"
+              className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs"
+            >
+              <h3 className="font-semibold">Data-quality assessment</h3>
+              {analyticsResult.eda_findings.scope && <p>{analyticsResult.eda_findings.scope}</p>}
+
+              {analyticsResult.eda_findings.findings.map((f, i) => (
+                <p key={i}>
+                  <strong>{f.severity}: </strong>
+                  {f.message}
+                </p>
+              ))}
+            </section>
+          )}
           {/* TAB 1: MAIN DASHBOARD */}
           {activeTab === 'dashboard' && (
             <>
               {/* Metric Cards Row (Real counts from MySQL, dynamically customizable by table selection) */}
               <ClinicalMetricsRow
-                totalPatients={overview?.total_patients ?? 1171}
-                totalEncounters={overview?.total_encounters ?? 53346}
-                avgLos={isQuestionMode ? 3.6 : (overview?.avg_length_of_stay ?? 1.1)}
-                readmissionRate={overview?.readmission_rate ?? 10.2}
-                dataQualityStatus={overview?.data_quality_status ?? "Fully Validated"}
-                datasetStatus={overview?.organization_dataset ?? "Connected"}
+                totalPatients={overview?.total_patients ?? 0}
+                totalEncounters={overview?.total_encounters ?? 0}
+                avgLos={overview?.avg_length_of_stay ?? 0}
+                readmissionRate={overview?.readmission_rate ?? 0}
+                dataQualityStatus={overview?.data_quality_status ?? "Not assessed"}
+                datasetStatus={overview?.organization_dataset ?? "Unavailable"}
                 selectedTables={customDashboardData?.selected_tables || selectedTables}
                 kpiCards={customDashboardData?.kpi_cards}
               />
@@ -590,7 +652,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
               <AskQuestionSection
                 onRunAnalysis={handleRunAnalysis}
                 isLoading={isLoading}
-                defaultQuestion={currentQuestion}
+                defaultQuestion={draftQuestion}
+                onQuestionChange={setDraftQuestion}
                 suggestedQuestions={customDashboardData?.suggested_questions}
               />
 
@@ -679,6 +742,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
               {approvalPending && analysisPlan && (
                 <ClinicalApprovalCard
                   analysisPlan={analysisPlan}
+                  question={currentQuestion}
                   onApprove={handleApprovePlan}
                   onReject={handleRejectPlan}
                   isLoading={isApproving}
@@ -686,6 +750,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                   planVersion={planVersion}
                   feedbackHistory={feedbackHistory}
                   elapsedSecs={approveElapsedSecs}
+                  errorMessage={errorMessage}
                 />
               )}
 
@@ -703,26 +768,23 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 customValues={customDashboardData?.chart_values}
               />
 
-              {/* Bottom Tri-Card Row: Clinical Insights + Reference + Verified Results */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {/* Clinical Insights and Verified Results */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <ClinicalInsightsCard
                   insight={analyticsResult?.insight || customDashboardData?.insight}
                   keyFinding={customDashboardData?.key_finding || peakFindingText}
                   keyFindingValue={customDashboardData?.key_finding_value || peakFindingValue}
                 />
 
-                <ClinicalReferenceCard
-                  referenceText={analyticsResult?.rag_context || undefined}
-                />
-
                 <VerifiedResultsTable
                   results={analyticsResult?.results || (customDashboardData?.verified_results as any) || (overview?.top_diagnoses as any)}
+                  title={analyticsResult?.results?.length ? 'Verified Results' : 'Dataset Overview'}
                   badgeText={
                     isQuestionMode
-                      ? `${analyticsResult?.results.length || 8} Rows Verified`
+                      ? `${analyticsResult?.results.length ?? 0} Rows Verified`
                       : customDashboardData
                       ? `${customDashboardData.verified_results.length} Rows (${customDashboardData.selected_tables.join('+')})`
-                      : undefined
+                      : `${overview?.top_diagnoses?.length ?? 0} Overview Rows`
                   }
                 />
               </div>
@@ -746,7 +808,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
               {/* Report Generation Section */}
               <ReportTriggerBanner
                 onOpenReportReview={() => setIsReportModalOpen(true)}
-                title="Generate Certified Clinical PDF Report"
+                title="Generate Clinical PDF Report"
                 description="Export a publication-ready PDF report containing clinical diagnosis metrics, visual charts, and verified outcomes for clinical audit."
               />
             </>
@@ -769,7 +831,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 <AskQuestionSection
                   onRunAnalysis={handleRunAnalysis}
                   isLoading={isLoading}
-                  defaultQuestion={currentQuestion}
+                  defaultQuestion={draftQuestion}
+                  onQuestionChange={setDraftQuestion}
                 />
               </div>
 
@@ -857,6 +920,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
               {approvalPending && analysisPlan && (
                 <ClinicalApprovalCard
                   analysisPlan={analysisPlan}
+                  question={currentQuestion}
                   onApprove={handleApprovePlan}
                   onReject={handleRejectPlan}
                   isLoading={isApproving}
@@ -864,6 +928,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                   planVersion={planVersion}
                   feedbackHistory={feedbackHistory}
                   elapsedSecs={approveElapsedSecs}
+                  errorMessage={errorMessage}
                 />
               )}
 
@@ -886,7 +951,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                 <div className="lg:col-span-2">
                   <VerifiedResultsTable
                     results={analyticsResult?.results || (overview?.top_diagnoses as any)}
-                    badgeText="Verified Outcomes"
+                    title={analyticsResult?.results?.length ? 'Verified Results' : 'Dataset Overview'}
+                    badgeText={analyticsResult?.results?.length ? 'Verified Outcomes' : 'Overview Snapshot'}
                   />
                 </div>
                 <div>
@@ -956,12 +1022,12 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
           {activeTab === 'trends' && (
             <div className="space-y-6">
               <ClinicalMetricsRow
-                totalPatients={overview?.total_patients ?? 1171}
-                totalEncounters={overview?.total_encounters ?? 53346}
-                avgLos={overview?.avg_length_of_stay ?? 1.1}
-                readmissionRate={overview?.readmission_rate ?? 10.2}
-                dataQualityStatus="Fully Validated"
-                datasetStatus="Connected"
+                totalPatients={overview?.total_patients ?? 0}
+                totalEncounters={overview?.total_encounters ?? 0}
+                avgLos={overview?.avg_length_of_stay ?? '—'}
+                readmissionRate={overview?.readmission_rate ?? 0}
+                dataQualityStatus={overview?.data_quality_status ?? 'Not assessed'}
+                datasetStatus={overview?.organization_dataset ?? 'Unavailable'}
               />
 
               <DynamicCharts
@@ -979,38 +1045,6 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                       <span className="text-lg font-bold text-gray-900 mt-1 block">{count.toLocaleString()}</span>
                     </div>
                   ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: CLINICAL REFERENCE & RAG EVIDENCE */}
-          {activeTab === 'evidence' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ClinicalReferenceCard
-                  referenceText={analyticsResult?.rag_context || undefined}
-                />
-                <ClinicalInsightsCard
-                  insight={analyticsResult?.insight}
-                  keyFinding={peakFindingText}
-                  keyFindingValue={peakFindingValue}
-                />
-              </div>
-
-              <div className="bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm space-y-3">
-                <div className="flex items-center space-x-2 text-indigo-700 font-bold text-xs uppercase tracking-wide">
-                  <Database className="w-4 h-4" />
-                  <span>Clinical Ontology & Knowledge Embeddings</span>
-                </div>
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  The Clinical RAG system indexes evidence from standard clinical reference texts (e.g. SNOMED-CT, ICD-10-CM guidelines, and inpatient LOS benchmarks).
-                  When an analytics inquiry is processed, semantically retrieved clinical reference passages are passed directly into the AI insight synthesis node to ground conclusions strictly in certified medical literature.
-                </p>
-                <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 font-mono text-xs text-gray-800 space-y-1">
-                  <div><strong>Indexed Corpus:</strong> clinical_reference.txt</div>
-                  <div><strong>Ontology Standards:</strong> SNOMED-CT (267036007 Dyspnea, etc.), LOINC, RxNorm</div>
-                  <div><strong>Retriever Status:</strong> Active (Cosine Similarity &gt; 0.85)</div>
                 </div>
               </div>
             </div>
@@ -1059,7 +1093,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                     onClick={() => setHistoryFilter('followup')}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                       historyFilter === 'followup'
-                        ? 'bg-white text-purple-700 shadow-2xs'
+                        ? 'bg-white text-[#4F46E5] shadow-2xs'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
@@ -1093,8 +1127,8 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
                             </td>
                             <td className="py-3 px-4 whitespace-nowrap align-top">
                               {isFollowUp ? (
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                  <Sparkles className="w-3 h-3 text-purple-600" />
+                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]">
+                                  <Sparkles className="w-3 h-3 text-[#4F46E5]" />
                                   <span>Follow-Up</span>
                                 </span>
                               ) : (
@@ -1160,42 +1194,7 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
 
           {/* TAB 7: CLINICAL REPORTS */}
           {activeTab === 'reports' && (
-            <div className="space-y-6">
-              <div className="bg-white border border-gray-200/90 rounded-xl p-6 shadow-sm">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">Certified Clinical PDF Reports Center</h3>
-                    <p className="text-xs text-gray-500">Every published report undergoes deterministic result validation and human clinical review</p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-3">
-                  <div className="flex items-center space-x-2 text-indigo-900 text-xs font-bold">
-                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                    <span>Compliance & Audit Guarantee</span>
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    PDF reports compile verified SQL results, natural-language insights, and RAG ontology references into an immutable publication format.
-                    Downloads are strictly unlocked only after the clinical analyst confirms review.
-                  </p>
-                  <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-                  >
-                    Open Certified Report Review & Export
-                  </button>
-                </div>
-              </div>
-
-              <ReportTriggerBanner
-                onOpenReportReview={() => setIsReportModalOpen(true)}
-                title="Publish Clinical Audit Documentation"
-                description="Review current query findings and generate a signed clinical summary PDF."
-              />
-            </div>
+            <ReportHistory onGenerate={() => setIsReportModalOpen(true)} refreshKey={reportHistoryRefreshKey} />
           )}
 
           {/* TAB 8: SETTINGS */}
@@ -1248,19 +1247,21 @@ export const ClinicalDashboard: React.FC<ClinicalDashboardProps> = ({ onSwitchRo
         </main>
       </div>
 
-      {/* Certified Report Review Modal with Human Approval Gate */}
+      {/* Report review modal */}
       <ReportModal
         isOpen={isReportModalOpen}
+        onAcknowledged={() => setReportHistoryRefreshKey((value) => value + 1)}
         onClose={() => setIsReportModalOpen(false)}
         question={currentQuestion}
         analysisPlan={analyticsResult?.analysis_plan || analysisPlan}
         insight={analyticsResult?.insight}
-        results={analyticsResult?.results || (overview?.top_diagnoses as any)}
-        ragContext={analyticsResult?.rag_context}
+        results={analyticsResult?.results || []}
         sqlQuery={analyticsResult?.sql_query}
         workspaceType="clinical"
         selectedTables={selectedTables}
         followUpAnswers={followUpHistory}
+        datasetName={overview?.dataset_name}
+        analysisRunId={analysisIdentity.analysis_id}
       />
 
       {/* Dataset Upload Modal */}

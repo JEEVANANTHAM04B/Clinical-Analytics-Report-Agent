@@ -1,0 +1,78 @@
+flowchart TB
+  USER["Clinical analyst or data operator"]
+  UI["React App<br/>Clinical Dashboard ↔ Technical Dashboard<br/>Report History"]
+  API["FastAPI: app.main:app"]
+  USER --> UI --> API
+
+  subgraph ANALYSIS["Analyze a clinical question"]
+    Q["Question + selected datasets"]
+    TABLES["Check approved tables and required datasets"]
+    PLAN["Load schema and generate analysis plan"]
+    APPROVAL{"Analyst plan decision"}
+    SQL["Generate SQL and validate safety"]
+    QUERY["Run read-only query"]
+    RESULT["Validate result columns, values and grain"]
+    INSIGHT["Generate and validate insight"]
+    CHART["Generate and validate chart"]
+    RETURN["Return verified analysis"]
+    Q --> TABLES --> PLAN --> APPROVAL
+    APPROVAL -->|Pending| UI
+    APPROVAL -->|Reject with feedback| PLAN
+    APPROVAL -->|Approve| SQL --> QUERY --> RESULT
+    RESULT -->|Invalid| SQL
+    RESULT -->|Valid| INSIGHT --> CHART --> RETURN
+    RETURN --> UI
+  end
+
+  subgraph INGESTION["Add or preview a dataset"]
+    FILE["Upload CSV or XLSX"]
+    FILE_CHECK["Validate and parse"]
+    PREVIEW{"Preview only?"}
+    PREVIEW_OUT["Return schema preview"]
+    QUALITY["Metadata and quality checks"]
+    DUP{"Primary-key duplicate policy"}
+    LOAD["Load eligible rows"]
+    REGISTRY["Register dataset, version and metadata"]
+    FILE --> FILE_CHECK --> PREVIEW
+    PREVIEW -->|Yes| PREVIEW_OUT --> UI
+    PREVIEW -->|No| QUALITY --> DUP --> LOAD --> REGISTRY
+  end
+
+  subgraph TECH["Technical data administration"]
+    DBTOOLS["Inspect tables and versions<br/>Review registry and audit logs"]
+    REL["Review candidate data relationships"]
+    RELDEC{"Approve relationship?"}
+    DBTOOLS --> REL
+    REL --> RELDEC
+  end
+
+  subgraph REPORT["Save and retrieve a report"]
+    PDFREQ["Request PDF"]
+    SCOPE["Check ownership and validate report inputs"]
+    RENDER["Render and save PDF"]
+    HISTORY["List, inspect, acknowledge<br/>and download saved reports"]
+    PDFREQ --> SCOPE --> RENDER --> HISTORY
+  end
+
+  subgraph DATA["Data and services"]
+    MYSQL[("MySQL<br/>Clinical data and operational metadata")]
+    REPORTDB[("clinical_reports<br/>Saved report records and PDF bytes")]
+    REDIS[("Optional Redis<br/>Validated query-result cache")]
+    FILES[("Local upload storage")]
+    AUDIT["Application logs and audit events"]
+  end
+
+  API --> Q
+  API --> FILE
+  API --> DBTOOLS
+  API --> PDFREQ
+  QUERY --> MYSQL
+  LOAD --> MYSQL
+  REGISTRY --> MYSQL
+  DBTOOLS --> MYSQL
+  RELDEC -->|Approved or rejected status| MYSQL
+  RENDER --> REPORTDB
+  HISTORY --> REPORTDB
+  FILE_CHECK --> FILES
+  QUERY -. Optional .-> REDIS
+  API --> AUDIT

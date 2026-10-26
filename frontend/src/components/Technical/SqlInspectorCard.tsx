@@ -263,7 +263,7 @@ ORDER BY average_length_of_stay DESC;`;
       </div>
 
       {/* Code Editor Box */}
-      <div className="bg-[#0B0F19] text-gray-200 font-mono text-[11px] p-3.5 rounded-lg border border-gray-800 leading-relaxed shadow-inner overflow-x-auto">
+      <div className="bg-[#F1F5F9] text-[#111827] font-mono text-[11px] p-3.5 rounded-lg border border-[#E5E7EB] leading-relaxed overflow-x-auto">
         <pre className="whitespace-pre-wrap font-mono">
           {!sqlQuery ? (
             <span className="text-gray-500">

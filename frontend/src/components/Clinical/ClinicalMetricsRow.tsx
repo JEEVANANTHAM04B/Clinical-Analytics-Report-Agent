@@ -12,12 +12,12 @@ interface ClinicalMetricsRowProps {
 }
 
 export const ClinicalMetricsRow: React.FC<ClinicalMetricsRowProps> = ({
-  totalPatients = '1,171',
-  totalEncounters = '53,346',
-  avgLos = '1.1 Days',
-  readmissionRate = '10.2%',
-  dataQualityStatus = 'Fully Validated',
-  datasetStatus = 'Connected',
+  totalPatients = '—',
+  totalEncounters = '—',
+  avgLos = '—',
+  readmissionRate = '—',
+  dataQualityStatus = 'Not assessed',
+  datasetStatus = 'Unavailable',
   selectedTables,
   kpiCards,
 }) => {
@@ -55,14 +55,14 @@ export const ClinicalMetricsRow: React.FC<ClinicalMetricsRowProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="studio-metrics grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       {metrics.map((item, idx) => {
         const isTablesData = item.label.includes('SELECTED') || item.label.includes('TABLE');
         return (
           <div
             key={idx}
             data-testid={isTablesData ? 'tables-data' : undefined}
-            className="bg-white border border-gray-200/90 rounded-xl p-3 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between"
+            className="studio-metric-card bg-white border border-gray-200/90 rounded-xl p-3 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between"
           >
             <span className="text-[9px] font-bold text-gray-400 tracking-wider uppercase block mb-1">
               {item.label}

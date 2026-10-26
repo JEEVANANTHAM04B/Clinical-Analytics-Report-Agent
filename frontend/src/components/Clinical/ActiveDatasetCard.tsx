@@ -11,7 +11,7 @@ export const ActiveDatasetCard: React.FC<ActiveDatasetCardProps> = ({
   onUploadClick,
 }) => {
   return (
-    <div className="bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm">
+    <div className="studio-dataset-card bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Left side info */}
         <div className="flex items-center space-x-3.5">

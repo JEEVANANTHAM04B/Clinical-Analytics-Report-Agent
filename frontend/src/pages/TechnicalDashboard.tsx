@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import TechnicalSidebar from '../components/Technical/TechnicalSidebar';
 import TechnicalTopbar from '../components/Technical/TechnicalTopbar';
 import TechnicalMetricsRow from '../components/Technical/TechnicalMetricsRow';
@@ -8,17 +8,16 @@ import PipelineVisualizer from '../components/Technical/PipelineVisualizer';
 import SqlInspectorCard from '../components/Technical/SqlInspectorCard';
 import ActiveDatabaseCard from '../components/Technical/ActiveDatabaseCard';
 import SystemHealthCard from '../components/Technical/SystemHealthCard';
-import RagContextCard from '../components/Technical/RagContextCard';
 import ClinicalApprovalCard from '../components/Clinical/ClinicalApprovalCard';
 import DynamicCharts from '../components/Clinical/DynamicCharts';
 import ClinicalInsightsCard from '../components/Clinical/ClinicalInsightsCard';
-import ClinicalReferenceCard from '../components/Clinical/ClinicalReferenceCard';
 import VerifiedResultsTable from '../components/Clinical/VerifiedResultsTable';
 import FollowUpSection from '../components/Clinical/FollowUpSection';
 import FollowUpAnswerCard, { FollowUpHistoryItem } from '../components/Clinical/FollowUpAnswerCard';
 import ReportTriggerBanner from '../components/ReportTriggerBanner';
 import ReportModal from '../components/ReportModal';
 import DatasetUploadModal from '../components/DatasetUploadModal';
+import { getAvailableClinicalTableNames } from '../components/SidebarTableSelector';
 import apiService from '../services/api';
 import databaseApi, { AuditLogItem } from '../api/database';
 import datasetsApi, { DatasetVersionItem } from '../api/datasets';
@@ -38,7 +37,6 @@ import {
   GitFork,
   Terminal,
   CheckSquare,
-  Database,
   History,
   ShieldCheck,
   Cpu,
@@ -57,20 +55,19 @@ interface TechnicalDashboardProps {
 }
 
 const initialPipelineNodes: PipelineNode[] = [
-  { id: 1, name: 'Question Parsed', status: 'completed' },
-  { id: 2, name: 'Table Selection Check', status: 'completed' },
-  { id: 3, name: 'Schema Retrieval', status: 'completed' },
-  { id: 4, name: 'Analysis Plan', status: 'completed' },
-  { id: 5, name: 'Human Approval', status: 'completed' },
-  { id: 6, name: 'SQL Generation', status: 'completed' },
-  { id: 7, name: 'SQL Syntax Check', status: 'completed' },
-  { id: 8, name: 'SQL Safety Validation', status: 'completed' },
-  { id: 9, name: 'Query Execution', status: 'completed' },
-  { id: 10, name: 'Result Validation', status: 'completed' },
-  { id: 11, name: 'Evidence Retrieval', status: 'completed' },
-  { id: 12, name: 'AI Insight Generation', status: 'completed' },
-  { id: 13, name: 'Visualization Spec', status: 'completed' },
-  { id: 14, name: 'Final Report Ready', status: 'completed' },
+  { id: 1, name: 'Question Parsed', status: 'pending' },
+  { id: 2, name: 'Table Selection Check', status: 'pending' },
+  { id: 3, name: 'Schema Retrieval', status: 'pending' },
+  { id: 4, name: 'Analysis Plan', status: 'pending' },
+  { id: 5, name: 'Human Approval', status: 'pending' },
+  { id: 6, name: 'SQL Generation', status: 'pending' },
+  { id: 7, name: 'SQL Syntax Check', status: 'pending' },
+  { id: 8, name: 'SQL Safety Validation', status: 'pending' },
+  { id: 9, name: 'Query Execution', status: 'pending' },
+  { id: 10, name: 'Result Validation', status: 'pending' },
+  { id: 11, name: 'AI Insight Generation', status: 'pending' },
+  { id: 12, name: 'Visualization Spec', status: 'pending' },
+  { id: 13, name: 'Final Report Ready', status: 'pending' },
 ];
 
 export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitchRole }) => {
@@ -99,7 +96,8 @@ export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitch
 
   // Dynamic Table Selection & Custom Dashboard state
   const [availableTables, setAvailableTables] = useState<ClinicalTable[]>([]);
-  const [selectedTables, setSelectedTables] = useState<string[]>(['study', 'sites', 'dm']);
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const hasManualTableSelection = useRef(false);
   const [isApplyingTables, setIsApplyingTables] = useState(false);
   const [tableCombinationError, setTableCombinationError] = useState<string | null>(null);
   const [customDashboardData, setCustomDashboardData] = useState<DashboardCustomizationResponse | null>(null);
@@ -129,29 +127,7 @@ export const TechnicalDashboard: React.FC<TechnicalDashboardProps> = ({ onSwitch
     ast_status?: string;
     latency?: string;
     rows?: number;
-  }>>([
-    {
-      type: 'analysis',
-      question: 'What is the average length of stay by diagnosis?',
-      answer: 'Average length of stay spans 1.0 to 4.0 days across diagnoses.',
-      timestamp: 'Today, 10:45 AM',
-      sql_query: `SELECT
-    c.DESCRIPTION AS diagnosis,
-    ROUND(AVG(DATEDIFF(e.STOP, e.START)), 1) AS avg_length_of_stay
-FROM encounters e
-JOIN conditions c ON e.ID = c.ENCOUNTER
-WHERE e.ENCOUNTERCLASS = 'inpatient'
-  AND e.START IS NOT NULL
-  AND e.STOP IS NOT NULL
-  AND DATEDIFF(e.STOP, e.START) BETWEEN 0 AND 30
-GROUP BY c.DESCRIPTION
-ORDER BY avg_length_of_stay DESC
-LIMIT 8;`,
-      ast_status: '100% AST Passed',
-      latency: '1.24s',
-      rows: 8,
-    },
-  ]);
+  }>>([]);
 
   // Tab specific data
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -181,6 +157,9 @@ LIMIT 8;`,
         : (tablesData as any)?.tables || [];
       if (tablesList.length > 0) {
         setAvailableTables(tablesList);
+        if (!hasManualTableSelection.current) {
+          setSelectedTables(getAvailableClinicalTableNames(tablesList));
+        }
       }
     } catch (err: any) {
       console.error('Failed to load initial data:', err);
@@ -216,21 +195,12 @@ LIMIT 8;`,
       }
 
       setSelectedTables(sanitized);
+      hasManualTableSelection.current = true;
       setCustomDashboardData(response);
       setTableCombinationError(null);
-
-      // If pipeline was blocked, check if missing tables are now selected
-      if (blockedInfo) {
-        const stillMissing = blockedInfo.required_tables.filter(
-          (t) => !sanitized.map(s => s.toLowerCase()).includes(t.toLowerCase())
-        );
-        if (stillMissing.length === 0) {
-          setBlockedInfo(null);
-          handleExecutePipelineWithTables(question, sanitized);
-        } else {
-          handleExecutePipelineWithTables(question, sanitized);
-        }
-      }
+      setBlockedInfo(null);
+      setActiveTab('dashboard');
+      await handleExecutePipelineWithTables(question || blockedInfo?.question || '', sanitized);
     } catch (err: any) {
       console.error('Error applying technical table selection:', err);
       setTableCombinationError(
@@ -313,6 +283,11 @@ LIMIT 8;`,
   // Step 1: Execute pipeline with specific tables
   const handleExecutePipelineWithTables = async (questionToRun: string, tablesToUse?: string[]) => {
     if (!questionToRun.trim() || isExecuting) return;
+    const tables = tablesToUse || selectedTables;
+    if (tables.length === 0) {
+      setErrorMessage('Dataset tables are still loading. Please try again once they are available.');
+      return;
+    }
 
     setIsExecuting(true);
     setErrorMessage(null);
@@ -320,8 +295,6 @@ LIMIT 8;`,
     setFailedStep(null);
     setCurrentSqlQuery(null);
     setIsApprovalPending(false);
-
-    const tables = tablesToUse || selectedTables;
 
     // Animate initial parsing nodes
     setNodesProgress(0, 1);
@@ -402,6 +375,7 @@ LIMIT 8;`,
     const sanitizedMissing = missing.map((t) => t.toLowerCase().trim());
     const newTables = Array.from(new Set([...selectedTables.map((t) => t.toLowerCase().trim()), ...sanitizedMissing]));
     setSelectedTables(newTables);
+    hasManualTableSelection.current = true;
     setBlockedInfo(null);
 
     try {
@@ -485,6 +459,21 @@ LIMIT 8;`,
         return;
       }
 
+      if (res.status === 'awaiting_approval' || res.approval_status === 'pending') {
+        setAnalysisPlan(null);
+        setAnalyticsResult(null);
+        updateNodeStatus(6, 'failed');
+        setFailedStep(6);
+        setErrorMessage('Approval did not start execution. Run the question again to review a fresh plan.');
+        return;
+      }
+      if (res.status !== 'success' && res.status !== 'partial_success') {
+        updateNodeStatus(6, 'failed');
+        setFailedStep(6);
+        setErrorMessage(res.message || 'The pipeline did not complete. Review the response before trying again.');
+        return;
+      }
+
       setBlockedInfo(null);
 
       // Immediately display the generated SQL in the SqlInspectorCard
@@ -506,11 +495,11 @@ LIMIT 8;`,
         {
           type: 'analysis',
           question: question,
-          answer: res.insight || 'Pipeline completed with 100% AST safety validation.',
+          answer: res.insight || 'Analysis completed; no insight text returned.',
           timestamp: 'Just now',
           sql_query: res.sql_query,
-          ast_status: '100% AST Passed',
-          latency: '1.18s',
+          ast_status: 'SQL validated',
+          latency: 'Not measured',
           rows: res.results?.length || 0,
         },
         ...prev,
@@ -531,11 +520,10 @@ LIMIT 8;`,
         'validate_sql': 8,
         'execute_sql': 9,
         'validate_results': 10,
-        'retrieve_rag': 11,
-        'generate_insight': 12,
-        'validate_insight': 12,
-        'regenerate_insight': 12,
-        'generate_chart': 13,
+        'generate_insight': 11,
+        'validate_insight': 11,
+        'regenerate_insight': 11,
+        'generate_chart': 12,
       };
       const stepToFail = (failedNode && nodeMap[failedNode]) ? nodeMap[failedNode] : (err.response ? 9 : 6);
 
@@ -608,11 +596,11 @@ LIMIT 8;`,
         {
           type: 'analysis',
           question: question,
-          answer: res.insight || 'Pipeline completed with 100% AST safety validation.',
+          answer: res.insight || 'Analysis completed; no insight text returned.',
           timestamp: 'Just now',
           sql_query: res.sql_query,
-          ast_status: '100% AST Passed',
-          latency: '1.18s',
+          ast_status: 'SQL validated',
+          latency: 'Not measured',
           rows: res.results?.length || 0,
         },
         ...prev,
@@ -717,18 +705,22 @@ LIMIT 8;`,
     setErrorMessage(null);
 
     try {
+      const originalResults = analyticsResult?.results || (overview?.top_diagnoses as any[]) || [];
+      const latestFollowUpResults = [...followUpHistory]
+        .reverse()
+        .find((item) => item.follow_up_results?.length)?.follow_up_results;
       const res = await apiService.runFollowUp({
         question: followUpQuestion,
         current_question: question,
-        current_results: analyticsResult?.results || (overview?.top_diagnoses as any[]) || [],
+        current_results: latestFollowUpResults || originalResults,
+        original_results: originalResults,
         current_sql: analyticsResult?.sql_query,
         current_plan: analyticsResult?.analysis_plan,
-        current_rag_context: analyticsResult?.rag_context,
         current_insight: analyticsResult?.insight,
-        conversation_history: followUpHistory.map((h) => ({
-          role: 'user',
-          content: h.question,
-        })),
+        conversation_history: followUpHistory.flatMap((h) => [
+          { role: 'user' as const, content: h.question },
+          { role: 'assistant' as const, content: h.answer },
+        ]),
         selected_tables: selectedTables,
       });
 
@@ -741,6 +733,7 @@ LIMIT 8;`,
           source: res.source,
           sql_query: res.sql_query,
           verified: res.verified,
+          follow_up_results: res.follow_up_results,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -768,7 +761,7 @@ LIMIT 8;`,
   };
 
   return (
-    <div className="flex bg-[#F8FAFC] min-h-screen">
+    <div className="studio-workspace flex min-h-screen">
       {/* Sidebar */}
       <TechnicalSidebar
         activeTab={activeTab}
@@ -777,7 +770,7 @@ LIMIT 8;`,
         availableTables={availableTables}
         selectedTables={selectedTables}
         onApplySelection={handleApplyTableSelection}
-        isApplying={isApplyingTables}
+        isApplying={isApplyingTables || isExecuting}
         combinationError={tableCombinationError}
       />
 
@@ -795,8 +788,6 @@ LIMIT 8;`,
               ? "AST SQL Explorer & Dialect Guard"
               : activeTab === 'ast'
               ? "Abstract Syntax Tree (AST) Validation"
-              : activeTab === 'rag'
-              ? "RAG & Vector Knowledge Base"
               : activeTab === 'queries'
               ? "Technical Query Execution History"
               : activeTab === 'audit'
@@ -805,11 +796,11 @@ LIMIT 8;`,
               ? "System Health & Infrastructure"
               : "Technical Pipeline Settings"
           }
-          nodeCount={14}
+          nodeCount={pipelineNodes.length}
         />
 
         {/* FULL WIDTH CONTAINER: compact actual scale matching Screenshot 1-4 */}
-        <main className="p-4 md:p-5 space-y-3.5 flex-1 w-full">
+        <main className="studio-main p-4 md:p-5 space-y-3.5 flex-1 w-full">
           {/* Error Banner if any */}
           {errorMessage && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl shadow-xs space-y-2">
@@ -876,36 +867,14 @@ LIMIT 8;`,
           {/* TAB 1: MAIN TECHNICAL OBSERVABILITY DASHBOARD */}
           {activeTab === 'dashboard' && (
             <>
-              {/* Dataset & Selected Tables 6-KPI Metrics Row (Requested by User) */}
-              <ClinicalMetricsRow
-                totalPatients={overview?.total_patients ?? 1171}
-                totalEncounters={overview?.total_encounters ?? 53346}
-                avgLos={overview?.avg_length_of_stay ?? 1.1}
-                readmissionRate={overview?.readmission_rate ?? 10.2}
-                dataQualityStatus={overview?.data_quality_status ?? "Fully Validated"}
-                datasetStatus={overview?.organization_dataset ?? "Connected"}
-                selectedTables={selectedTables}
-                kpiCards={customDashboardData?.kpi_cards}
-              />
-
-              {/* 1. Top Observability 6-KPI Stat Cards (Screenshot 2 & 4) */}
-              <TechnicalMetricsRow
-                pipelineStatus={isApprovalPending ? '5/14 (Gated)' : '14/14 Nodes'}
-                astValidation="100% Pass"
-                latency={isExecuting ? 'Processing...' : '142ms'}
-                ragScore="12,850 Chunks"
-                sqlSafety="No Injection"
-                mysqlPool="Active (4/20)"
-              />
-
               {/* 2. Query Pipeline Trigger Bar (Screenshot 2 & 4) */}
-              <div className="bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm space-y-2">
+              <div className="studio-composer studio-technical-composer bg-white border border-gray-200/90 rounded-xl p-3.5 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                     LANGGRAPH PROMPT ENGINE & EXECUTION TRIGGER
                   </span>
                   <span className="text-[10px] font-semibold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200 font-mono">
-                    Python 3.11 + FastAPI
+                    Validated SQL workflow
                   </span>
                 </div>
 
@@ -941,6 +910,28 @@ LIMIT 8;`,
                   </button>
                 </form>
               </div>
+
+              {/* Dataset & Selected Tables 6-KPI Metrics Row (Requested by User) */}
+              <ClinicalMetricsRow
+                totalPatients={overview?.total_patients ?? '—'}
+                totalEncounters={overview?.total_encounters ?? '—'}
+                avgLos={overview?.avg_length_of_stay ?? '—'}
+                readmissionRate={overview?.readmission_rate ?? '—'}
+                dataQualityStatus={overview?.data_quality_status ?? "Not assessed"}
+                datasetStatus={overview?.organization_dataset ?? "Unavailable"}
+                selectedTables={selectedTables}
+                kpiCards={customDashboardData?.kpi_cards}
+              />
+
+              {/* 1. Top Observability 6-KPI Stat Cards (Screenshot 2 & 4) */}
+              <TechnicalMetricsRow
+                pipelineStatus={`${pipelineNodes.filter((node) => node.status === 'completed').length}/${pipelineNodes.length} Stages`}
+                astValidation={analyticsResult?.sql_query ? 'Validated SQL' : 'Not run'}
+                latency={isExecuting ? 'Processing...' : 'Not measured'}
+                resultStatus="See analysis"
+                sqlSafety={analyticsResult?.sql_query ? 'Validated' : 'Not run'}
+                mysqlPool="See System Health"
+              />
 
               {/* ANALYSIS BLOCKED CARD */}
               {blockedInfo && (
@@ -1051,12 +1042,15 @@ LIMIT 8;`,
                     <div id="technical-human-approval-card" className="w-full">
                       <ClinicalApprovalCard
                         analysisPlan={analysisPlan}
+                        question={question}
+                        audience="technical"
                         onApprove={handleApprove}
                         onReject={handleReject}
                         isLoading={isExecuting}
                         isRegenerating={isRegenerating}
                         planVersion={planVersion}
                         feedbackHistory={feedbackHistory}
+                        errorMessage={errorMessage}
                       />
                     </div>
                   )}
@@ -1067,8 +1061,6 @@ LIMIT 8;`,
                     statusBadge={isApprovalPending ? 'Awaiting Approval' : failedStep === 9 ? 'Execution Failed' : 'AST Validated'}
                   />
 
-                  {/* Card 3: RAG Retrieval & Vector Store Inspection */}
-                  <RagContextCard ragContext={analyticsResult?.rag_context} />
                 </div>
               </div>
 
@@ -1086,18 +1078,12 @@ LIMIT 8;`,
                 customValues={customDashboardData?.chart_values}
               />
 
-              {/* 5. Clinical Insights + References + Verified Results Row (Screenshot 1 & 3) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {/* 5. Clinical Insights and Verified Results */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <ClinicalInsightsCard
                   insight={analyticsResult?.insight || customDashboardData?.insight}
-                  keyFinding={customDashboardData?.key_finding || "Peak LOS Variance"}
-                  keyFindingValue={customDashboardData?.key_finding_value || "5.0d (Surgery)"}
-                />
-
-                <ClinicalReferenceCard
-                  referenceText={analyticsResult?.rag_context || undefined}
-                  sourceDoc="CLINICAL_REFERENCE.TXT"
-                  referenceType="SNOMED-CT V2026"
+                  keyFinding={customDashboardData?.key_finding}
+                  keyFindingValue={customDashboardData?.key_finding_value}
                 />
 
                 <VerifiedResultsTable
@@ -1107,7 +1093,7 @@ LIMIT 8;`,
                       ? `${analyticsResult.results.length} Rows Verified`
                       : customDashboardData
                       ? `${customDashboardData.verified_results.length} Rows (${customDashboardData.selected_tables.join('+')})`
-                      : "5 Rows General"
+                      : "No result rows"
                   }
                 />
               </div>
@@ -1134,7 +1120,7 @@ LIMIT 8;`,
               {/* 7. Certified Report Generation Card (Screenshot 1) */}
               <ReportTriggerBanner
                 onOpenReportReview={() => setIsReportModalOpen(true)}
-                title="Generate Certified Technical & Clinical PDF Report"
+                title="Generate Technical & Clinical PDF Report"
                 description="Export a publication-ready PDF audit report containing LangGraph execution logs, AST SQL queries, clinical charts, and verified outcomes."
               />
             </>
@@ -1144,12 +1130,12 @@ LIMIT 8;`,
           {activeTab === 'analytics' && (
             <div className="space-y-4">
               <TechnicalMetricsRow
-                pipelineStatus="14/14 Nodes"
-                astValidation="100% Pass"
-                latency="142ms"
-                ragScore="12,850 Chunks"
-                sqlSafety="No Injection"
-                mysqlPool="Active (4/20)"
+                pipelineStatus={`${pipelineNodes.filter((node) => node.status === 'completed').length}/${pipelineNodes.length} Stages`}
+                astValidation={analyticsResult?.sql_query ? 'Validated SQL' : 'Not run'}
+                latency={isExecuting ? 'Processing...' : 'Not measured'}
+                resultStatus="See analysis"
+                sqlSafety={analyticsResult?.sql_query ? 'Validated' : 'Not run'}
+                mysqlPool="See System Health"
               />
               <DynamicCharts
                 chartSpec={analyticsResult?.chart_spec}
@@ -1252,22 +1238,6 @@ LIMIT 8;`,
             </div>
           )}
 
-          {/* TAB 6: RAG / VECTOR BASE */}
-          {activeTab === 'rag' && (
-            <div className="space-y-6">
-              <RagContextCard ragContext={analyticsResult?.rag_context} />
-              <div className="bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm space-y-3">
-                <h3 className="text-sm font-bold text-gray-900">RAG Vector Base & Semantic Retriever Status</h3>
-                <div className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 font-mono text-xs space-y-1 text-gray-700">
-                  <div><strong>Vector Storage:</strong> FAISS / LangChain Store</div>
-                  <div><strong>Embedding Model:</strong> sentence-transformers/all-MiniLM-L6-v2 (384 dims)</div>
-                  <div><strong>Similarity Metric:</strong> Cosine (Threshold: 0.75)</div>
-                  <div><strong>Indexed Documents:</strong> cdisc_clinical_trial_reference.txt (AE, SAE, ADAE, ADSL, LB, VS, ADRESP)</div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* TAB 7: QUERY HISTORY */}
           {activeTab === 'queries' && (
             <div className="bg-white border border-gray-200/90 rounded-xl p-5 shadow-sm space-y-4">
@@ -1287,13 +1257,18 @@ LIMIT 8;`,
               </div>
 
               <div className="space-y-4">
+                {technicalQueries.length === 0 && (
+                  <p className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-600">
+                    No technical queries have run in this workspace session yet.
+                  </p>
+                )}
                 {technicalQueries.map((q, idx) => (
                   <div key={idx} className="bg-gray-50 p-4 rounded-xl border border-gray-200/80 space-y-2.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                       <div className="flex items-center space-x-2">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           q.type === 'followup'
-                            ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                            ? 'bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]'
                             : 'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}>
                           {q.type === 'followup' ? 'Follow-Up' : 'Pipeline Execution'}
@@ -1310,7 +1285,7 @@ LIMIT 8;`,
                     </div>
 
                     {q.sql_query && (
-                      <pre className="bg-gray-900 text-emerald-400 p-3 rounded-lg text-xs font-mono overflow-x-auto border border-gray-800">
+                      <pre className="bg-[#F1F5F9] text-[#111827] p-3 rounded-lg text-xs font-mono overflow-x-auto border border-[#E5E7EB]">
                         {q.sql_query}
                       </pre>
                     )}
@@ -1550,7 +1525,6 @@ LIMIT 8;`,
         analysisPlan={analysisPlan || analyticsResult?.analysis_plan}
         insight={analyticsResult?.insight}
         results={analyticsResult?.results}
-        ragContext={analyticsResult?.rag_context}
         sqlQuery={currentSqlQuery || analyticsResult?.sql_query}
         workspaceType="technical"
         selectedTables={selectedTables}

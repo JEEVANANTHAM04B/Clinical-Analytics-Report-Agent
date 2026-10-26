@@ -27,7 +27,6 @@ class PipelineCompletenessMetric:
           query executed, results returned, and visualization / evidence present.
         - For 'blocked': validation_status is 'blocked', reason provided,
           no SQL executed, no hallucinated charts or results.
-        - For 'CLINICAL_KNOWLEDGE_RAG': RAG context retrieved and insight generated.
         """
         issues = []
         stages_completed = []
@@ -62,40 +61,32 @@ class PipelineCompletenessMetric:
         if val_status == "blocked":
             issues.append(f"Request was unexpectedly blocked: {final_state.get('validation_message') or final_state.get('reason')}")
 
-        is_rag_only = category == "CLINICAL_KNOWLEDGE_RAG"
-
         if final_state.get("analysis_plan"):
             stages_completed.append("analysis_plan")
-        elif not is_rag_only:
+        else:
             issues.append("Missing analysis_plan")
 
-        if not is_rag_only:
-            if final_state.get("sql_query"):
-                stages_completed.append("sql_query")
-            else:
-                issues.append("Missing sql_query")
+        if final_state.get("sql_query"):
+            stages_completed.append("sql_query")
+        else:
+            issues.append("Missing sql_query")
 
-            executed_results = (
-                final_state.get("results")
-                if final_state.get("results") is not None
-                else final_state.get("query_result")
-            )
-            if executed_results is not None:
-                stages_completed.append("results_validated")
-            else:
-                issues.append("Missing results/query execution")
+        executed_results = (
+            final_state.get("results")
+            if final_state.get("results") is not None
+            else final_state.get("query_result")
+        )
+        if executed_results is not None:
+            stages_completed.append("results_validated")
+        else:
+            issues.append("Missing results/query execution")
 
-            if final_state.get("chart_spec"):
-                stages_completed.append("chart_spec")
-
-        if final_state.get("rag_context"):
-            stages_completed.append("rag_retrieved")
-        elif is_rag_only:
-            issues.append("Missing rag_context")
+        if final_state.get("chart_spec"):
+            stages_completed.append("chart_spec")
 
         if final_state.get("insight"):
             stages_completed.append("insight_generated")
-        elif is_rag_only:
+        else:
             issues.append("Missing insight")
 
         passed = len(issues) == 0

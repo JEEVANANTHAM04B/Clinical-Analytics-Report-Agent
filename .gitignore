@@ -99,3 +99,20 @@ test_*.html
 # --- Clinical Trial Raw Archive & RAG Backup ---
 Dataset.zip
 app/rag/vector_store/langchain_store_bak/
+
+# Local build and temporary artifacts
+/.codex-ppt-build/
+/tmp/
+/verified-environment.txt
+
+# Generated frontend client artifacts
+/frontend/G7u6Znf0ZXyIMmCTGeJye/
+/frontend/gk2Fs9o35D2dHxk9tB79Y/
+
+# Obsolete clinical-trial definitions dataset
+/Dataset/Dataset/TLF_DEFINITIONS.csv
+
+# Generated test and audit artifacts
+/docs/*.xml
+/docs/npm-audit.json
+/Dataset/Dataset/TLF_DEFINITIONS.csv

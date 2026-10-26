@@ -1,0 +1,188 @@
+flowchart TB
+  subgraph USERS["Users"]
+    ANALYST["Clinical analyst"]
+    OPERATOR["Technical or data operator"]
+  end
+
+  subgraph FRONTEND["React frontend"]
+    APP["App navigation"]
+    CLINICAL_UI["Clinical Dashboard<br/>Question, selected tables, results"]
+    TECH_UI["Technical Dashboard<br/>Upload, database and relationship tools"]
+    HISTORY_UI["Report History<br/>Search, details and download"]
+    ANALYST --> APP --> CLINICAL_UI
+    OPERATOR --> APP --> TECH_UI
+    CLINICAL_UI --> HISTORY_UI
+  end
+
+  subgraph FASTAPI["FastAPI: app.main:app"]
+    HEALTH["Health and root endpoints"]
+    ANALYTICS_API["Analytics API<br/>overview · dashboard · run · follow-up"]
+    INGEST_API["Ingestion API<br/>preview · upload · analyze"]
+    DATABASE_API["Database API<br/>tables · versions · registry · audit"]
+    RELATION_API["Relationship API<br/>candidates · review · approved"]
+    REPORT_API["Report API<br/>create · acknowledge · history · detail · download"]
+  end
+
+  APP --> HEALTH
+  CLINICAL_UI --> ANALYTICS_API
+  CLINICAL_UI --> REPORT_API
+  HISTORY_UI --> REPORT_API
+  TECH_UI --> INGEST_API
+  TECH_UI --> DATABASE_API
+  TECH_UI --> RELATION_API
+
+  subgraph INGESTION["Dataset ingestion and onboarding"]
+    FILE["Choose CSV or XLSX"]
+    VALIDATE_FILE["Validate extension, size and file content"]
+    READ_FILE["Read file into DataFrame"]
+    PREVIEW_BRANCH{"Preview or upload?"}
+    INFER["Sanitize headers<br/>Infer types and map candidate table"]
+    PREVIEW_RETURN["Return preview<br/>No database write"]
+    METADATA["Extract dataset metadata"]
+    QUALITY["Quality check<br/>Nulls, blank text, empty/constant columns,<br/>duplicate rows and quality flags"]
+    PK_CHECK["Inspect primary key<br/>Identify database and intra-file duplicates"]
+    DUPLICATE_BRANCH{"Duplicate policy"}
+    REJECT_DUP["Reject duplicates<br/>or skip existing rows when requested"]
+    LOAD_ROWS["Load eligible rows into target table"]
+    REGISTER["Register dataset and version metadata<br/>Update column metadata and relationships"]
+    INGEST_RESPONSE["Return upload and quality report"]
+
+    INGEST_API --> FILE --> VALIDATE_FILE --> READ_FILE --> PREVIEW_BRANCH
+    PREVIEW_BRANCH -->|Preview| INFER --> PREVIEW_RETURN
+    PREVIEW_BRANCH -->|Upload| METADATA --> QUALITY --> PK_CHECK --> DUPLICATE_BRANCH
+    DUPLICATE_BRANCH -->|All duplicates and reject-by-default| INGEST_RESPONSE
+    DUPLICATE_BRANCH -->|New rows or insert_new_only| REJECT_DUP --> LOAD_ROWS --> REGISTER --> INGEST_RESPONSE
+  end
+
+  subgraph ANALYTICS["Clinical analytics workflow: LangGraph"]
+    QUESTION["Question and selected tables"]
+    PREFLIGHT["Preflight table selection<br/>Approved-table allowlist and required datasets"]
+    PREFLIGHT_DECISION{"Selection valid?"}
+    SCHEMA["Load approved MySQL schema"]
+    PLAN["Map clinical question to KPI and datasets<br/>Generate plan using LLM or deterministic fallback"]
+    APPROVAL{"Plan decision"}
+    PENDING["Return plan as pending<br/>Wait for analyst decision"]
+    REGENERATE["Regenerate plan using reviewer feedback"]
+    EXEC_BOUNDARY["Recheck explicitly selected tables<br/>against approved scope"]
+    SQL_GEN["Generate SQL<br/>LLM or deterministic fallback"]
+    SQL_VALIDATE["Validate SQL syntax, schema,<br/>read-only rules and table boundaries"]
+    SQL_OK{"SQL valid?"}
+    EXECUTE["Execute bounded read-only query"]
+    RESULT_CONTRACT["Derive result contract from SQL<br/>SELECT names, aggregate types and group keys"]
+    RESULT_VALIDATE["Validate result structure, columns,<br/>supported types, finite values,<br/>group grain and known denominator"]
+    RESULT_DECISION{"Results valid?"}
+    CORRECT["Regenerate SQL for correctable<br/>structural result mismatch"]
+    INSIGHT["Generate insight from validated rows"]
+    INSIGHT_VALIDATE["Validate insight against result evidence"]
+    INSIGHT_DECISION{"Insight valid?"}
+    REGENERATE_INSIGHT["Regenerate insight within retry limit"]
+    CHART["Generate chart from validated rows"]
+    CHART_VALIDATE["Validate chart against result rows"]
+    RETURN_RESULTS["Return results, evidence,<br/>insight and chart to UI"]
+    STOP["Stop with blocked or validation error"]
+
+    ANALYTICS_API --> QUESTION --> PREFLIGHT --> PREFLIGHT_DECISION
+    PREFLIGHT_DECISION -->|Invalid or incomplete| STOP
+    PREFLIGHT_DECISION -->|Valid| SCHEMA --> PLAN --> APPROVAL
+    APPROVAL -->|Pending| PENDING
+    APPROVAL -->|Reject with feedback| REGENERATE --> PENDING
+    APPROVAL -->|Approve| EXEC_BOUNDARY --> SQL_GEN --> SQL_VALIDATE --> SQL_OK
+    SQL_OK -->|No| STOP
+    SQL_OK -->|Yes| EXECUTE --> RESULT_CONTRACT --> RESULT_VALIDATE --> RESULT_DECISION
+    RESULT_DECISION -->|Valid| INSIGHT
+    RESULT_DECISION -->|Correctable mismatch, retries remain| CORRECT --> SQL_GEN
+    RESULT_DECISION -->|Unsafe, invalid or retries exhausted| STOP
+    INSIGHT --> INSIGHT_VALIDATE --> INSIGHT_DECISION
+    INSIGHT_DECISION -->|Valid| CHART --> CHART_VALIDATE --> RETURN_RESULTS
+    INSIGHT_DECISION -->|Retry remains| REGENERATE_INSIGHT --> INSIGHT_VALIDATE
+    INSIGHT_DECISION -->|Invalid or retries exhausted| STOP
+    RETURN_RESULTS --> CLINICAL_UI
+    PENDING --> CLINICAL_UI
+    STOP --> CLINICAL_UI
+  end
+
+  subgraph FOLLOWUP["Follow-up questions"]
+    FOLLOWUP_INPUT["Follow-up question and current context"]
+    CONTEXT_DECISION{"Reusable verified result context?"}
+    SAFE_SQL["If needed, generate and validate<br/>safe bounded follow-up SQL"]
+    FOLLOWUP_VALIDATE["Validate follow-up rows"]
+    FOLLOWUP_ANSWER["Answer from verified context<br/>or validated query results"]
+    ANALYTICS_API --> FOLLOWUP_INPUT --> CONTEXT_DECISION
+    CONTEXT_DECISION -->|Yes| FOLLOWUP_ANSWER
+    CONTEXT_DECISION -->|No, supported SQL needed| SAFE_SQL --> FOLLOWUP_VALIDATE --> FOLLOWUP_ANSWER
+    FOLLOWUP_ANSWER --> CLINICAL_UI
+  end
+
+  subgraph DASHBOARDS["Dashboard data"]
+    OVERVIEW["Load overview metrics<br/>and distributions"]
+    CUSTOM_DASH["Validate selected tables and relationships<br/>then calculate dashboard aggregates"]
+    DASHBOARD_RETURN["Return dashboard data"]
+    ANALYTICS_API --> OVERVIEW --> DASHBOARD_RETURN
+    ANALYTICS_API --> CUSTOM_DASH --> DASHBOARD_RETURN
+    DASHBOARD_RETURN --> CLINICAL_UI
+  end
+
+  subgraph RELATIONSHIPS["Relationship review"]
+    CANDIDATES["Infer candidate relationships"]
+    REVIEW_REL["Operator reviews candidate"]
+    REL_DECISION{"Approve or reject?"}
+    SAVE_REL["Persist approved relationship"]
+    REJECT_REL["Persist rejected relationship"]
+    RELATION_API --> CANDIDATES --> REVIEW_REL --> REL_DECISION
+    REL_DECISION -->|Approve| SAVE_REL
+    REL_DECISION -->|Reject| REJECT_REL
+  end
+
+  subgraph REPORTS["Report generation and history"]
+    REPORT_REQUEST["Request PDF for analysis"]
+    OWNERSHIP["Check report owner and saved analysis"]
+    REPORT_ROWS["Use owner-bound validated results<br/>or validate submitted rows"]
+    CREATE_PENDING["Create pending report record"]
+    RENDER_PDF["Render and validate PDF"]
+    REPORT_STATUS{"Render and persistence succeeded?"}
+    COMPLETE_REPORT["Save PDF and mark completed"]
+    FAIL_REPORT["Mark failed; do not claim completion"]
+    ACK["Record owner review acknowledgement"]
+    LIST["List and filter owner reports"]
+    DETAIL["Get report details"]
+    DOWNLOAD["Download saved PDF by report ID"]
+
+    CLINICAL_UI --> REPORT_REQUEST --> REPORT_API --> OWNERSHIP --> REPORT_ROWS --> CREATE_PENDING --> RENDER_PDF --> REPORT_STATUS
+    REPORT_STATUS -->|Yes| COMPLETE_REPORT --> HISTORY_UI
+    REPORT_STATUS -->|No| FAIL_REPORT --> CLINICAL_UI
+    REPORT_API --> ACK --> HISTORY_UI
+    HISTORY_UI --> LIST --> REPORT_API
+    HISTORY_UI --> DETAIL --> REPORT_API
+    HISTORY_UI --> DOWNLOAD --> REPORT_API
+  end
+
+  subgraph STORAGE["Configured storage and services"]
+    MYSQL[("Configured MySQL database<br/>Clinical datasets and metadata")]
+    OPS["Operational MySQL metadata<br/>versions · registry · relationships · audit"]
+    REPORT_STORE[("clinical_reports<br/>owner, status, results and PDF bytes")]
+    RESULT_CACHE[("Optional Redis<br/>validated result cache")]
+    LOCAL_UPLOADS[("Local upload files")]
+    LOGS["Application logs and audit events"]
+  end
+
+  SCHEMA --> MYSQL
+  EXECUTE --> MYSQL
+  OVERVIEW --> MYSQL
+  CUSTOM_DASH --> MYSQL
+  LOAD_ROWS --> MYSQL
+  REGISTER --> OPS
+  REGISTER --> MYSQL
+  CANDIDATES --> MYSQL
+  SAVE_REL --> OPS
+  REJECT_REL --> OPS
+  DATABASE_API --> OPS
+  DATABASE_API --> MYSQL
+  READ_FILE --> LOCAL_UPLOADS
+  COMPLETE_REPORT --> REPORT_STORE
+  LIST --> REPORT_STORE
+  DETAIL --> REPORT_STORE
+  DOWNLOAD --> REPORT_STORE
+  ACK --> OPS
+  EXECUTE -. Optional cache lookup/store .-> RESULT_CACHE
+  FASTAPI --> LOGS
+  ANALYTICS_API --> OPS

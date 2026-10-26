@@ -97,23 +97,62 @@ def _check_unqualified_columns(
 def _extract_plan_datasets(plan: str) -> List[str]:
     """
     Extract dataset table names from Section 1 ('Relevant Tables and Columns')
-    of a structured analysis plan.
+    or structured bullet lists of an analysis plan.
     """
     if not plan:
         return []
     datasets: List[str] = []
+    registered = set(clinical_registry.get_dataset_names()) | {
+        "encounters", "conditions", "patients", "medications", "observations", "procedures"
+    }
+
     sec1_match = re.search(
         r'(?i)#{1,4}\s*(?:1[\.\s]*)?Relevant\s+Tables\s+and\s+Columns[^\n]*\n([\s\S]*?)(?:#{1,4}\s*(?:2[\.\s]*)?Join\s+Conditions|\Z)',
         plan,
     )
     search_text = sec1_match.group(1) if sec1_match else plan
+
+    # Pattern 1: * **`table`**: or - **table**:
     matches = re.findall(r'(?:^|\n)\s*[*+-]\s*\*\*`?([A-Za-z0-9_]+)`?\*\*', search_text)
     for m in matches:
         ds = m.strip().lower()
-        if ds not in datasets and ds not in ("none", "null"):
+        if ds not in datasets and ds not in ("none", "null") and ds in registered:
             datasets.append(ds)
-    return datasets
 
+    # Pattern 2: - Table: <table> or - Tables: <table1>, <table2>
+    table_lines = re.findall(r'(?i)(?:^|\n)\s*[*+-]?\s*Tables?:\s*([^\n]+)', search_text)
+    for line in table_lines:
+        tokens = re.findall(r'[A-Za-z0-9_]+', line)
+        for tok in tokens:
+            ds = tok.strip().lower()
+            if ds in registered and ds not in datasets:
+                datasets.append(ds)
+
+    # Pattern 3: - `table`: or * table:
+    colon_matches = re.findall(r'(?:^|\n)\s*[*+-]\s*`?([A-Za-z0-9_]+)`?\s*:', search_text)
+    for m in colon_matches:
+        ds = m.strip().lower()
+        if ds in registered and ds not in datasets:
+            datasets.append(ds)
+
+    # Pattern 4: Backticked identifiers in search_text: `table`
+    backticked = re.findall(r'`([A-Za-z0-9_]+)`', search_text)
+    for tok in backticked:
+        ds = tok.strip().lower()
+        if ds in registered and ds not in datasets:
+            datasets.append(ds)
+
+    # Pattern 5: Distinct clinical dataset acronyms (e.g. adlb, adsl, adae, advs)
+    # Exclude common prose words (like 'study') unless structured as table/backticked above
+    cdisc_distinct = registered - {"study", "patients", "conditions", "encounters", "procedures", "observations", "medications"}
+    if not datasets:
+        tokens = re.findall(r'\b[A-Za-z0-9_]+\b', search_text)
+        for tok in tokens:
+            ds = tok.strip().lower()
+            if ds in cdisc_distinct and ds not in datasets:
+                datasets.append(ds)
+
+    return datasets
 
 def validate_sql(
     sql: str,
@@ -188,18 +227,12 @@ def validate_sql(
                     required_datasets.add(ds.strip().lower())
 
         for ds_name in required_datasets:
-            if ds_name in approved_tables and clinical_registry.has_dataset(ds_name):
+            if ds_name in approved_tables:
                 ds_meta = clinical_registry.get_dataset(ds_name)
-                cols = {c.lower() for c in ds_meta.important_columns.keys()} if ds_meta else set()
-                approved_tables[ds_name].update(cols)
-                try:
-                    from app.database.schema_service import get_database_schema
-                    db_schema = get_database_schema()
-                    if db_schema and "tables" in db_schema and ds_name in db_schema["tables"]:
-                        db_cols = {c["name"].lower() for c in db_schema["tables"][ds_name]}
-                        approved_tables[ds_name].update(db_cols)
-                except Exception:
-                    pass
+                if ds_meta:
+                    approved_tables[ds_name].update(
+                        c.lower() for c in ds_meta.important_columns.keys()
+                    )
     else:
         # Production default: populate from ClinicalSchemaRegistry
         for ds in clinical_registry.list_datasets():

@@ -83,6 +83,16 @@ def check_quality(df: pd.DataFrame, filename: str) -> QualityReport:
         missing_cell_percentage,
     ) = _check_missing_values(df, total_cells)
 
+    # Empty and whitespace-only strings are distinct from null/missing values.
+    blank_counts = {
+        column: int(
+            df[column]
+            .map(lambda value: isinstance(value, str) and not value.strip())
+            .sum()
+        )
+        for column in df.columns
+    }
+
     # ── 3. Empty columns ──────────────────────────────────────────────────────
     empty_columns = _find_empty_columns(df)
 
@@ -102,6 +112,13 @@ def check_quality(df: pd.DataFrame, filename: str) -> QualityReport:
         constant_columns=constant_columns,
         df=df,
     )
+
+    for column, count in blank_counts.items():
+        if count:
+            flags.append(
+                f"WARNING: Column {column!r} contains {count} blank text values, "
+                "distinct from SQL NULL; review the dataset definition."
+            )
 
     logger.info(
         f"Quality check complete | filename='{filename}' | "

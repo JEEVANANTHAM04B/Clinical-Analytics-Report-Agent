@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class PDFReportRequest(BaseModel):
     """
-    Payload for generating a publication-grade, verified A4 PDF report.
+    Payload for generating an evidence-scoped A4 PDF report.
     """
     model_config = {"extra": "allow"}
 
@@ -18,14 +18,15 @@ class PDFReportRequest(BaseModel):
     analysis_plan: str | None = Field(default=None, description="Approved multi-step analysis plan")
     insight: str | None = Field(default=None, description="Verified clinical insight text")
     results: list[dict[str, Any]] | None = Field(default_factory=list, description="Verified query outcome rows")
-    rag_context: str | None = Field(default=None, description="Clinical RAG evidence and terminology citations")
     sql_query: str | None = Field(default=None, description="Compiled AST-safe SQL query")
     workspace_type: str | None = Field(default="clinical", description="Workspace type ('clinical' or 'technical')")
     selected_tables: list[str] | None = Field(default_factory=list, description="Active dataset tables used in scope")
     follow_up_answers: list[dict[str, Any]] | None = Field(default_factory=list, description="Follow-up Q&A pairs")
-    approved_by: str | None = Field(default="Clinical Analyst", description="Name/title of approving clinical reviewer")
-    report_status: str | None = Field(default="Approved & Certified", description="Official report verification status")
-    dataset_name: str | None = Field(default="CDISC Clinical Trial Dataset", description="Name of verified dataset")
+    approved_by: str | None = Field(default=None, description="Optional reviewer name; no certification is inferred")
+    report_status: str | None = Field(default="Generated", description="Report generation status, not clinical approval")
+    dataset_name: str | None = Field(default=None, description="Name of the dataset used for this report")
+    analysis_metadata: dict[str, Any] | None = None
+    analysis_run_id: str | None = Field(default=None, description="Optional reference to the analysis run")
 
     @field_validator("question", mode="before")
     @classmethod
@@ -80,7 +81,7 @@ class PDFReportRequest(BaseModel):
                 })
         return cleaned
 
-    @field_validator("analysis_plan", "insight", "rag_context", "sql_query", mode="before")
+    @field_validator("analysis_plan", "insight", "sql_query", mode="before")
     @classmethod
     def sanitize_text_fields(cls, v: Any) -> str | None:
         if v is None:
@@ -100,14 +101,14 @@ class PDFReportRequest(BaseModel):
     @classmethod
     def sanitize_approved_by(cls, v: Any) -> str:
         if not v or not isinstance(v, str) or not v.strip():
-            return "Clinical Analyst"
+            return "Not recorded"
         return v.strip()
 
     @field_validator("report_status", mode="before")
     @classmethod
     def sanitize_report_status(cls, v: Any) -> str:
         if not v or not isinstance(v, str) or not v.strip():
-            return "Approved & Certified"
+            return "Generated"
         return v.strip()
 
     @field_validator("dataset_name", mode="before")

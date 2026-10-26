@@ -6,7 +6,6 @@ from app.ai.llm import generate_response
 def regenerate_insight(
     user_question: str,
     query_results: list[dict[str, Any]],
-    rag_context: str,
     validation_message: str,
     insight_evidence: dict[str, Any] | None = None,
 ) -> str:
@@ -17,7 +16,6 @@ def regenerate_insight(
     - The user's question
     - Verified SQL results
     - Deterministic insight evidence
-    - Retrieved RAG context
     - The validation failure message
     """
 
@@ -38,9 +36,6 @@ Verified SQL results:
 Deterministic insight evidence:
 {insight_evidence}
 
-Reference context:
-{rag_context}
-
 Validation failure:
 {validation_message}
 
@@ -60,7 +55,7 @@ STRICT RULES:
 10. Do NOT make medical diagnosis or treatment recommendations.
 11. Do NOT change, reinterpret, or modify the SQL results.
 12. Do NOT assume information that is not present in the results.
-13. Use the reference context only for definitions or supporting knowledge.
+13. Distinguish observed data from interpretation, and state when evidence is insufficient.
 14. If the previous insight contained an unsupported claim, remove or correct it.
 15. Keep the response concise and suitable for a clinical data analyst.
 16. Return ONLY the corrected insight.

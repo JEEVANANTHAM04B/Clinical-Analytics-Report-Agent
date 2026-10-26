@@ -117,6 +117,15 @@ def _number_exists_in_results(
         if round(number, 2) == round(result_number, 2) or round(number, 1) == round(result_number, 1):
             return True
 
+    # Allow magnitude reporting for negative changes/reductions (e.g. "decreased by 0.8" for change = -0.8)
+    if number > 0:
+        for result_number in result_numbers:
+            if result_number < 0:
+                if abs(number - abs(result_number)) <= tolerance:
+                    return True
+                if round(number, 2) == round(abs(result_number), 2) or round(number, 1) == round(abs(result_number), 1):
+                    return True
+
     return False
 
 
@@ -177,6 +186,20 @@ def validate_insight(
         col_vals = [float(row[key]) for row in query_results if _is_numeric(row.get(key))]
         if col_vals:
             result_numbers.append(sum(col_vals))
+
+    # Allow numbers from verified query filters and evidence context (e.g. 'WEEK 8')
+    for ev_key in ("sql_query", "applied_filters", "visit", "parameter"):
+        ev_val = insight_evidence.get(ev_key)
+        if isinstance(ev_val, str):
+            for num in _extract_numbers(ev_val):
+                result_numbers.append(num)
+        elif isinstance(ev_val, (list, tuple, set)):
+            for item in ev_val:
+                if _is_numeric(item):
+                    result_numbers.append(float(item))
+                elif isinstance(item, str):
+                    for num in _extract_numbers(item):
+                        result_numbers.append(num)
 
     # ---------------------------------------------------------
     # Extract categories
@@ -270,6 +293,13 @@ def validate_insight(
                 "category"
             )
 
+            expected_categories = list(maximum_evidence.get(
+                "categories",
+                [],
+            ))
+            if expected_category and expected_category not in expected_categories:
+                expected_categories = [expected_category, *expected_categories]
+
             value_matches = False
 
             if expected_value is not None:
@@ -282,10 +312,9 @@ def validate_insight(
                     for number in insight_numbers
                 )
 
-            category_matches = (
-                expected_category is not None
-                and expected_category.lower()
-                in insight_lower
+            category_matches = any(
+                cat and cat.lower() in insight_lower
+                for cat in expected_categories
             )
 
             if not value_matches or not category_matches:
@@ -293,7 +322,7 @@ def validate_insight(
                 ranking_issue = (
                     "Highest-value claim does not match "
                     "the deterministic evidence. "
-                    f"Expected category: {expected_category}; "
+                    f"Expected category: {expected_category or expected_categories}; "
                     f"expected value: {expected_value}."
                 )
     # ---------------------------------------------------------
@@ -318,10 +347,12 @@ def validate_insight(
                 "value"
             )
 
-            expected_categories = minimum_evidence.get(
+            expected_categories = list(minimum_evidence.get(
                 "categories",
                 [],
-            )
+            ))
+            if minimum_evidence.get("category") and minimum_evidence.get("category") not in expected_categories:
+                expected_categories.append(minimum_evidence.get("category"))
 
             # Validate the minimum value.
             value_matches = False
@@ -387,9 +418,13 @@ def validate_insight(
 
     else:
 
-        message = (
-            "Insight failed deterministic validation."
-        )
+        reasons = []
+        if unsupported_numbers:
+            reasons.append(f"unsupported numbers: {unsupported_numbers}")
+        if ranking_issue:
+            reasons.append(ranking_issue)
+        details = "; ".join(reasons) if reasons else "unverified claims detected"
+        message = f"Insight failed deterministic validation: {details}"
 
     return {
         "valid": valid,

@@ -14,19 +14,12 @@ load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not API_KEY:
-    raise RuntimeError(
-        "GEMINI_API_KEY is not configured in the environment."
-    )
-
 
 # ============================================================
 # GEMINI CLIENT
 # ============================================================
 
-client = genai.Client(
-    api_key=API_KEY
-)
+client = genai.Client(api_key=API_KEY) if API_KEY else None
 
 
 # ============================================================
@@ -68,6 +61,9 @@ def _generate_with_model(
     model_name: str,
     prompt: str,
 ) -> str:
+
+    if client is None:
+        raise RuntimeError("GEMINI_API_KEY is not configured; external generation is unavailable.")
 
     response = client.models.generate_content(
         model=model_name,

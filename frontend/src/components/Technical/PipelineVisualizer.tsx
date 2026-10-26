@@ -36,23 +36,6 @@ const nodeDescriptions: Record<number, string> = {
   14: 'Packaging audit trail',
 };
 
-const defaultLatencies: Record<number, string> = {
-  1: '12ms',
-  2: '20ms',
-  3: '45ms',
-  4: '18ms',
-  5: 'Interactive',
-  6: '34ms',
-  7: '8ms',
-  8: '11ms',
-  9: '42ms',
-  10: '16ms',
-  11: '22ms',
-  12: '85ms',
-  13: '14ms',
-  14: '9ms',
-};
-
 export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
   nodes,
   onReset,
@@ -66,7 +49,7 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
         <div className="flex items-center space-x-1.5 text-gray-800">
           <GitBranch className="w-3.5 h-3.5 text-blue-600" />
           <h3 className="text-[11px] font-bold uppercase tracking-wider">
-            LANGGRAPH 14-STEP TRACE
+            LANGGRAPH WORKFLOW TRACE
           </h3>
         </div>
 
@@ -93,7 +76,7 @@ export const PipelineVisualizer: React.FC<PipelineVisualizerProps> = ({
 
           let latencyText = '--';
           if (isCompleted) {
-            latencyText = defaultLatencies[node.id] || '12ms';
+            latencyText = 'Completed';
           } else if (isRunning) {
             latencyText = 'running...';
           } else if (isBlocked) {

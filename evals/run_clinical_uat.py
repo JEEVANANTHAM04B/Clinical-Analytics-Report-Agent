@@ -4,7 +4,7 @@ evals/run_clinical_uat.py
 Runs Natural Language Robustness / User Acceptance Testing (UAT) against
 the full production clinical analytics pipeline:
   Question Understanding -> Analysis Plan -> LangGraph -> SQL Generation
-  -> SQL Validation -> MySQL Execution -> Result Validation -> RAG -> Insight Generation
+  -> SQL Validation -> MySQL Execution -> Result Validation -> Insight Generation
 """
 
 import os
@@ -27,9 +27,6 @@ from app.workflow.graph import build_graph
 from app.analytics.sql_validator import validate_sql
 from app.analytics.query_executor import execute_query
 from app.clinical import build_clinical_question_plan, registry as clinical_registry
-from app.rag.insight_context import get_insight_context
-from app.rag.retriever.retriever import retrieve
-from app.ai.llm import generate_response
 
 UAT_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "clinical_natural_language_uat.json"
 
@@ -52,7 +49,6 @@ FAILURE_CATEGORIES = [
     "SQL validation failure",
     "SQL execution failure",
     "Result correctness failure",
-    "RAG retrieval failure",
     "Insight generation failure",
     "Final response failure",
     "Unsupported ambiguity",
@@ -172,8 +168,6 @@ def evaluate_sql_uat_case(case: Dict[str, Any], graph: Any, schema: Dict[str, An
         "result_correctness": False,
         "expected_concept": expected_concepts,
         "actual_concept": [],
-        "rag_topic": None,
-        "retrieved_rag_context": None,
         "final_response": "",
         "passed": False,
         "failure_category": None,
@@ -209,11 +203,9 @@ def evaluate_sql_uat_case(case: Dict[str, Any], graph: Any, schema: Dict[str, An
     workflow_error = final_state.get("error", "")
     query_result = final_state.get("query_result", [])
     insight = final_state.get("insight", "")
-    rag_context = final_state.get("rag_context", "")
 
     item_report["generated_sql"] = sql
     item_report["final_response"] = insight
-    item_report["retrieved_rag_context"] = rag_context[:200] if rag_context else ""
 
     if not sql:
         item_report["failure_category"] = "SQL generation failure"
@@ -319,78 +311,6 @@ def evaluate_sql_uat_case(case: Dict[str, Any], graph: Any, schema: Dict[str, An
     return item_report
 
 
-def evaluate_rag_uat_case(case: Dict[str, Any]) -> Dict[str, Any]:
-    question = case["question"]
-    case_id = case["id"]
-    expected_concepts = case.get("expected_rag_concepts", [])
-    expected_terms = case.get("expected_terminology", [])
-
-    item_report = {
-        "id": case_id,
-        "category": "rag",
-        "question": question,
-        "type": "rag",
-        "detected_intent": case.get("expected_intent", ""),
-        "detected_kpi": None,
-        "selected_datasets": [],
-        "generated_sql": None,
-        "sql_validation": True,
-        "sql_execution": True,
-        "sql_semantic": True,
-        "result_correctness": True,
-        "expected_concept": expected_concepts,
-        "actual_concept": [],
-        "rag_topic": expected_terms[0] if expected_terms else "CDISC",
-        "retrieved_rag_context": "",
-        "final_response": "",
-        "passed": False,
-        "failure_category": None,
-        "failure_reason": "",
-    }
-
-    try:
-        retrieved_text = get_insight_context(question)
-        if not retrieved_text:
-            docs = retrieve(question, top_k=3)
-            retrieved_text = " ".join(docs)
-    except Exception as exc:
-        item_report["failure_category"] = "RAG retrieval failure"
-        item_report["failure_reason"] = f"RAG retrieval exception: {exc}"
-        return item_report
-
-    item_report["retrieved_rag_context"] = retrieved_text[:200]
-
-    matched_concepts = []
-    text_lower = retrieved_text.lower()
-    for c in expected_concepts:
-        if c.lower() in text_lower or any(word.lower() in text_lower for word in c.split() if len(word) > 3):
-            matched_concepts.append(c)
-
-    item_report["actual_concept"] = matched_concepts
-
-    if not matched_concepts:
-        item_report["failure_category"] = "RAG retrieval failure"
-        item_report["failure_reason"] = f"Retrieved context failed to match any expected concepts: {expected_concepts}"
-        return item_report
-
-    # Synthesize final response
-    try:
-        prompt = f"""
-You are a CDISC clinical analytics assistant.
-Answer the question using the retrieved knowledge:
-Question: {question}
-Reference context: {retrieved_text}
-Keep the answer concise and precise.
-"""
-        response = generate_response(prompt)
-        item_report["final_response"] = response
-    except Exception as exc:
-        item_report["final_response"] = f"Knowledge retrieved ({len(retrieved_text)} chars): {retrieved_text[:200]}..."
-
-    item_report["passed"] = True
-    return item_report
-
-
 def evaluate_ambiguous_case(case: Dict[str, Any], graph: Any) -> Dict[str, Any]:
     question = case["question"]
     case_id = case["id"]
@@ -475,17 +395,12 @@ def run_full_uat():
         cid = case["id"]
         cat = case["category"]
         q = case["question"]
-        ctype = case.get("type", "sql")
-
-        print(f"\n[{idx:02d}/50] [{cat.upper()}] ID: {cid}")
+        print(f"\n[{idx:02d}/{len(cases)}] [{cat.upper()}] ID: {cid}")
         print(f"  Question : \"{q}\"")
 
         t0 = time.time()
         try:
-            if ctype == "rag":
-                rep = evaluate_rag_uat_case(case)
-            else:
-                rep = evaluate_sql_uat_case(case, graph, schema)
+            rep = evaluate_sql_uat_case(case, graph, schema)
         except Exception as exc:
             rep = {
                 "id": cid,
@@ -500,8 +415,6 @@ def run_full_uat():
                 "result_correctness": False,
                 "expected_concept": case.get("expected_sql_concepts", []),
                 "actual_concept": [],
-                "rag_topic": None,
-                "retrieved_rag_context": None,
                 "final_response": "",
                 "passed": False,
                 "failure_category": "Other",

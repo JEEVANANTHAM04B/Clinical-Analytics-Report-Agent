@@ -33,7 +33,6 @@ class ClinicalAnalyticsState(TypedDict, total=False):
     # Deterministic evidence for insight generation
     insight_evidence: dict[str, Any]
 
-    rag_context: str
     insight: str
     insight_retry_count: int
 
@@ -47,3 +46,18 @@ class ClinicalAnalyticsState(TypedDict, total=False):
     exception_type: str
     resume_from: str
     regenerate_sql: bool
+    eda_findings: dict[str, Any]
+    chart_validation: dict[str, Any]
+    stage_status: dict[str, Any]
+    stage_history: list[dict[str, Any]]
+    validation_attempts: list[dict[str, Any]]
+    retry_counts: dict[str, int]
+    entry_stage: str
+    analysis_id: str
+    cancelled: bool
+    data_signature: dict[str, Any]
+    state_version: int
+    result_retry_count: int
+    validation_feedback: str
+    cache_status: str
+    quality_approved: bool

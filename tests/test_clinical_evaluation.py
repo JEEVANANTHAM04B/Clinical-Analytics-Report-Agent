@@ -5,16 +5,15 @@ Comprehensive regression test suite verifying the Clinical Trial / CDISC Evaluat
 and Golden Benchmark system.
 
 Validates:
-1. Golden benchmark file integrity (40 cases covering all 8 clinical domains).
-2. Category distribution (enrollment, demographics, safety, lab, vitals, efficacy, disposition, RAG).
+1. Golden benchmark file integrity (25 cases covering 7 clinical domains).
+2. Category distribution (enrollment, demographics, safety, lab, vitals, efficacy, disposition).
 3. Verified MySQL ground-truth values (10,000 subjects, 2,518 SAEs, 2,126 responders, 0 dropouts).
 4. CDISC SQL test cases (21 cases, 100% validation pass rate).
 5. CDISC SQL plan test cases (15 cases, 100% plan validation pass rate).
 6. CDISC SQL execution test cases (10 queries successfully executed against MySQL).
 7. CDISC dataset coverage (SDTM dm, ae, ex, lb, vs, study, sites + ADaM adsl, adae, adlb, advs, adresp).
-8. RAG concept definitions and terminology coverage.
-9. Full legacy EHR benchmark preservation in evals/datasets/legacy/ (10 benchmark files).
-10. Benchmark evaluation runner integrity (evals/run_clinical_benchmark.py).
+8. Full legacy EHR benchmark preservation in evals/datasets/legacy/ (9 benchmark files).
+9. Benchmark evaluation runner integrity (evals/run_clinical_benchmark.py).
 """
 
 import os
@@ -37,10 +36,10 @@ LEGACY_DIR = Path("evals/datasets/legacy")
 
 
 def test_golden_benchmark_file_exists_and_structure():
-    """Verify that the master clinical benchmark dataset exists and contains 40 valid cases."""
+    """Verify that the master clinical benchmark dataset exists and contains 25 valid cases."""
     assert BENCHMARK_PATH.exists(), f"Benchmark file missing at {BENCHMARK_PATH}"
     cases = load_golden_benchmark()
-    assert len(cases) == 40, f"Expected exactly 40 golden cases, found {len(cases)}"
+    assert len(cases) == 25, f"Expected exactly 25 golden cases, found {len(cases)}"
 
     for case in cases:
         assert "id" in case, f"Case missing 'id': {case}"
@@ -51,7 +50,7 @@ def test_golden_benchmark_file_exists_and_structure():
 
 
 def test_golden_benchmark_categories_distribution():
-    """Verify that all 8 mandatory clinical domains are represented in the benchmark."""
+    """Verify that all 7 analytical clinical domains are represented in the benchmark."""
     cases = load_golden_benchmark()
     categories = {}
     for c in cases:
@@ -66,7 +65,6 @@ def test_golden_benchmark_categories_distribution():
         "vital_signs": 3,
         "efficacy": 4,
         "disposition": 3,
-        "RAG": 15,
     }
 
     for cat, expected_count in expected_categories.items():
@@ -156,7 +154,7 @@ def test_cdisc_sql_execution_test_cases_suite():
 
 
 def test_legacy_ehr_datasets_preservation():
-    """Verify that all 10 legacy EHR benchmark datasets are archived and intact for backward compatibility."""
+    """Verify that all 9 remaining legacy EHR benchmark datasets are archived and intact."""
     assert LEGACY_DIR.exists()
     expected_legacy_files = [
         "analysis_plan_test_cases.json",
@@ -165,7 +163,6 @@ def test_legacy_ehr_datasets_preservation():
         "insight_deepeval_test_cases.json",
         "insight_test_cases.json",
         "plan_regeneration_test_cases.json",
-        "rag_test_cases.json",
         "sql_execution_test_cases.json",
         "sql_plan_test_cases.json",
         "sql_test_cases.json",
@@ -189,17 +186,6 @@ def test_clinical_datasets_coverage():
 
     assert sdtm_expected.issubset(all_datasets), f"Missing SDTM datasets: {sdtm_expected - all_datasets}"
     assert adam_expected.issubset(all_datasets), f"Missing ADaM datasets: {adam_expected - all_datasets}"
-
-
-def test_clinical_rag_expected_concepts():
-    """Verify that all 15 RAG golden cases define CDISC standard concepts and terminology."""
-    cases = [c for c in load_golden_benchmark() if c.get("category") == "RAG"]
-    assert len(cases) == 15
-
-    for case in cases:
-        assert case.get("expected_rag_topic") is not None
-        has_concepts = len(case.get("expected_rag_concepts", [])) > 0 or len(case.get("expected_terminology", [])) > 0
-        assert has_concepts, f"RAG case {case['id']} missing expected concepts or terminology"
 
 
 # =============================================================================

@@ -35,14 +35,14 @@ export const FollowUpSection: React.FC<FollowUpSectionProps> = ({
     <div className="bg-white border border-gray-200/90 rounded-xl p-4 shadow-sm space-y-3">
       {/* Header matching Screenshot 1 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2 text-purple-700">
+        <div className="flex items-center space-x-2 text-[#4F46E5]">
           <Bookmark className="w-4 h-4" />
           <h3 className="text-xs font-bold text-gray-900 leading-tight">
             Follow-Up Analysis & Next Queries
           </h3>
         </div>
 
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100">
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-[#4F46E5] bg-[#EEF2FF] border border-[#C7D2FE]">
           Interactive AI
         </span>
       </div>

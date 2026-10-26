@@ -8,6 +8,7 @@ import {
   APPROVED_CLINICAL_TABLES,
   LEGACY_EHR_TABLES,
   filterApprovedClinicalTables,
+  getAvailableClinicalTableNames,
 } from '../components/SidebarTableSelector';
 import ClinicalMetricsRow from '../components/Clinical/ClinicalMetricsRow';
 import { ClinicalTable } from '../types/analytics';
@@ -28,7 +29,19 @@ const MOCK_CLINICAL_TABLES: ClinicalTable[] = [
   { name: 'adresp', display_name: 'Response Analysis', row_count: 10000, columns: [] },
 ];
 
+const expandTables = () => fireEvent.click(screen.getByRole('button', { name: 'Expand dataset tables' }));
+
 describe('Dataset Tables Selection & Single Source of Truth', () => {
+  it('starts collapsed while keeping all available approved tables selectable', () => {
+    render(<SidebarTableSelector availableTables={MOCK_CLINICAL_TABLES} selectedTables={MOCK_CLINICAL_TABLES.map((table) => table.name)} onApplySelection={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Expand dataset tables' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByTestId('selected-count-badge').textContent).toBe('13 selected');
+    expect(screen.queryByTestId('checkbox-dm')).toBeNull();
+    expandTables();
+    expect(screen.getAllByRole('checkbox').filter((checkbox) => (checkbox as HTMLInputElement).checked)).toHaveLength(13);
+    expect(getAvailableClinicalTableNames(MOCK_CLINICAL_TABLES)).toHaveLength(13);
+  });
+
   it('1. Selecting 1 table updates checkbox and selected count badge', () => {
     const handleApply = vi.fn();
     render(
@@ -38,6 +51,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
     expect(badge.textContent).toBe('0 selected');
@@ -67,6 +81,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
 
@@ -92,6 +107,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
     const selectAllBtn = screen.getByTestId('select-all-btn');
@@ -115,6 +131,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
     expect(badge.textContent).toBe('3 selected');
@@ -130,7 +147,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
     expect(checkedBoxes.length).toBe(0);
   });
 
-  it('5. Apply Selection sends exactly the selected clinical tables', () => {
+  it('5. Start Analysis sends exactly the selected clinical tables', () => {
     const handleApply = vi.fn();
     render(
       <SidebarTableSelector
@@ -139,6 +156,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     // Select 3 tables
     fireEvent.click(screen.getByTestId('checkbox-study'));
@@ -152,6 +170,23 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
     expect(handleApply).toHaveBeenCalledWith(['study', 'sites', 'dm']);
   });
 
+  it('excludes a deselected table from the Start Analysis selection', () => {
+    const handleApply = vi.fn();
+    const allTables = MOCK_CLINICAL_TABLES.map((table) => table.name);
+    render(
+      <SidebarTableSelector
+        availableTables={MOCK_CLINICAL_TABLES}
+        selectedTables={allTables}
+        onApplySelection={handleApply}
+      />
+    );
+    expandTables();
+    fireEvent.click(screen.getByTestId('checkbox-ae'));
+    fireEvent.click(screen.getByTestId('apply-selection-btn'));
+
+    expect(handleApply).toHaveBeenCalledWith(allTables.filter((table) => table !== 'ae'));
+  });
+
   it('6. Selected count always strictly equals visibly checked checkboxes', () => {
     const handleApply = vi.fn();
     render(
@@ -161,6 +196,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
 
@@ -214,6 +250,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
     };
 
     render(<TestSynchronizedDashboard />);
+    expandTables();
 
     // 1. Initial 3 tables
     const badge = screen.getByTestId('selected-count-badge');
@@ -231,7 +268,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
 
     expect(badge.textContent).toBe('8 selected');
 
-    // Click Apply Selection
+    // Click Start Analysis
     fireEvent.click(screen.getByTestId('apply-selection-btn'));
 
     // Tables Data section refreshes and displays exactly those 8 tables!
@@ -251,6 +288,7 @@ describe('Dataset Tables Selection & Single Source of Truth', () => {
         onApplySelection={handleApply}
       />
     );
+    expandTables();
 
     const badge = screen.getByTestId('selected-count-badge');
     // Legacy EHR tables must be completely excluded!

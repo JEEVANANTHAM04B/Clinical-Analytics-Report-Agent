@@ -16,7 +16,7 @@ def test_e2e_subject_distribution_workflow(pipeline_metric, sql_safety_metric):
     E2E Test: Subject distribution across treatment arms.
     Pipeline: validate_table_selection -> load_schema -> analyze_question ->
               human_approval -> generate_sql -> validate_sql -> execute_sql ->
-              validate_results -> retrieve_rag -> generate_insight -> validate_insight -> generate_chart
+              validate_results -> generate_insight -> validate_insight -> generate_chart
     """
     question = "How many subjects are assigned to each treatment arm?"
     selected = ["adsl", "dm"]

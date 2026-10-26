@@ -10,10 +10,21 @@ from app.ai.insight_regenerator import regenerate_insight
 from app.analytics.sql_generator import generate_sql
 from app.analytics.sql_validator import validate_sql
 from app.analytics.query_executor import execute_query
-from app.analytics.result_validator import validate_results
+from app.analytics.result_validator import validate_results, result_contract
+from app.analytics.cache import ResultCache
+
+_result_cache = ResultCache()
+
+def _cache_context(state):
+    signature = state.get("data_signature", {})
+    return {"dataset_versions": signature.get("versions", {}),
+        "schema": signature.get("schema", {}), "question": state.get("user_question"),
+        "plan": state.get("analysis_plan"), "sql": state.get("sql_query"),
+        "tables": sorted(state.get("selected_tables", [])), "configuration": "result-quality-v1"}
+
+from app.workflow.reliability import failure, retry_limit, transient
 from app.analytics.insight_evidence import build_insight_evidence
 from app.database.schema_service import get_database_schema
-from app.rag.insight_context import get_insight_context
 from app.workflow.state import ClinicalAnalyticsState
 
 from app.visualization.chart_generator import (
@@ -139,6 +150,18 @@ def validate_table_selection_node(state: ClinicalAnalyticsState):
     question = state.get("user_question", "")
     selected_tables = state.get("selected_tables", [])
     current_plan = state.get("analysis_plan")
+
+    # API plan creation may omit table selection because the plan itself
+    # determines the minimum datasets. Explicit selections and execution
+    # requests still go through the same strict selection boundary.
+    if (
+        "selected_tables" not in state
+        and state.get("approval_source", "api") == "api"
+        and state.get("approval_status") in {"pending", "rejected"}
+    ):
+        clinical_plan = build_clinical_question_plan(question)
+        if clinical_plan.is_supported:
+            selected_tables = clinical_plan.datasets
 
     validation = check_table_selection(
         question=question,
@@ -551,10 +574,15 @@ def analyze_question(state: ClinicalAnalyticsState):
     # If an analysis plan is already provided (e.g. approving a plan or rejecting to regenerate),
     # preserve it rather than overwriting it with an uncorrected initial plan!
     if existing_plan and approval_status in ("approved", "rejected"):
+        cplan_sync = state.get("clinical_question_plan")
+        if not cplan_sync and question:
+            q_plan = build_clinical_question_plan(question)
+            if q_plan and q_plan.is_supported:
+                cplan_sync = asdict(q_plan)
         return {
             "analysis_plan": existing_plan,
             "current_plan": existing_plan,
-            "clinical_question_plan": state.get("clinical_question_plan", {}),
+            "clinical_question_plan": cplan_sync or {},
             "human_feedback": state.get("human_feedback", ""),
             "feedback_history": state.get("feedback_history", []),
             "plan_version": state.get("plan_version", 1),
@@ -564,6 +592,26 @@ def analyze_question(state: ClinicalAnalyticsState):
     is_clinical = _is_clinical_context(database_schema)
     clinical_plan = build_clinical_question_plan(question)
     plan_dict = asdict(clinical_plan) if (clinical_plan and clinical_plan.is_supported) else {}
+
+    if is_clinical and clinical_plan.is_supported and clinical_plan.metric == "age_distribution_and_mean":
+        # This multi-measure question needs explicit age bands and a mean per arm.
+        # A deterministic plan keeps the preview aligned with the safe SQL mapping.
+        plan = format_clinical_analysis_plan(clinical_plan)
+        record_audit_event(
+            action="ANALYSIS_PLAN_GENERATED",
+            details=f"Generated age-distribution analysis plan (v{state.get('plan_version', 1)}) for query: '{question[:60]}...'",
+            user_agent="AI Planner (Deterministic)",
+            entity_type="PLAN",
+            entity_name=f"plan_v{state.get('plan_version', 1)}",
+        )
+        return {
+            "analysis_plan": plan,
+            "clinical_question_plan": plan_dict,
+            "human_feedback": state.get("human_feedback", ""),
+            "feedback_history": state.get("feedback_history", []),
+            "plan_version": state.get("plan_version", 1),
+            "error": "",
+        }
 
     if is_clinical:
         schema_context = clinical_registry.build_schema_context_for_prompt()
@@ -1694,18 +1742,19 @@ def _resolve_authorized_clinical_schema(state: ClinicalAnalyticsState) -> Dict[s
 
     required_datasets: List[str] = []
 
-    # 1. Datasets from clinical_question_plan
-    cplan_state = state.get("clinical_question_plan")
-    if isinstance(cplan_state, dict):
-        required_datasets.extend(cplan_state.get("datasets", []))
-    elif hasattr(cplan_state, "datasets"):
-        required_datasets.extend(getattr(cplan_state, "datasets", []))
-
-    # 2. Datasets from analysis_plan
+    # 1. Datasets from approved analysis_plan (the authoritative specification)
     plan_text = state.get("analysis_plan", "")
     if plan_text:
         from app.analytics.sql_validator import _extract_plan_datasets
         required_datasets.extend(_extract_plan_datasets(plan_text))
+
+    # 2. Datasets from clinical_question_plan if not provided by plan
+    if not required_datasets:
+        cplan_state = state.get("clinical_question_plan")
+        if isinstance(cplan_state, dict):
+            required_datasets.extend(cplan_state.get("datasets", []))
+        elif hasattr(cplan_state, "datasets"):
+            required_datasets.extend(getattr(cplan_state, "datasets", []))
 
     # 3. Fallback to question planner if not yet extracted
     if not required_datasets and state.get("user_question"):
@@ -1783,8 +1832,6 @@ def generate_sql_node(state: ClinicalAnalyticsState):
 
     # If SQL query already exists (e.g. during query execution retry) and regenerate_sql is not requested, preserve it!
     if state.get("sql_query") and not state.get("regenerate_sql"):
-        print("\nPreserving existing SQL query for execution retry:")
-        print(state["sql_query"])
         return {
             "sql_query": state["sql_query"],
             "database_schema": authorized_schema,
@@ -1795,6 +1842,7 @@ def generate_sql_node(state: ClinicalAnalyticsState):
             user_question=state["user_question"],
             analysis_plan=state["analysis_plan"],
             database_schema=authorized_schema,
+            **({"validation_feedback": state["validation_feedback"]} if state.get("validation_feedback") else {}),
         )
         record_audit_event(
             action="SQL_GENERATED",
@@ -1868,6 +1916,7 @@ def validate_sql_node(state: ClinicalAnalyticsState):
             entity_name="sql_query",
         )
         return {
+            "validation_feedback": f"SQL validation failed: {message}",
             "error": f"SQL validation failed: {message}",
             "failed_node": "validate_sql",
             "exception_type": "SQLValidationError",
@@ -1906,6 +1955,15 @@ def execute_sql_node(state: ClinicalAnalyticsState):
                 "exception_type": "UnauthorizedTableAccessError",
             }
 
+    context = _cache_context(state)
+    cached, cache_status = _result_cache.get(context)
+    record_audit_event(action="CACHE_LOOKUP", details=cache_status, status="INFO")
+    if cached is not None:
+        check = validate_results(cached.get("rows"), result_contract(state["sql_query"]))
+        if check["valid"]:
+            return {"query_result": check["rows"], "cache_status": "hit", "error": ""}
+        _result_cache.invalidate(context)
+
     try:
         results = execute_query(
             state["sql_query"]
@@ -1921,36 +1979,13 @@ def execute_sql_node(state: ClinicalAnalyticsState):
 
         return {
             "query_result": results,
+            "cache_status": cache_status,
             "error": "",
         }
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
-        error_msg = str(exc)
-        exc_type = type(exc).__name__
-        print("\n" + "=" * 70)
-        print("QUERY EXECUTION ERROR DIAGNOSTICS")
-        print("=" * 70)
-        print(f"Failed Node: execute_sql")
-        print(f"Exception Type: {exc_type}")
-        print(f"Database Error: {error_msg}")
-        print(f"SQL Query:\n{state.get('sql_query')}")
-        print("=" * 70 + "\n")
-
-        record_audit_event(
-            action="SQL_EXECUTED",
-            details=f"SQL query execution failed: {error_msg[:120]}",
-            user_agent="Query Executor",
-            status="FAILED",
-            entity_type="QUERY",
-            entity_name="sql_query",
-        )
-
-        return {
-            "error": f"Query execution failed: {error_msg}",
-            "failed_node": "execute_sql",
-            "exception_type": exc_type,
-        }
+        # Let the common wrapper classify database error codes without publishing
+        # SQL, credentials or clinical values in logs or API notifications.
+        raise exc
 
 
 # ============================================================
@@ -1962,87 +1997,43 @@ def validate_results_node(state: ClinicalAnalyticsState):
     if state.get("error"):
         return {}
 
-    validation = validate_results(
-        state.get("query_result", [])
-    )
-
+    contract = result_contract(state.get("sql_query", "")) if state.get("sql_query") else {}
+    validation = validate_results(state.get("query_result", []), contract)
+    attempts = [*state.get("validation_attempts", []), {"attempt": len(state.get("validation_attempts", [])) + 1,
+        "valid": validation["valid"], "code": validation["code"], "correction": "Lossless transport normalization only"}]
+    record_audit_event(action="RESULT_VALIDATED", details=validation["code"],
+        status="SUCCESS" if validation["valid"] else "FAILED", entity_type="RESULTS")
     if not validation["valid"]:
-        record_audit_event(
-            action="RESULT_VALIDATED",
-            details=f"Result validation failed: {validation.get('message', '')[:120]}",
-            user_agent="Result Validator",
-            status="FAILED",
-            entity_type="RESULTS",
-            entity_name="query_results",
-        )
-        return {
-            "result_validation": validation,
-            "error": validation["message"],
-        }
+        return {"result_validation": validation, "validation_attempts": attempts,
+                "error": validation["message"], "failed_node": "validate_results", "exception_type": "ResultValidationError"}
+    evidence = build_insight_evidence(validation["rows"])
+    if state.get("sql_query"):
+        evidence["sql_query"] = state["sql_query"]
+    return {"result_validation": validation, "query_result": validation["rows"], "validation_attempts": attempts,
+            "insight_evidence": evidence, "eda_findings": {}, "error": "",
+            "cache_status": _cache_result(state, validation["rows"])}
 
-    validated_rows = validation.get("rows", [])
 
-    insight_evidence = build_insight_evidence(
-        validated_rows
-    )
+def _cache_result(state, rows):
+    if state.get("cache_status") == "hit":
+        return "hit"
+    status = _result_cache.put(_cache_context(state), {"rows": rows})
+    record_audit_event(action="CACHE_POPULATION", details=status, status="INFO")
+    return status
 
-    record_audit_event(
-        action="RESULT_VALIDATED",
-        details=f"Verified {len(validated_rows)} rows against data quality and clinical consistency checks",
-        user_agent="Result Validator",
-        status="SUCCESS",
-        entity_type="RESULTS",
-        entity_name="query_results",
-    )
 
-    print("\n" + "=" * 70)
-    print("DETERMINISTIC INSIGHT EVIDENCE")
-    print("=" * 70)
-    print(insight_evidence)
-
-    return {
-        "result_validation": validation,
-        "insight_evidence": insight_evidence,
-        "error": "",
-    }
+def correct_results_node(state):
+    # Only regenerate a query with a structural output mismatch. Never rewrite rows,
+    # change clinical assumptions, or try to cure source-integrity failures.
+    return {"sql_query": None, "query_result": [], "result_validation": {}, "insight_evidence": {},
+        "eda_findings": {}, "insight": "", "chart_spec": None, "chart_validation": {}, "cache_status": "miss", "error": "",
+        "failed_node": None, "regenerate_sql": True,
+        "result_retry_count": state.get("result_retry_count", 0)+1,
+        "validation_feedback": "The output columns did not match the SELECT projection. Use explicit unique aliases and retain the approved objective."}
 
 
 # ============================================================
-# 11. RETRIEVE RAG CONTEXT
-# ============================================================
-
-def retrieve_rag_node(state: ClinicalAnalyticsState):
-
-    if state.get("error"):
-        return {}
-
-    try:
-        context = get_insight_context(
-            user_question=state["user_question"],
-            analysis_plan=state.get("analysis_plan"),
-            clinical_plan=state.get("clinical_question_plan"),
-            k=2,
-        )
-        record_audit_event(
-            action="RAG_RETRIEVAL",
-            details=f"Retrieved clinical domain context ({len(context)} chars) from knowledge base",
-            user_agent="RAG Agent",
-            status="SUCCESS",
-            entity_type="RAG",
-            entity_name="clinical_knowledge",
-        )
-
-    except Exception as e:
-        print(f"RAG context retrieval note: {e}")
-        context = ""
-
-    return {
-        "rag_context": context
-    }
-
-
-# ============================================================
-# 12. GENERATE INSIGHT
+# 11. GENERATE INSIGHT
 # ============================================================
 
 def generate_insight_node(state: ClinicalAnalyticsState):
@@ -2050,10 +2041,12 @@ def generate_insight_node(state: ClinicalAnalyticsState):
     if state.get("error"):
         return {}
 
+    if not state.get("result_validation", {}).get("valid"):
+        raise ValueError("Validated results are required")
+
     insight = generate_insight(
         user_question=state["user_question"],
         query_results=state["query_result"],
-        rag_context=state["rag_context"],
         insight_evidence=state.get(
             "insight_evidence",
             {},
@@ -2105,26 +2098,35 @@ def validate_insight_node(state: ClinicalAnalyticsState):
             0,
         )
 
+        validation_feedback = validation["message"]
+
         if retry_count >= 2:
             return {
+                "insight_validation": validation,
+                "validation_feedback": validation_feedback,
                 "error": (
                     "Insight validation failed after "
-                    "maximum regeneration attempts."
+                    "maximum regeneration attempts: "
+                    f"{validation_feedback}"
                 ),
                 "failed_node": "validate_insight",
                 "exception_type": "InsightValidationError",
             }
 
         return {
+            "insight_validation": validation,
+            "validation_feedback": validation_feedback,
             "error": (
                 "Insight validation failed: "
-                f"{validation['message']}"
+                f"{validation_feedback}"
             ),
             "failed_node": "validate_insight",
             "exception_type": "InsightValidationError",
         }
 
     return {
+        "insight_validation": validation,
+        "validation_feedback": "",
         "error": "",
         "failed_node": None,
         "exception_type": None,
@@ -2153,19 +2155,16 @@ def regenerate_insight_node(state: ClinicalAnalyticsState):
             )
         }
 
-    validation_message = state.get(
-        "error",
-        "Insight validation failed."
+    validation_message = (
+        state.get("validation_feedback")
+        or state.get("insight_validation", {}).get("message")
+        or state.get("error", "Insight validation failed.")
     )
 
     try:
         corrected_insight = regenerate_insight(
             user_question=state["user_question"],
             query_results=state["query_result"],
-            rag_context=state.get(
-                "rag_context",
-                "",
-            ),
             validation_message=validation_message,
             insight_evidence=state.get(
                 "insight_evidence",
@@ -2180,10 +2179,6 @@ def regenerate_insight_node(state: ClinicalAnalyticsState):
         corrected_insight = generate_insight(
             user_question=state["user_question"],
             query_results=state["query_result"],
-            rag_context=state.get(
-                "rag_context",
-                "",
-            ),
             insight_evidence=state.get(
                 "insight_evidence",
                 {},
@@ -2221,8 +2216,12 @@ def execute_sql_router(state: ClinicalAnalyticsState):
 
 def validate_results_router(state: ClinicalAnalyticsState):
     if state.get("error"):
+        if state.get("result_validation", {}).get("code") == "RESULT_SCHEMA" and state.get("result_retry_count", 0) < retry_limit("RESULT_MAX_RETRIES"):
+            return "correct_results"
         return END
-    return "retrieve_rag"
+    if not state.get("result_validation", {}).get("valid"):
+        return END
+    return "generate_insight"
 
 
 def insight_validation_router(state: ClinicalAnalyticsState):
@@ -2270,71 +2269,22 @@ def generate_chart_node(state: ClinicalAnalyticsState):
         []
     )
 
-    # Fallback to query_result if result_validation rows is empty
-    if not validated_rows:
-        validated_rows = state.get("query_result", [])
-
-    if not validated_rows:
-        return {
-            "chart_spec": None,
-            "visualization_error": "No verified result rows available for chart generation",
-            "error": "",
-        }
-
-    try:
-        clinical_plan = state.get("clinical_question_plan") or {}
-        chart_spec = create_chart_spec(
-            results=validated_rows,
-            target_metric=clinical_plan.get("metric"),
-            question=state.get("user_question"),
-        )
-        record_audit_event(
-            action="CHART_GENERATED",
-            details=f"Constructed visualization spec ({chart_spec.get('chart_type', 'bar')} chart) from validated query data",
-            user_agent="Visualization Engine",
-            status="SUCCESS",
-            entity_type="CHART",
-            entity_name=chart_spec.get('chart_type', 'bar'),
-        )
-        return {
-            "chart_spec": chart_spec,
-            "error": "",
-        }
-    except Exception as exc:
-        print(f"Chart spec generation fallback triggered: {exc}")
-        first_row = validated_rows[0]
-        cols = list(first_row.keys())
-        x_col = cols[0] if cols else "category"
-        other_cols = [c for c in cols if c != x_col]
-        # Prefer rate/pct or analytical metric over denominator
-        rate_cols = [c for c in other_cols if any(k in c.lower() for k in ["rate", "pct"])]
-        y_col = rate_cols[0] if rate_cols else (other_cols[0] if other_cols else x_col)
-        fallback_spec = {
-            "chart_type": "bar",
-            "title": f"{y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}",
-            "x_column": x_col,
-            "y_column": y_col,
-        }
-        record_audit_event(
-            action="CHART_GENERATED",
-            details=f"Constructed fallback visualization spec ({fallback_spec.get('chart_type', 'bar')} chart)",
-            user_agent="Visualization Engine",
-            status="SUCCESS",
-            entity_type="CHART",
-            entity_name="fallback_chart",
-        )
-        return {
-            "chart_spec": fallback_spec,
-            "visualization_error": f"Generated fallback chart spec: {exc}",
-            "error": "",
-        }
+    if not result_validation.get("valid") or not validated_rows:
+        raise ValueError("No verified result rows available for chart generation")
+    from app.visualization.validation import validate_chart
+    clinical_plan = state.get("clinical_question_plan") or {}
+    chart_spec = create_chart_spec(results=validated_rows, target_metric=clinical_plan.get("metric"), question=state.get("user_question"))
+    validate_chart(chart_spec, validated_rows)
+    return {"chart_spec": chart_spec, "chart_validation": {"valid": True}, "error": ""}
 
 
 # ============================================================
 # 17. BUILD LANGGRAPH
 # ============================================================
 
-def build_graph():
+def build_graph(on_stage=None):
+
+    from app.workflow.runtime import stage_wrapper
 
     workflow = StateGraph(
         ClinicalAnalyticsState
@@ -2344,98 +2294,54 @@ def build_graph():
     # NODES
     # --------------------------------------------------------
 
-    workflow.add_node(
-        "validate_table_selection",
-        validate_table_selection_node
-    )
+    workflow.add_node("validate_table_selection", stage_wrapper("validate_table_selection", validate_table_selection_node, on_stage))
 
-    workflow.add_node(
-        "load_schema",
-        load_schema
-    )
+    workflow.add_node("load_schema", stage_wrapper("load_schema", load_schema, on_stage))
 
-    workflow.add_node(
-        "analyze_question",
-        analyze_question
-    )
+    workflow.add_node("analyze_question", stage_wrapper("analyze_question", analyze_question, on_stage))
 
-    workflow.add_node(
-        "human_approval",
-        human_approval_node
-    )
+    workflow.add_node("human_approval", stage_wrapper("human_approval", human_approval_node, on_stage))
 
-    workflow.add_node(
-        "regenerate_analysis_plan",
-        regenerate_analysis_plan
-    )
+    workflow.add_node("regenerate_analysis_plan", stage_wrapper("regenerate_analysis_plan", regenerate_analysis_plan, on_stage))
 
-    workflow.add_node(
-        "generate_sql",
-        generate_sql_node
-    )
+    workflow.add_node("generate_sql", stage_wrapper("generate_sql", generate_sql_node, on_stage))
 
-    workflow.add_node(
-        "validate_sql",
-        validate_sql_node
-    )
+    workflow.add_node("validate_sql", stage_wrapper("validate_sql", validate_sql_node, on_stage))
 
-    workflow.add_node(
-        "execute_sql",
-        execute_sql_node
-    )
+    workflow.add_node("execute_sql", stage_wrapper("execute_sql", execute_sql_node, on_stage))
 
-    workflow.add_node(
-        "validate_results",
-        validate_results_node
-    )
+    workflow.add_node("validate_results", stage_wrapper("validate_results", validate_results_node, on_stage))
 
-    workflow.add_node(
-        "retrieve_rag",
-        retrieve_rag_node
-    )
+    workflow.add_node("generate_insight", stage_wrapper("generate_insight", generate_insight_node, on_stage))
 
-    workflow.add_node(
-        "generate_insight",
-        generate_insight_node
-    )
+    workflow.add_node("validate_insight", stage_wrapper("validate_insight", validate_insight_node, on_stage))
 
-    workflow.add_node(
-        "validate_insight",
-        validate_insight_node
-    )
+    workflow.add_node("regenerate_insight", stage_wrapper("regenerate_insight", regenerate_insight_node, on_stage))
 
-    workflow.add_node(
-        "regenerate_insight",
-        regenerate_insight_node
-    )
+    workflow.add_node("generate_chart", stage_wrapper("generate_chart", generate_chart_node, on_stage))
 
-    workflow.add_node(
-        "generate_chart",
-        generate_chart_node
-    )
+    workflow.add_node("correct_results", stage_wrapper("correct_results", correct_results_node, on_stage))
+    workflow.add_edge("correct_results", "generate_sql")
+    workflow.add_node("preflight_table_selection", stage_wrapper("preflight_table_selection", validate_table_selection_node, on_stage))
 
     # --------------------------------------------------------
     # START & QUESTION ANALYSIS
     # --------------------------------------------------------
 
-    workflow.add_edge(
+    workflow.add_conditional_edges(
         START,
-        "load_schema"
+        lambda s: s.get("entry_stage", "preflight_table_selection")
     )
 
-    workflow.add_edge(
-        "load_schema",
-        "analyze_question"
-    )
+    workflow.add_conditional_edges("preflight_table_selection", lambda s: END if s.get("error") else "load_schema")
+
+    workflow.add_conditional_edges("load_schema", lambda s: END if s.get("error") else "analyze_question")
 
     # --------------------------------------------------------
     # HUMAN REVIEW
     # --------------------------------------------------------
 
-    workflow.add_edge(
-        "analyze_question",
-        "human_approval"
-    )
+    workflow.add_conditional_edges("analyze_question", lambda s: END if s.get("error") else "human_approval")
 
     # --------------------------------------------------------
     # HUMAN APPROVAL ROUTING
@@ -2508,32 +2414,21 @@ def build_graph():
         },
     )
 
-    # --------------------------------------------------------
-    # RAG
-    # --------------------------------------------------------
-
     workflow.add_conditional_edges(
         "validate_results",
         validate_results_router,
         {
-            "retrieve_rag": "retrieve_rag",
+            "generate_insight": "generate_insight",
+            "correct_results": "correct_results",
             END: END,
         },
-    )
-
-    workflow.add_edge(
-        "retrieve_rag",
-        "generate_insight"
     )
 
     # --------------------------------------------------------
     # INSIGHT VALIDATION & VISUALIZATION
     # --------------------------------------------------------
 
-    workflow.add_edge(
-        "generate_insight",
-        "validate_insight"
-    )
+    workflow.add_conditional_edges("generate_insight", lambda s: END if s.get("error") else "validate_insight")
 
     workflow.add_conditional_edges(
         "validate_insight",

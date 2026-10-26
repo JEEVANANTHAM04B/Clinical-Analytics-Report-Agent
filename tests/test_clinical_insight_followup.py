@@ -35,7 +35,7 @@ from app.analytics.followup_service import (
     _answer_deterministically,
     _extract_metric_key_and_label,
 )
-from app.schemas.analytics import FollowUpRequest
+from app.schemas.analytics import ConversationTurn, FollowUpRequest
 
 
 # =============================================================================
@@ -230,10 +230,6 @@ def test_followup_highest_treatment_arm():
     answer = _answer_deterministically(
         question="Which arm had the highest rate?",
         results=results,
-        current_question="AE rate by arm",
-        current_insight=None,
-        current_rag=None,
-        is_clinical=True,
     )
     assert answer is not None
     assert "Drug A" in answer
@@ -254,10 +250,6 @@ def test_followup_lowest_treatment_arm():
     answer = _answer_deterministically(
         question="What was the lowest adverse event rate?",
         results=results,
-        current_question="AE rate by arm",
-        current_insight=None,
-        current_rag=None,
-        is_clinical=True,
     )
     assert answer is not None
     assert "Placebo" in answer
@@ -274,10 +266,6 @@ def test_followup_threshold_check():
     answer = _answer_deterministically(
         question="Which treatment arms have an adverse event rate above 30%?",
         results=results,
-        current_question="AE rate by arm",
-        current_insight=None,
-        current_rag=None,
-        is_clinical=True,
     )
     assert answer is not None
     assert "Drug A" in answer
@@ -295,10 +283,6 @@ def test_followup_specific_entity():
     answer = _answer_deterministically(
         question="What was the rate for Drug B?",
         results=results,
-        current_question="AE rate by arm",
-        current_insight=None,
-        current_rag=None,
-        is_clinical=True,
     )
     assert answer is not None
     assert "Drug B" in answer
@@ -320,6 +304,57 @@ def test_followup_unrelated_domain_detection():
     resp = process_followup_question(req)
     assert resp.status == "new_analysis_suggested"
     assert resp.is_new_analysis is True
+
+
+def test_followup_prompt_uses_original_and_latest_results_and_conversation(monkeypatch):
+    captured_prompt = {}
+
+    def fake_generate_response(prompt):
+        captured_prompt["text"] = prompt
+        return "The subject count increased from 5 to 7."
+
+    monkeypatch.setattr("app.analytics.followup_service.generate_response", fake_generate_response)
+    request = FollowUpRequest(
+        question="How does that compare?",
+        current_question="Count subjects by treatment arm",
+        current_results=[{"treatment_arm": "Drug A", "subject_count": 7}],
+        original_results=[{"treatment_arm": "Drug A", "subject_count": 5}],
+        current_plan="Count distinct subjects grouped by assigned treatment arm.",
+        current_insight="Drug A had 5 subjects in the original analysis.",
+        conversation_history=[
+            ConversationTurn(role="user", content="Show subjects by treatment arm."),
+            ConversationTurn(role="assistant", content="Drug A had 5 subjects."),
+        ],
+        selected_tables=["adsl"],
+    )
+
+    response = process_followup_question(request)
+
+    assert response.status == "success"
+    assert response.source == "verified_results"
+    prompt = captured_prompt["text"]
+    assert "Count subjects by treatment arm" in prompt
+    assert "Count distinct subjects grouped by assigned treatment arm." in prompt
+    assert "subject_count: 5" in prompt
+    assert "subject_count: 7" in prompt
+    assert "ASSISTANT: Drug A had 5 subjects." in prompt
+
+
+def test_followup_without_verified_results_reports_insufficient_context(monkeypatch):
+    def unexpected_llm_call(_prompt):
+        pytest.fail("The follow-up model should not run without verified results.")
+
+    monkeypatch.setattr("app.analytics.followup_service.generate_response", unexpected_llm_call)
+    response = process_followup_question(
+        FollowUpRequest(
+            question="Why did the outcome change?",
+            current_question="Treatment outcomes",
+            selected_tables=["adsl"],
+        )
+    )
+
+    assert response.status == "insufficient_context"
+    assert response.verified is False
 
 
 def test_followup_lightweight_sql_total_subjects():

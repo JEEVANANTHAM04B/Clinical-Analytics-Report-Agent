@@ -10,10 +10,9 @@ Executes all test cases from tests/evaluation/datasets/clinical_eval_cases.json:
 3. Generates and validates SQL using AST-based parsing.
 4. Executes queries safely against MySQL (read-only analytical access).
 5. Validates query results and mathematical KPIs against invariants.
-6. Evaluates RAG retrieval and knowledge grounding.
-7. Evaluates AI insight generation using DeepEval metrics (Faithfulness, Relevancy) when configured.
-8. Validates visualization specifications.
-9. Produces both machine-readable JSON and human-readable Markdown reports.
+6. Evaluates AI insight generation using DeepEval metrics (Faithfulness, Relevancy) when configured.
+7. Validates visualization specifications.
+8. Produces both machine-readable JSON and human-readable Markdown reports.
 """
 
 import os
@@ -98,8 +97,6 @@ def run_evaluation_suite(run_llm_judge: bool = False):
     kpi_totals = 0
     sql_passes = 0
     sql_totals = 0
-    rag_passes = 0
-    rag_totals = 0
     viz_passes = 0
     viz_totals = 0
 
@@ -126,7 +123,6 @@ def run_evaluation_suite(run_llm_judge: bool = False):
             "query_execution_result": None,
             "expected_kpi_value": None,
             "actual_kpi_value": None,
-            "rag_evidence_evaluation": None,
             "answer_relevancy_score": None,
             "faithfulness_score": None,
             "pipeline_completeness_result": None,
@@ -213,18 +209,6 @@ def run_evaluation_suite(run_llm_judge: bool = False):
                 else:
                     kpi_passes += 1
 
-            # RAG Evaluation
-            rag_context = final_state.get("rag_context")
-            if rag_context:
-                rag_totals += 1
-                has_substance = len(rag_context.strip()) > 20 and rag_context != "No relevant reference context was found."
-                record["rag_evidence_evaluation"] = {
-                    "passed": has_substance,
-                    "length": len(rag_context),
-                }
-                if has_substance:
-                    rag_passes += 1
-
             # Visualization Correctness
             chart_spec = final_state.get("chart_spec")
             if chart_spec:
@@ -249,7 +233,7 @@ def run_evaluation_suite(run_llm_judge: bool = False):
                     llm_case = LLMTestCase(
                         input=question,
                         actual_output=insight_text,
-                        retrieval_context=[str(query_results)[:1000], str(rag_context)[:500]],
+                        retrieval_context=[str(query_results)[:1000]],
                     )
                     rel_m = AnswerRelevancyMetric(threshold=0.7, model=deepeval_judge)
                     rel_m.measure(llm_case)
@@ -294,7 +278,6 @@ def run_evaluation_suite(run_llm_judge: bool = False):
         "pass_rate_percentage": pass_rate,
         "kpi_correctness_rate": round((kpi_passes / max(kpi_totals, 1) * 100.0), 1),
         "sql_safety_pass_rate": round((sql_passes / max(sql_totals, 1) * 100.0), 1),
-        "rag_evaluation_rate": round((rag_passes / max(rag_totals, 1) * 100.0), 1),
         "visualization_correctness_rate": round((viz_passes / max(viz_totals, 1) * 100.0), 1),
         "total_duration_seconds": total_duration,
         "average_duration_seconds": round(total_duration / max(total_count, 1), 2),
@@ -335,7 +318,6 @@ def generate_markdown_report(summary: Dict[str, Any], cases: List[Dict[str, Any]
         f"| **Overall Test Cases** | {summary['total_test_cases']} | {summary['passed_tests']} | **{summary['pass_rate_percentage']}%** |",
         f"| **SQL Safety & AST Boundaries** | {summary['total_test_cases']} | {summary['passed_tests']} | {summary['sql_safety_pass_rate']}% |",
         f"| **KPI Invariants & Correctness** | {summary['total_test_cases'] - summary['blocked_tests']} | {summary['passed_tests'] - summary['blocked_tests']} | {summary['kpi_correctness_rate']}% |",
-        f"| **RAG Retrieval & Grounding** | {summary['total_test_cases'] - summary['blocked_tests']} | {summary['passed_tests'] - summary['blocked_tests']} | {summary['rag_evaluation_rate']}% |",
         f"| **Visualization Specifications** | {summary['total_test_cases'] - summary['blocked_tests']} | {summary['passed_tests'] - summary['blocked_tests']} | {summary['visualization_correctness_rate']}% |",
         f"| **Security Boundary Blocks** | {summary['blocked_tests']} | {summary['blocked_tests']} | 100.0% |",
         "\n## 2. Test Case Breakdown\n",

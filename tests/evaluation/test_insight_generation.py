@@ -25,7 +25,6 @@ def test_insight_factual_grounding_deterministic(evidence_metric):
     insight = generate_insight(
         user_question="How many subjects are assigned to each treatment arm?",
         query_results=results,
-        rag_context="Study protocol Phase III randomized controlled trial.",
         insight_evidence=evidence,
     )
 
@@ -35,7 +34,6 @@ def test_insight_factual_grounding_deterministic(evidence_metric):
         insight_text=insight,
         query_results=results,
         deterministic_evidence=evidence,
-        rag_context="Study protocol Phase III randomized controlled trial.",
     )
     assert grounding["passed"] is True, f"Insight grounding failed: {grounding['reason']}"
 
@@ -51,7 +49,6 @@ def test_insight_empty_result_handling(evidence_metric):
     insight = generate_insight(
         user_question="Find all subjects with severe toxicity at baseline.",
         query_results=results,
-        rag_context="",
         insight_evidence=evidence,
     )
 
@@ -81,12 +78,9 @@ def test_deepeval_llm_judge_metrics(request, deepeval_gemini_judge):
         {"TRT01A": "Placebo", "cnt": 4989},
     ]
     evidence = build_insight_evidence(results)
-    rag_context = "Phase III clinical trial assessing Drug X against Placebo."
-
     insight = generate_insight(
         user_question=question,
         query_results=results,
-        rag_context=rag_context,
         insight_evidence=evidence,
     )
 
@@ -95,7 +89,7 @@ def test_deepeval_llm_judge_metrics(request, deepeval_gemini_judge):
         actual_output=insight,
         retrieval_context=[
             f"Query Results: Drug X has 5011 subjects; Placebo has 4989 subjects. Total: 10000.",
-            rag_context,
+            f"Deterministic evidence: {evidence}",
         ],
     )
 

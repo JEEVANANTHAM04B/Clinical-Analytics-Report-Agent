@@ -6,12 +6,11 @@ import {
   GitFork, 
   Terminal, 
   CheckSquare, 
-  Database, 
   History, 
   ShieldCheck, 
   Cpu, 
   Settings, 
-  LogOut 
+  Stethoscope
 } from 'lucide-react';
 import { ClinicalTable } from '../../types/analytics';
 import SidebarTableSelector from '../SidebarTableSelector';
@@ -43,23 +42,14 @@ export const TechnicalSidebar: React.FC<TechnicalSidebarProps> = ({
     { id: 'pipeline', label: 'Pipeline Execution', icon: GitFork },
     { id: 'sql', label: 'SQL Explorer', icon: Terminal },
     { id: 'ast', label: 'AST Validation', icon: CheckSquare },
-    { id: 'rag', label: 'RAG / Vector Base', icon: Database },
     { id: 'queries', label: 'Query History', icon: History },
     { id: 'audit', label: 'Audit Trail', icon: ShieldCheck },
     { id: 'health', label: 'System Health', icon: Cpu },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  const backendServices = [
-    { name: 'FastAPI', status: 'OK' },
-    { name: 'MySQL Pool', status: 'OK' },
-    { name: 'LangGraph', status: 'OK' },
-    { name: 'RAG Retriever', status: 'OK' },
-    { name: 'Vector Store', status: 'OK' },
-  ];
-
   return (
-    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col justify-between select-none h-screen sticky top-0 flex-shrink-0 z-30">
+    <aside className="studio-sidebar w-56 bg-white border-r border-gray-200 flex flex-col justify-between select-none h-screen sticky top-0 flex-shrink-0 z-30">
       <div className="flex flex-col flex-1 overflow-y-auto scrollbar-thin">
         {/* Header */}
         <div className="p-2.5 border-b border-gray-100 flex items-center space-x-2 flex-shrink-0">
@@ -67,7 +57,7 @@ export const TechnicalSidebar: React.FC<TechnicalSidebarProps> = ({
             <Code2 className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-gray-900 leading-tight">AI Ops & DB</h2>
+            <h2 className="text-xs font-bold text-gray-900 leading-tight">Clinical Analytics Platform</h2>
             <span className="text-[8px] font-bold text-blue-600 tracking-wider uppercase block">TECHNICAL WORKSPACE</span>
           </div>
         </div>
@@ -81,7 +71,8 @@ export const TechnicalSidebar: React.FC<TechnicalSidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center space-x-2 px-2 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                aria-current={isActive ? 'page' : undefined}
+                className={`studio-nav-item w-full flex items-center space-x-2 px-2 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
                   isActive
                     ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -107,31 +98,14 @@ export const TechnicalSidebar: React.FC<TechnicalSidebarProps> = ({
         </div>
       </div>
 
-      {/* Backend health status + Switch role (Requested by User) */}
+      {/* Workspace switch remains available; live health is in System Health. */}
       <div className="p-2.5 border-t border-gray-100 space-y-2 flex-shrink-0 bg-white">
-        <div>
-          <span className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-            BACKEND HEALTH
-          </span>
-          <div className="space-y-0.5">
-            {backendServices.map((srv, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[10px] text-gray-600 py-0.2">
-                <span>{srv.name}</span>
-                <span className="flex items-center space-x-1 font-medium text-[9px] text-gray-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>{srv.status}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <button
           onClick={onSwitchRole}
           className="w-full flex items-center justify-center space-x-1.5 py-1 px-2 border border-gray-200/90 bg-white hover:bg-gray-50 text-[11px] font-semibold text-gray-700 rounded-md shadow-2xs transition-colors cursor-pointer"
         >
-          <LogOut className="w-3 h-3 text-gray-500" />
-          <span>Switch Role / Logout</span>
+          <Stethoscope className="w-3 h-3 text-gray-500" />
+          <span>Return to Clinical Workspace</span>
         </button>
       </div>
     </aside>

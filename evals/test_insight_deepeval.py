@@ -75,10 +75,10 @@ def load_test_cases():
         return json.load(f)
 
 
-def build_retrieval_context(query_results: list[dict], rag_context: str, evidence: dict) -> list[str]:
+def build_analysis_context(query_results: list[dict], evidence: dict) -> list[str]:
     """
     Format verified SQL results, deterministic evidence summary,
-    and reference context for DeepEval Faithfulness evaluation.
+    for DeepEval Faithfulness evaluation.
     """
     contexts = []
 
@@ -105,10 +105,6 @@ def build_retrieval_context(query_results: list[dict], rag_context: str, evidenc
             min_info = evidence["minimum"]
             ev_summary.append(f"Minimum value is {min_info.get('value')}.")
         contexts.append("Deterministic Summary: " + " ".join(ev_summary))
-
-    # 3. Clinical Reference Context
-    if rag_context:
-        contexts.append(f"Clinical Reference Context: {rag_context}")
 
     return contexts
 
@@ -149,8 +145,6 @@ def run_insight_deepeval():
         question = case["question"]
         query_results = case.get("query_results", [])
         expected_answer = case.get("expected_answer", "")
-        rag_context = case.get("rag_context", "")
-
         # Deterministic evidence calculation
         evidence = build_insight_evidence(query_results)
 
@@ -159,17 +153,16 @@ def run_insight_deepeval():
         insight = generate_insight(
             user_question=question,
             query_results=query_results,
-            rag_context=rag_context,
             insight_evidence=evidence,
         )
 
-        retrieval_context = build_retrieval_context(query_results, rag_context, evidence)
+        analysis_context = build_analysis_context(query_results, evidence)
 
         llm_test_case = LLMTestCase(
             input=question,
             actual_output=insight,
             expected_output=expected_answer,
-            retrieval_context=retrieval_context,
+            retrieval_context=analysis_context,
         )
 
         deepeval_test_cases.append(llm_test_case)
